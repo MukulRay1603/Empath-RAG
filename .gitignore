@@ -11,4 +11,3 @@ dist/
 .DS_Store
 .claude/
 claude_code_overnight_prompt.md
-requirements-lock.txt
