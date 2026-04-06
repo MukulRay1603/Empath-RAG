@@ -44,7 +44,9 @@ def load_reddit_posts(data_dir="data/raw/reddit_mental_health"):
             fpath = os.path.join(data_dir, fname)
             try:
                 df = pd.read_csv(fpath, on_bad_lines="skip")
-                if "body" in df.columns:
+                if "post" in df.columns:
+                    all_posts.extend(df["post"].dropna().tolist())
+                elif "body" in df.columns:
                     all_posts.extend(df["body"].dropna().tolist())
                 elif "selftext" in df.columns:
                     all_posts.extend(df["selftext"].dropna().tolist())
