@@ -1,0 +1,35 @@
+﻿# ── PyTorch (must install separately with CUDA index — see below) ──
+# torch==2.1.2+cu121  <- installed via separate command, NOT from this file
+
+# ── HuggingFace stack ──
+transformers==4.38.2
+peft==0.10.0
+datasets==2.18.0
+accelerate==0.27.2
+evaluate==0.4.1
+huggingface_hub>=0.20.0
+
+# ── Retrieval ──
+faiss-cpu==1.7.4
+sentence-transformers==2.5.1
+
+# ── Generator ──
+# llama-cpp-python installed separately with CUDA wheel — see below
+
+# ── Explainability ──
+captum==0.7.0
+
+# ── Evaluation ──
+ragas==0.1.21
+bert-score==0.3.13
+
+# ── Demo ──
+gradio==4.21.0
+
+# ── Data / Utilities ──
+pandas==2.2.1
+numpy==1.26.4
+tqdm==4.66.2
+kaggle==1.6.3
+scipy==1.12.0
+scikit-learn==1.4.1
