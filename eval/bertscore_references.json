@@ -1,0 +1,352 @@
+[
+  {
+    "id": "d01",
+    "emotion": "distress",
+    "prompt": "I feel completely hopeless and I don't see a point in continuing anymore.",
+    "reference": "Don't give up. Things may not be great one day but they always pick up eventually.",
+    "sim_score": 0.5786
+  },
+  {
+    "id": "d02",
+    "emotion": "distress",
+    "prompt": "I've been crying every day for the past two weeks and I don't even know why.",
+    "reference": "Oh_comma_ why are you crying? Is anything wrong in particular? Have you talked to somebody?",
+    "sim_score": 0.6949
+  },
+  {
+    "id": "d03",
+    "emotion": "distress",
+    "prompt": "I feel like a complete failure. I've let everyone down including myself.",
+    "reference": "I feel like a failure_comma_ Im suppose to be on a diet but ate too much today!",
+    "sim_score": 0.588
+  },
+  {
+    "id": "d04",
+    "emotion": "distress",
+    "prompt": "I'm so exhausted that I can't get out of bed. Everything feels impossible.",
+    "reference": "It sucks. I guess my body doesn't want me to sleep in any more.",
+    "sim_score": 0.6371
+  },
+  {
+    "id": "d05",
+    "emotion": "distress",
+    "prompt": "I feel completely alone even when I'm surrounded by people. Nobody really knows me.",
+    "reference": "I am so lonely because I am all by myself",
+    "sim_score": 0.6159
+  },
+  {
+    "id": "d06",
+    "emotion": "distress",
+    "prompt": "I've been having dark thoughts lately and I'm scared of myself.",
+    "reference": "I'm sorry for that. Have you tried going to therapy?",
+    "sim_score": 0.4776
+  },
+  {
+    "id": "d07",
+    "emotion": "distress",
+    "prompt": "I lost someone very close to me last month and I can't stop grieving.",
+    "reference": "my brother passed away 2 years ago and i'm still so heartbroken. it still hurts so much",
+    "sim_score": 0.7638
+  },
+  {
+    "id": "d08",
+    "emotion": "distress",
+    "prompt": "I feel like I'm disappearing. Like I'm fading away and no one would notice.",
+    "reference": "I felt like I had no one. The two people I loved most in life I barely saw and was disconnected from.",
+    "sim_score": 0.5567
+  },
+  {
+    "id": "d09",
+    "emotion": "distress",
+    "prompt": "Every morning I wake up and the first thought I have is dread. I'm so tired.",
+    "reference": "I keep having these really weird nightmares at night.",
+    "sim_score": 0.4728
+  },
+  {
+    "id": "d10",
+    "emotion": "distress",
+    "prompt": "I worked so hard for this degree and now I feel like it means nothing.",
+    "reference": "i was so stressed when i found out that i did not get accepted in my dream college",
+    "sim_score": 0.5753
+  },
+  {
+    "id": "a01",
+    "emotion": "anxiety",
+    "prompt": "I'm so anxious about my thesis defense next week I can't sleep at all.",
+    "reference": "I'm so nervous_comma_ have a final exam on Tuesday!",
+    "sim_score": 0.6023
+  },
+  {
+    "id": "a02",
+    "emotion": "anxiety",
+    "prompt": "I keep catastrophizing about failing my qualifying exams and it's paralyzing me.",
+    "reference": "I have tried to complete a work assigment three times now without sucuess.",
+    "sim_score": 0.5423
+  },
+  {
+    "id": "a03",
+    "emotion": "anxiety",
+    "prompt": "I feel overwhelmed by everything I need to do and I don't know where to start.",
+    "reference": "I am so nervous to start my new job tommorrow.",
+    "sim_score": 0.5815
+  },
+  {
+    "id": "a04",
+    "emotion": "anxiety",
+    "prompt": "My heart races every time I think about presenting in front of my department.",
+    "reference": "I had to give a presentation in front of my entire University class last semester. I hate presenting things.",
+    "sim_score": 0.6073
+  },
+  {
+    "id": "a05",
+    "emotion": "anxiety",
+    "prompt": "I'm terrified of making a mistake in my research and having everyone find out I'm not smart enough.",
+    "reference": "I've been studying a WHOLE lot - so I think I'll do okay_comma_ but it's still making me feel nervous.",
+    "sim_score": 0.4827
+  },
+  {
+    "id": "a06",
+    "emotion": "anxiety",
+    "prompt": "I can't concentrate on anything. My mind just races and I can't calm it down.",
+    "reference": "I've always liked the idea of meditation_comma_ but I feel like it'd be hard. My mind is always racing!",
+    "sim_score": 0.5554
+  },
+  {
+    "id": "a07",
+    "emotion": "anxiety",
+    "prompt": "I've been avoiding my advisor because I'm scared of what they'll say about my progress.",
+    "reference": "I've been through that process before and it was not easy. Good thing you had a good adviser.",
+    "sim_score": 0.4955
+  },
+  {
+    "id": "a08",
+    "emotion": "anxiety",
+    "prompt": "I'm constantly worried I'm behind compared to other students in my cohort.",
+    "reference": "Repititions and exposure are my strategies.  Sumer semesters really ramp things up.",
+    "sim_score": 0.5154
+  },
+  {
+    "id": "a09",
+    "emotion": "anxiety",
+    "prompt": "I feel confused and lost about my research direction and I don't want to admit it.",
+    "reference": "Really? Do you know what you want to do when you graduate? I know sometimes it's tough to settle on a path.",
+    "sim_score": 0.5231
+  },
+  {
+    "id": "a10",
+    "emotion": "anxiety",
+    "prompt": "The uncertainty about my future career is eating me alive every single day.",
+    "reference": "Really? Do you know what you want to do when you graduate? I know sometimes it's tough to settle on a path.",
+    "sim_score": 0.5843
+  },
+  {
+    "id": "f01",
+    "emotion": "frustration",
+    "prompt": "My advisor rejected my work again without even reading it properly.",
+    "reference": "Maybe once you feel like you can bring it up again_comma_ you can try to approach the topic from another angle.",
+    "sim_score": 0.4662
+  },
+  {
+    "id": "f02",
+    "emotion": "frustration",
+    "prompt": "I've been waiting three months for feedback and my professor still hasn't responded.",
+    "reference": "Well_comma_ ranted about it to my girlfriend for a while then talked to the professor to make it clear what she did.",
+    "sim_score": 0.5006
+  },
+  {
+    "id": "f03",
+    "emotion": "frustration",
+    "prompt": "I'm so angry at myself for wasting an entire year on a dead-end research direction.",
+    "reference": "I finally took the plunge and decided to go back to school this year.",
+    "sim_score": 0.5003
+  },
+  {
+    "id": "f04",
+    "emotion": "frustration",
+    "prompt": "The department keeps changing requirements and now I have to redo work I already finished.",
+    "reference": "I have tried to complete a work assigment three times now without sucuess.",
+    "sim_score": 0.4242
+  },
+  {
+    "id": "f05",
+    "emotion": "frustration",
+    "prompt": "My labmate keeps taking credit for my ideas and no one seems to notice.",
+    "reference": "When I was in college an older woman in a class of mine stole my ideas for a paper.",
+    "sim_score": 0.4548
+  },
+  {
+    "id": "f06",
+    "emotion": "frustration",
+    "prompt": "I'm so sick of being told my writing isn't good enough when no one will explain how to improve it.",
+    "reference": "Writing speeches makes me nervous",
+    "sim_score": 0.4226
+  },
+  {
+    "id": "f07",
+    "emotion": "frustration",
+    "prompt": "I got passed over for a fellowship I clearly deserved and I'm furious about it.",
+    "reference": "I got turned down for a job I really wanted.",
+    "sim_score": 0.6624
+  },
+  {
+    "id": "f08",
+    "emotion": "frustration",
+    "prompt": "My experiment failed for the fourth time and I can't figure out what I'm doing wrong.",
+    "reference": "What went wrong?",
+    "sim_score": 0.4481
+  },
+  {
+    "id": "f09",
+    "emotion": "frustration",
+    "prompt": "I'm annoyed that my department offers no real mental health resources for grad students.",
+    "reference": "Indeed. Depression is a terrible disease and there simply aren't enough resources devoted to mental illness_comma_ imo.",
+    "sim_score": 0.5466
+  },
+  {
+    "id": "f10",
+    "emotion": "frustration",
+    "prompt": "I feel like I'm doing all the work on this collaboration and my co-author does nothing.",
+    "reference": "Well_comma_ at least you did something good for that co-worker and most probably he feels indebted toward you",
+    "sim_score": 0.4422
+  },
+  {
+    "id": "n01",
+    "emotion": "neutral",
+    "prompt": "Can you give me some tips on how to structure a literature review?",
+    "reference": "Thank you. I wrote down a list of questions and key points beforehand.",
+    "sim_score": 0.3839
+  },
+  {
+    "id": "n02",
+    "emotion": "neutral",
+    "prompt": "What is the difference between qualitative and quantitative research methods?",
+    "reference": "What do you do as a statistic",
+    "sim_score": 0.3191
+  },
+  {
+    "id": "n03",
+    "emotion": "neutral",
+    "prompt": "How many hours per week do most PhD students typically spend on their research?",
+    "reference": "It seems to be about 60_comma_000 per year just out of college. I am eager to see if the statistics are correct.",
+    "sim_score": 0.4477
+  },
+  {
+    "id": "n04",
+    "emotion": "neutral",
+    "prompt": "I'm looking for resources about time management strategies for graduate school.",
+    "reference": "I have a ton of work to complete to earn my degree this year.",
+    "sim_score": 0.4742
+  },
+  {
+    "id": "n05",
+    "emotion": "neutral",
+    "prompt": "What should I include in a research proposal for a funding application?",
+    "reference": "For what kind of project?",
+    "sim_score": 0.4001
+  },
+  {
+    "id": "n06",
+    "emotion": "neutral",
+    "prompt": "I'm trying to decide between two research topics. Can you help me think through the tradeoffs?",
+    "reference": "That's a big decision! What are your choices?",
+    "sim_score": 0.3891
+  },
+  {
+    "id": "n07",
+    "emotion": "neutral",
+    "prompt": "How do other grad students usually handle the transition from coursework to independent research?",
+    "reference": "Repititions and exposure are my strategies.  Sumer semesters really ramp things up.",
+    "sim_score": 0.4104
+  },
+  {
+    "id": "n08",
+    "emotion": "neutral",
+    "prompt": "What are some good ways to network at academic conferences?",
+    "reference": "Also having at least one  friend in such meetings  would help. Next time  go with someone you know",
+    "sim_score": 0.4908
+  },
+  {
+    "id": "n09",
+    "emotion": "neutral",
+    "prompt": "I want to understand how to write a better abstract for my paper.",
+    "reference": "I have to give a speech on Thursday.",
+    "sim_score": 0.3491
+  },
+  {
+    "id": "n10",
+    "emotion": "neutral",
+    "prompt": "Is it normal to feel uncertain about your research direction in the second year?",
+    "reference": "Really? Do you know what you want to do when you graduate? I know sometimes it's tough to settle on a path.",
+    "sim_score": 0.5324
+  },
+  {
+    "id": "h01",
+    "emotion": "hopeful",
+    "prompt": "I finally finished my dissertation chapter and my advisor loved it!",
+    "reference": "I think I aced my supervisor exam!",
+    "sim_score": 0.6313
+  },
+  {
+    "id": "h02",
+    "emotion": "hopeful",
+    "prompt": "I got my first paper accepted and I'm feeling really proud of myself.",
+    "reference": "I recently got an A on my paper. I feel great.",
+    "sim_score": 0.792
+  },
+  {
+    "id": "h03",
+    "emotion": "hopeful",
+    "prompt": "Things have been really hard lately but I feel like I'm finally turning a corner.",
+    "reference": "I have been feeling great about life recently. My relationships have been going very well",
+    "sim_score": 0.6243
+  },
+  {
+    "id": "h04",
+    "emotion": "hopeful",
+    "prompt": "I found a coping strategy that actually helps with my anxiety and I wanted to share it.",
+    "reference": "I will try. I'm a pretty anxious person in general so it's hard",
+    "sim_score": 0.5962
+  },
+  {
+    "id": "h05",
+    "emotion": "hopeful",
+    "prompt": "My advisor gave me really encouraging feedback today and I feel motivated again.",
+    "reference": "I'm feeling very motivated and good about school this year. I think I can get much better grades this time.",
+    "sim_score": 0.6672
+  },
+  {
+    "id": "h06",
+    "emotion": "hopeful",
+    "prompt": "I'm excited about a new collaboration that could really push my research forward.",
+    "reference": "Actually I'm not_comma_ but it sounds very interesting and by working with different organizations_comma_ I would imagine it's also exciting and new every day.",
+    "sim_score": 0.522
+  },
+  {
+    "id": "h07",
+    "emotion": "hopeful",
+    "prompt": "I've been working on my mental health this semester and I can feel the difference.",
+    "reference": "I had a tough semester but I just saw my grades and I'm pleased with the results.",
+    "sim_score": 0.5722
+  },
+  {
+    "id": "h08",
+    "emotion": "hopeful",
+    "prompt": "I passed my qualifying exam and I feel relieved and grateful for everyone who helped me.",
+    "reference": "I was very prepared for my final exam. It was so easy.",
+    "sim_score": 0.6589
+  },
+  {
+    "id": "h09",
+    "emotion": "hopeful",
+    "prompt": "I found a community of other grad students who understand what I'm going through.",
+    "reference": "I finally took the plunge and decided to go back to school this year.",
+    "sim_score": 0.5834
+  },
+  {
+    "id": "h10",
+    "emotion": "hopeful",
+    "prompt": "I'm starting to see the light at the end of the tunnel with my dissertation.",
+    "reference": "I recently got an A on my paper. I feel great.",
+    "sim_score": 0.532
+  }
+]
