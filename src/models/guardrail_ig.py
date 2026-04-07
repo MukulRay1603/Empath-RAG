@@ -22,7 +22,7 @@ class SafetyGuardrail:
         # Load as float32 on CPU — bf16 checkpoint upcasts cleanly, CPU inference is stable
         self.model = (
             AutoModelForSequenceClassification
-            .from_pretrained(checkpoint, torch_dtype=torch.float32)
+            .from_pretrained(checkpoint, dtype=torch.float32)
             .eval()
         )
         # IG forward operates on embedding vectors, not integer token IDs
