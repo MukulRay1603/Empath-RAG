@@ -40,7 +40,7 @@ class SafetyGuardrail:
             token_type_ids=token_type_ids,
         ).logits
 
-    def check(self, text: str, threshold: float = 0.5):
+    def check(self, text: str, threshold: float = 0.5, skip_ig: bool = False):
         """
         Run guardrail on a single text string.
 
@@ -65,6 +65,9 @@ class SafetyGuardrail:
 
         if crisis_prob < threshold:
             return False, crisis_prob, []
+
+        if skip_ig:
+            return True, crisis_prob, []
 
         # ── Integrated Gradients ───────────────────────────────────────────────
         # Get the embedding layer

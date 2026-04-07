@@ -1,10 +1,12 @@
-﻿"""
+"""
 smoke_test_pipeline.py
 Run from repo root: python smoke_test_pipeline.py
-Tests pipeline.run() on 5 inputs — one per emotion class.
+Tests pipeline.run() on 5 inputs - one per emotion class.
+Prints per-stage latency, retrieved chunk preview, response preview.
 """
 
-import sys, json
+import sys
+import json
 sys.path.insert(0, "src")
 
 from pipeline.pipeline import EmpathRAGPipeline
@@ -13,12 +15,12 @@ TEST_INPUTS = [
     {
         "text": "I feel completely hopeless and I don't see a point anymore.",
         "expected_emotion": "distress",
-        "expect_crisis": True,   # guardrail SHOULD fire — crisis-adjacent language
+        "expect_crisis": True,    # guardrail SHOULD fire - crisis-adjacent language
     },
     {
         "text": "I'm so anxious about my thesis defense next week, I can't sleep.",
         "expected_emotion": "anxiety",
-        "expect_crisis": False,  # known false positive at 0.8272 — documented
+        "expect_crisis": False,   # known false positive at conf~0.83 - documented
     },
     {
         "text": "My advisor rejected my work again without even reading it properly.",
@@ -37,9 +39,11 @@ TEST_INPUTS = [
     },
 ]
 
+
 def fmt_latency(lat: dict) -> str:
-    parts = [f"{k.replace('_ms','')}={v}ms" for k, v in lat.items() if k != "total_ms"]
-    return f"[{' | '.join(parts)} | total={lat.get('total_ms',0)}ms]"
+    parts = [f"{k.replace('_ms', '')}={v}ms" for k, v in lat.items() if k != "total_ms"]
+    return "[" + " | ".join(parts) + f" | total={lat.get('total_ms', 0)}ms]"
+
 
 def run_smoke_test():
     print("=" * 70)
@@ -49,21 +53,20 @@ def run_smoke_test():
     print("\nInitialising pipeline...")
     pipeline = EmpathRAGPipeline(use_real_guardrail=True, guardrail_threshold=0.5)
 
-    # Monkey-patch: skip IG computation during smoke test (saves 30s per crisis call)
-    # IG runs 50 forward passes on CPU — only needed in demo, not for functional testing
-    original_check = pipeline.guardrail.check
-    def fast_check(text, threshold=0.5):
-        is_crisis, conf, _ = original_check(text, threshold)
-        return is_crisis, conf, []   # skip IG, return empty highlights
-    pipeline.guardrail.check = fast_check
+    # Skip IG during smoke test - IG runs 50 forward passes on CPU (~30s per call)
+    # IG is only needed in the demo for the highlight panel, not for functional testing
+    _original_check = pipeline.guardrail.check
+    def _fast_check(text, threshold=0.5):
+        return _original_check(text, threshold, skip_ig=True)
+    pipeline.guardrail.check = _fast_check
 
     passed = 0
     failed = 0
     results = []
 
     for i, test in enumerate(TEST_INPUTS):
-        print(f"\n{'─'*70}")
-        print(f"Test {i+1}/5 — expected emotion: {test['expected_emotion']}")
+        print(f"\n{chr(9472) * 70}")
+        print(f"Test {i+1}/5 - expected emotion: {test['expected_emotion']}")
         print(f"Input: {test['text']}")
 
         result = pipeline.run(test["text"])
@@ -76,37 +79,40 @@ def run_smoke_test():
         response     = result["response"]
         latency      = result["latency_ms"]
 
-        emotion_ok   = (emotion_name == test["expected_emotion"])
-        crisis_ok    = (crisis == test["expect_crisis"])
-        # For non-crisis: chunks must exist and response must be real
-        # For crisis intercepts: safe template returned, no chunks — that is correct
+        emotion_ok = (emotion_name == test["expected_emotion"])
+
         if test["expect_crisis"]:
+            # Crisis intercept is correct outcome - safe template returned, no chunks
             content_ok = (crisis is True and len(response) > 20)
         else:
+            # Non-crisis - must have chunks and a real response
             content_ok = (len(chunks) > 0 and len(response) > 20)
 
-        status = "PASS" if (emotion_ok and content_ok) else "FAIL"
-
-        # Special case: known false positive — don't count as failure
+        # Known false positive: guardrail fires on non-crisis input
         fp_note = ""
-        if not crisis_ok and crisis is True and not test["expect_crisis"]:
-            fp_note = " [known false positive — conf={:.3f}]".format(conf)
+        if crisis and not test["expect_crisis"]:
+            fp_note = f" [known false positive - conf={conf:.3f}]"
             status = "PASS*"
+        elif emotion_ok and content_ok:
+            status = "PASS"
+        else:
+            status = "FAIL"
 
         if "FAIL" not in status:
             passed += 1
         else:
             failed += 1
 
+        emotion_sym = "OK" if emotion_ok else "MISMATCH"
         print(f"\nStatus     : {status}{fp_note}")
-        print(f"Emotion    : {emotion_name} (expected: {test['expected_emotion']}) "
-              f"{'✓' if emotion_ok else '✗ MISMATCH'}")
+        print(f"Emotion    : {emotion_name} (expected: {test['expected_emotion']}) [{emotion_sym}]")
         print(f"Trajectory : {trajectory}")
         print(f"Crisis     : {crisis} (conf={conf:.3f}, expected={test['expect_crisis']})")
-        print(f"Chunks     : {len(chunks)} retrieved {'✓' if len(chunks)>0 or crisis else '✗ NONE'}")
+        print(f"Chunks     : {len(chunks)} retrieved")
         if chunks:
-            print(f"Top chunk  : {chunks[0][:120].replace(chr(10),' ')}...")
-        print(f"Response   : {response[:150].replace(chr(10),' ')}...")
+            preview = chunks[0][:120].replace("\n", " ")
+            print(f"Top chunk  : {preview}...")
+        print(f"Response   : {response[:150].replace(chr(10), ' ')}...")
         print(f"Latency    : {fmt_latency(latency)}")
 
         results.append({
@@ -119,18 +125,20 @@ def run_smoke_test():
             "status": status,
         })
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"Results: {passed}/5 passed, {failed}/5 failed")
-    if passed == 5:
-        print("✅ All smoke tests passed. Pipeline working end-to-end with real guardrail.")
-    elif failed == 0 and passed < 5:
-        print("✅ All tests passed (some with known false positive notes).")
+
+    if failed == 0:
+        print("All smoke tests passed. Pipeline working end-to-end with real guardrail.")
     else:
-        print("⚠️  Check failures above.")
+        print("Check failures above.")
+        print("  emotion mismatch -> RoBERTa checkpoint issue")
+        print("  no chunks        -> verify FAISS index path and SQLite annotation")
 
     with open("eval/smoke_test_results.json", "w") as f:
         json.dump({"passed": passed, "failed": failed, "per_test": results}, f, indent=2)
     print("Results saved to eval/smoke_test_results.json")
+
 
 if __name__ == "__main__":
     run_smoke_test()
