@@ -1,8 +1,8 @@
-﻿venv/
+venv/
 data/raw/
 data/processed/*.csv
 data/indexes/
-models/
+/models/
 *.gguf
 __pycache__/
 *.pyc
