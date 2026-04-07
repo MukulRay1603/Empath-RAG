@@ -69,7 +69,7 @@ class _GuardrailStub:
     Returns (is_crisis=False, confidence=0.0, token_attributions=[]).
     Replace with real guardrail once DeBERTa checkpoint is available:
 
-        from ..models.guardrail_ig import SafetyGuardrail
+        from src.models.guardrail_ig import SafetyGuardrail
         self.guardrail = SafetyGuardrail()
     """
     def check(self, text: str, threshold: float = 0.5):
@@ -131,7 +131,7 @@ class EmpathRAGPipeline:
         if use_real_guardrail:
             # Swap in real guardrail once DeBERTa checkpoint exists
             try:
-                from ..models.guardrail_ig import SafetyGuardrail
+                from src.models.guardrail_ig import SafetyGuardrail
                 self.guardrail = SafetyGuardrail()
                 print("[EmpathRAG] Real DeBERTa guardrail loaded (CPU).")
             except Exception as e:
