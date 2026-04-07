@@ -1,6 +1,7 @@
 ﻿venv/
 data/raw/
 data/processed/*.csv
+data/indexes/
 models/
 *.gguf
 __pycache__/
@@ -10,4 +11,3 @@ __pycache__/
 dist/
 .DS_Store
 .claude/
-claude_code_overnight_prompt.md
