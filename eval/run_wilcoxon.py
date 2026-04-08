@@ -55,14 +55,14 @@ def run_wilcoxon_eval():
     # to use BM25 instead of FAISS+emotion-filtering
     print("\nCondition A — BM25 baseline retrieval")
     print("Building BM25 index (this takes ~60-90s)...")
-    from eval.condition_a import load_bm25_index, retrieve_bm25
-    bm25, bm25_ids, bm25_texts = load_bm25_index()
+    import condition_a
+    bm25, bm25_ids, bm25_texts = condition_a.load_bm25_index()
     print("BM25 index ready.")
 
     # Monkey-patch _retrieve on pipeline_d to use BM25
     original_retrieve = pipeline_d._retrieve
     def bm25_retrieve(query, emotion_label):
-        return retrieve_bm25(query, bm25, bm25_ids, bm25_texts, top_k=5)
+        return condition_a.retrieve_bm25(query, bm25, bm25_ids, bm25_texts, top_k=5)
     pipeline_d._retrieve = bm25_retrieve
 
     print("Computing Condition A alignment scores...")
