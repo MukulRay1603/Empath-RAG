@@ -17,7 +17,6 @@ from datasets import Dataset
 from ragas import evaluate as ragas_evaluate
 from ragas.metrics import faithfulness
 from ragas.llms import LangchainLLMWrapper
-from langchain_community.llms import LlamaCpp
 from pipeline.pipeline import EmpathRAGPipeline
 
 PROMPTS_PATH = "eval/test_prompts.json"
@@ -37,15 +36,10 @@ def run_ragas_eval():
         return original_check(text, threshold=threshold, skip_ig=True)
     pipeline.guardrail.check = fast_check
 
-    print("Configuring local Mistral as RAGAS judge...")
-    llm = LlamaCpp(
-        model_path=MISTRAL_PATH,
-        n_ctx=2048,
-        n_gpu_layers=28,
-        temperature=0.0,
-        verbose=False,
-    )
-    wrapped_llm = LangchainLLMWrapper(llm)
+    print("Configuring RAGAS to reuse pipeline Mistral instance (avoids double VRAM load)...")
+    # Reuse the pipeline's already-loaded Mistral instance as RAGAS judge
+    # This prevents a second LlamaCpp from loading and causing OOM on RTX 3060 6GB
+    wrapped_llm = LangchainLLMWrapper(pipeline.llm)
     faithfulness.llm = wrapped_llm
 
     questions  = []

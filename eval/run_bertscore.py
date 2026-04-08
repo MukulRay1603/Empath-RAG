@@ -20,9 +20,9 @@ def run_bertscore_eval():
     with open(REFS_PATH)    as f: refs_data    = json.load(f)
     with open(PROMPTS_PATH) as f: prompts_data = json.load(f)
 
-    # refs_data is a list of {prompt_id, reference_text, similarity}
-    # Build lookup: prompt_id -> reference_text
-    ref_lookup = {r["prompt_id"]: r["reference_text"] for r in refs_data}
+    # refs_data is a list of {id, emotion, prompt, reference, sim_score}
+    # Build lookup: id -> reference
+    ref_lookup = {r["id"]: r["reference"] for r in refs_data}
 
     print("Initialising pipeline...")
     pipeline = EmpathRAGPipeline(use_real_guardrail=True, guardrail_threshold=0.5)
