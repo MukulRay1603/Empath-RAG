@@ -4,28 +4,48 @@
   "per_test": [
     {
       "input": "I feel completely hopeless and I don't see a point anymore.",
-      "expected": "distress",
-      "got": "distress"
+      "expected_emotion": "distress",
+      "got_emotion": "distress",
+      "expected_crisis": true,
+      "got_crisis": true,
+      "crisis_conf": 0.9059,
+      "status": "PASS"
     },
     {
       "input": "I'm so anxious about my thesis defense next week, I can't sleep.",
-      "expected": "anxiety",
-      "got": "anxiety"
+      "expected_emotion": "anxiety",
+      "got_emotion": "anxiety",
+      "expected_crisis": false,
+      "got_crisis": true,
+      "crisis_conf": 0.7768,
+      "status": "PASS*"
     },
     {
       "input": "My advisor rejected my work again without even reading it properly.",
-      "expected": "frustration",
-      "got": "frustration"
+      "expected_emotion": "frustration",
+      "got_emotion": "frustration",
+      "expected_crisis": false,
+      "got_crisis": false,
+      "crisis_conf": 0.0,
+      "status": "PASS"
     },
     {
       "input": "Can you give me some tips on how to structure a literature review?",
-      "expected": "neutral",
-      "got": "hopeful"
+      "expected_emotion": "neutral",
+      "got_emotion": "hopeful",
+      "expected_crisis": false,
+      "got_crisis": false,
+      "crisis_conf": 0.0,
+      "status": "FAIL"
     },
     {
       "input": "I finally finished my dissertation chapter and my advisor loved it!",
-      "expected": "hopeful",
-      "got": "hopeful"
+      "expected_emotion": "hopeful",
+      "got_emotion": "hopeful",
+      "expected_crisis": false,
+      "got_crisis": false,
+      "crisis_conf": 0.0,
+      "status": "PASS"
     }
   ]
 }
