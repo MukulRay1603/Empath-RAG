@@ -40,7 +40,12 @@ def run_wilcoxon_eval():
 
     # ── Condition D: full EmpathRAG pipeline ──────────────────────────────────
     print("Condition D — Full EmpathRAG pipeline")
-    pipeline_d = EmpathRAGPipeline(use_real_guardrail=True, guardrail_threshold=0.5)
+    # use_real_guardrail=False: Wilcoxon tests RETRIEVAL quality (Stage 4),
+    # not guardrail behavior (Stage 2). With real guardrail at t=0.50, 37/50
+    # prompts are intercepted before retrieval — leaving only 13 samples.
+    # Guardrail and retrieval are independent components; disabling guardrail
+    # here lets all 50 prompts reach the retrieval stage as intended.
+    pipeline_d = EmpathRAGPipeline(use_real_guardrail=False, guardrail_threshold=0.5)
     original_check = pipeline_d.guardrail.check
     def fast_check(text, threshold=0.5, skip_ig=False):
         return original_check(text, threshold=threshold, skip_ig=True)
