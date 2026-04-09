@@ -52,7 +52,24 @@ class MistralJudge(DeepEvalBaseLLM):
             temperature=0.0,
             stop=["[INST]"],
         )
-        return out["choices"][0]["text"].strip()
+        text = out["choices"][0]["text"].strip()
+        # Extract valid JSON from response — Mistral occasionally appends
+        # commentary after the JSON block which causes DeepEval to fail.
+        # Find the outermost JSON object or array and return only that.
+        import re
+        # Try to find JSON array first (claim lists), then object (verdicts)
+        for pattern in (r"\[.*?\]", r"\{.*?\}"):
+            match = re.search(pattern, text, re.DOTALL)
+            if match:
+                candidate = match.group(0)
+                try:
+                    import json as _json
+                    _json.loads(candidate)   # validate
+                    return candidate
+                except Exception:
+                    continue
+        # No valid JSON found — return as-is and let DeepEval handle it
+        return text
 
     async def a_generate(self, prompt: str) -> str:
         # DeepEval calls a_generate when async_mode=True.
