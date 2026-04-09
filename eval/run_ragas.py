@@ -47,37 +47,39 @@ class MistralJudge(DeepEvalBaseLLM):
 
     def generate(self, prompt: str) -> str:
         from llama_cpp import LlamaGrammar
-        # GBNF grammar-constrained sampling — physically prevents Mistral from
-        # generating invalid JSON at the token level. No post-processing needed.
-        # DeepEval makes two types of calls: claim extraction (array) and
-        # claim verification (object). We detect which is needed from the prompt
-        # and apply the appropriate grammar.
-        if "[" in prompt[-200:] or "list" in prompt[-200:].lower() or "claims" in prompt[-200:].lower() or "statements" in prompt[-200:].lower():
-            # Claim extraction call — expects JSON array of strings
-            grammar_str = (
-                'root   ::= arr\n'
-                'arr    ::= "[" ws (val (ws "," ws val)*)? ws "]"\n'
-                'val    ::= string\n'
-                'string ::= "\\"" ([^\\\\"] | "\\\\" ["\\\\/bfnrt])* "\\""\n'
-                'ws     ::= ([ \\t\\n])*\n'
-            )
+        import json as _json
+        # Use from_json_schema for grammar-constrained sampling.
+        # Physically prevents Mistral from generating invalid JSON at token level.
+        # Detect call type from prompt tail: claim extraction = array,
+        # claim verification = object with verdicts array.
+        prompt_tail = prompt[-300:].lower()
+        is_extraction = any(w in prompt_tail for w in [
+            "claims", "statements", "list", "extract", "identify"
+        ])
+        if is_extraction:
+            schema = _json.dumps({"type": "array", "items": {"type": "string"}})
         else:
-            # Claim verification call — expects JSON object with verdicts
-            grammar_str = (
-                'root     ::= obj\n'
-                'obj      ::= "{" ws pair (ws "," ws pair)* ws "}"\n'
-                'pair     ::= string ws ":" ws val\n'
-                'val      ::= string | "true" | "false" | "null" | number | arr | obj\n'
-                'arr      ::= "[" ws (val (ws "," ws val)*)? ws "]"\n'
-                'string   ::= "\\"" ([^\\\\"] | "\\\\" ["\\\\/bfnrt])* "\\""\n'
-                'number   ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? (([eE] [-+]? [0-9]+))?\n'
-                'ws       ::= ([ \\t\\n])*\n'
-            )
+            schema = _json.dumps({
+                "type": "object",
+                "properties": {
+                    "verdicts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "verdict": {"type": "string", "enum": ["yes", "no", "idk"]},
+                                "reason": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            })
         try:
-            grammar = LlamaGrammar.from_string(grammar_str, verbose=False)
+            grammar = LlamaGrammar.from_json_schema(schema, verbose=False)
             out = self._llm(prompt, max_tokens=1024, temperature=0.0, grammar=grammar, stop=["[INST]"])
-        except Exception:
-            # Fallback: no grammar constraint if grammar fails to parse
+        except Exception as e:
+            # Fallback: no grammar if schema compilation fails
+            print(f"[MistralJudge] Grammar fallback: {e}")
             out = self._llm(prompt, max_tokens=1024, temperature=0.0, stop=["[INST]"])
         return out["choices"][0]["text"].strip()
 
