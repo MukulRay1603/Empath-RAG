@@ -10,6 +10,8 @@ the emotion label of the top retrieved chunk, 0 otherwise.
 
 import sys, json
 sys.path.insert(0, "src")
+sys.path.insert(0, ".")
+sys.path.insert(0, "eval")
 
 import numpy as np
 from scipy.stats import wilcoxon
@@ -89,7 +91,12 @@ def run_wilcoxon_eval():
         print("WARNING: scores are identical — Wilcoxon test not applicable.")
         stat, p_val = float("nan"), float("nan")
     else:
-        stat, p_val = wilcoxon(s_d, s_a, alternative="greater")
+        try:
+            # zero_method=pratt handles tied differences correctly for binary 0/1 scores
+            stat, p_val = wilcoxon(s_d, s_a, alternative="greater", zero_method="pratt")
+        except ValueError as e:
+            print(f"WARNING: Wilcoxon failed ({e}) — scores may be too similar.")
+            stat, p_val = float("nan"), float("nan")
 
     print(f"\nWilcoxon Results:")
     print(f"  D mean alignment: {np.mean(s_d):.4f}")
