@@ -48,17 +48,26 @@ class MistralJudge(DeepEvalBaseLLM):
     def generate(self, prompt: str) -> str:
         from llama_cpp import LlamaGrammar
         import json as _json
-        # Use from_json_schema for grammar-constrained sampling.
-        # Physically prevents Mistral from generating invalid JSON at token level.
-        # Detect call type from prompt tail: claim extraction = array,
-        # claim verification = object with verdicts array.
-        prompt_tail = prompt[-300:].lower()
-        is_extraction = any(w in prompt_tail for w in [
-            "claims", "statements", "list", "extract", "identify"
-        ])
-        if is_extraction:
-            schema = _json.dumps({"type": "array", "items": {"type": "string"}})
+        # DeepEval FaithfulnessMetric makes 3 types of calls:
+        # 1. Extract truths from retrieval_context → {"truths": ["...", "..."]}
+        # 2. Extract claims from actual_output → {"claims": ["...", "..."]}
+        # 3. Verify claims against truths → {"verdicts": [{"verdict": "yes/no", "reason": "..."}]}
+        # Detect which call type from prompt keywords and use appropriate schema.
+        prompt_lower = prompt.lower()
+        if '"truths"' in prompt_lower or 'truths key' in prompt_lower:
+            # Call 1: extract truths from context
+            schema = _json.dumps({
+                "type": "object",
+                "properties": {"truths": {"type": "array", "items": {"type": "string"}}}
+            })
+        elif '"claims"' in prompt_lower or 'claims' in prompt_lower:
+            # Call 2: extract claims from output
+            schema = _json.dumps({
+                "type": "object",
+                "properties": {"claims": {"type": "array", "items": {"type": "string"}}}
+            })
         else:
+            # Call 3: verify claims (verdicts)
             schema = _json.dumps({
                 "type": "object",
                 "properties": {
