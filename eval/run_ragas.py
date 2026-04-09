@@ -46,30 +46,40 @@ class MistralJudge(DeepEvalBaseLLM):
         return self._llm
 
     def generate(self, prompt: str) -> str:
-        out = self._llm(
-            prompt,
-            max_tokens=1024,
-            temperature=0.0,
-            stop=["[INST]"],
-        )
-        text = out["choices"][0]["text"].strip()
-        # Extract valid JSON from response — Mistral occasionally appends
-        # commentary after the JSON block which causes DeepEval to fail.
-        # Find the outermost JSON object or array and return only that.
-        import re
-        # Try to find JSON array first (claim lists), then object (verdicts)
-        for pattern in (r"\[.*?\]", r"\{.*?\}"):
-            match = re.search(pattern, text, re.DOTALL)
-            if match:
-                candidate = match.group(0)
-                try:
-                    import json as _json
-                    _json.loads(candidate)   # validate
-                    return candidate
-                except Exception:
-                    continue
-        # No valid JSON found — return as-is and let DeepEval handle it
-        return text
+        from llama_cpp import LlamaGrammar
+        # GBNF grammar-constrained sampling — physically prevents Mistral from
+        # generating invalid JSON at the token level. No post-processing needed.
+        # DeepEval makes two types of calls: claim extraction (array) and
+        # claim verification (object). We detect which is needed from the prompt
+        # and apply the appropriate grammar.
+        if "[" in prompt[-200:] or "list" in prompt[-200:].lower() or "claims" in prompt[-200:].lower() or "statements" in prompt[-200:].lower():
+            # Claim extraction call — expects JSON array of strings
+            grammar_str = (
+                'root   ::= arr\n'
+                'arr    ::= "[" ws (val (ws "," ws val)*)? ws "]"\n'
+                'val    ::= string\n'
+                'string ::= "\\"" ([^\\\\"] | "\\\\" ["\\\\/bfnrt])* "\\""\n'
+                'ws     ::= ([ \\t\\n])*\n'
+            )
+        else:
+            # Claim verification call — expects JSON object with verdicts
+            grammar_str = (
+                'root     ::= obj\n'
+                'obj      ::= "{" ws pair (ws "," ws pair)* ws "}"\n'
+                'pair     ::= string ws ":" ws val\n'
+                'val      ::= string | "true" | "false" | "null" | number | arr | obj\n'
+                'arr      ::= "[" ws (val (ws "," ws val)*)? ws "]"\n'
+                'string   ::= "\\"" ([^\\\\"] | "\\\\" ["\\\\/bfnrt])* "\\""\n'
+                'number   ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? (([eE] [-+]? [0-9]+))?\n'
+                'ws       ::= ([ \\t\\n])*\n'
+            )
+        try:
+            grammar = LlamaGrammar.from_string(grammar_str, verbose=False)
+            out = self._llm(prompt, max_tokens=1024, temperature=0.0, grammar=grammar, stop=["[INST]"])
+        except Exception:
+            # Fallback: no grammar constraint if grammar fails to parse
+            out = self._llm(prompt, max_tokens=1024, temperature=0.0, stop=["[INST]"])
+        return out["choices"][0]["text"].strip()
 
     async def a_generate(self, prompt: str) -> str:
         # DeepEval calls a_generate when async_mode=True.
