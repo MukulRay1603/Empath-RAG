@@ -43,23 +43,13 @@ SAFE_RESPONSE = (
     "also a great resource. Would you like help finding their contact info?"
 )
 
-SYSTEM_PROMPT = """You are a peer support companion for graduate students. You respond like a warm, emotionally intelligent friend — not a therapist, not a self-help article, not a life coach.
+SYSTEM_PROMPT = """You are a warm peer companion for graduate students. You write like a caring friend in a chat window.
 
-The context you receive contains real experiences from other students who felt similar things. Use this context ONLY to show the student they are not alone — do not summarize it, do not list their coping strategies, do not repeat their advice.
+Here is an example of a perfect response:
+Student: "I've been feeling really anxious about my qualifying exam."
+Response: "Qualifying exams are genuinely terrifying, and that knot-in-your-stomach feeling is something so many grad students know too well.\n\nWhat's been weighing on you most about it?"
 
-Your response must follow this exact structure, in this exact order:
-1. One sentence that names and validates the specific emotion the student expressed. Be precise — if they said overwhelmed, say overwhelmed. Do not be generic.
-2. One to two sentences that reflect back that others have genuinely felt this way, drawn from the context. Make it feel human and real, not clinical.
-3. One sentence that is a single, open, forward-looking question. The question must invite them to share more about their current situation — NOT ask them what they have already tried or what strategies they use. Ask about what is weighing on them, what matters most, what feels hardest right now.
-
-Hard rules:
-- Three paragraphs maximum. Often two is better.
-- No bullet points. No numbered lists. No headers. No bold text.
-- Never ask two questions. One question only, at the very end.
-- Never say "as an AI" or "as a language model".
-- Never give a list of coping strategies or techniques.
-- Never use the word "strategies".
-- Write like a caring peer, not like a support hotline script."""
+Follow that exact format every time. Two short paragraphs separated by a blank line. First paragraph: one warm sentence that reflects their exact feeling back to them using their own words - make it feel human, not clinical. Second paragraph: one gentle open question starting with What or What's that invites them to share more. Nothing else. No advice. No suggestions. No lists. No context references."""
 
 DEBERTA_HYPOTHESIS = "This person is expressing suicidal ideation or intent to self-harm."
 
@@ -247,17 +237,38 @@ class EmpathRAGPipeline:
         context = "\n\n".join(f"[{i+1}] {c}" for i, c in enumerate(chunks))
         prompt  = (
             f"[INST] {SYSTEM_PROMPT}\n\n"
-            f"Context:\n{context}\n\n"
-            f"Student message: {user_message}\n\n"
-            f"Respond as a caring peer - validate their feeling, share one grounded thought, then ask one question: [/INST]"
+            f"Context (for emotional grounding only - never reference this directly):\n{context}\n\n"
+            f"Student: {user_message}\n\n"
+            f"Response: [/INST]"
         )
         out = self.llm(
             prompt,
-            max_tokens  = 600,
-            temperature = 0.7,
-            stop        = ["[INST]"],
+            max_tokens  = 200,
+            temperature = 0.75,
+            stop        = ["[INST]", "Student:", "\n\n\n"],
         )
-        return out["choices"][0]["text"].strip()
+        raw = out["choices"][0]["text"].strip()
+        # If model already output a blank line separator, use it directly
+        if "\n\n" in raw:
+            return raw
+        # Otherwise find the question sentence and split into two paragraphs
+        if "?" in raw:
+            # Split into: everything before last sentence containing ?, and that sentence
+            sentences = raw.replace("  ", " ").split(". ")
+            question_idx = None
+            for i, s in enumerate(sentences):
+                if "?" in s:
+                    question_idx = i
+                    break
+            if question_idx is not None and question_idx > 0:
+                para1 = ". ".join(sentences[:question_idx]).strip()
+                if not para1.endswith("."):
+                    para1 += "."
+                para2 = sentences[question_idx].strip()
+                if not para2.endswith("?"):
+                    para2 += "?"
+                return para1 + "\n\n" + para2
+        return raw
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
