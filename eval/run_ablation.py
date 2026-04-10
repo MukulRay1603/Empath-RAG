@@ -3,7 +3,7 @@ eval/run_ablation.py
 Ablation study: compare Condition A (BM25), C (Dense RAG no emotion), D (Full EmpathRAG).
 Computes Condition C as TRUE no-emotion-conditioning ablation:
   - No emotion query rewriting (raw user_message goes to FAISS)
-  - No emotion match bonus in re-ranking (safety_score only)
+  - No re-ranking at all - pure FAISS distance order, no safety score, no emotion signal
 Loads Conditions A and D from eval/wilcoxon_results.json.
 """
 
@@ -27,14 +27,16 @@ RESULTS_PATH = "eval/ablation_results.json"
 def add_condition_c_methods(pipeline):
     """
     Adds two methods to pipeline instance for Condition C ablation:
-    1. _retrieve_no_emotion: retrieval with no emotion match bonus
-    2. run_condition_c: full pipeline run with raw user_message (no query rewriting)
+    1. _retrieve_no_emotion: pure FAISS distance order, no re-ranking, no emotion or safety score
+    2. run_condition_c: full pipeline run with raw user_message and no emotion conditioning
     """
 
     def _retrieve_no_emotion(self, query: str, emotion_label: int) -> list[str]:
         """
-        Encodes query on GPU, searches FAISS, filters via SQLite.
-        Returns top_k chunk texts ranked by SAFETY SCORE ONLY (no emotion bonus).
+        Pure semantic retrieval - no emotion conditioning of any kind.
+        Returns top_k chunks in FAISS distance order (closest first).
+        No re-ranking, no safety score, no emotion bonus.
+        emotion_label parameter accepted but deliberately ignored.
         GPU usage: ~440 MB during encode, freed before returning.
         """
         # Move encoder to GPU for this call only
@@ -48,32 +50,30 @@ def add_condition_c_methods(pipeline):
         self.encoder.to("cpu")
         torch.cuda.empty_cache()
 
-        # Search wider than top_k so we have room to re-rank
+        # Search top_k directly - no need for top_k*3 since we are not re-ranking
         distances, ids = self.faiss_index.search(
-            q_vec.astype(np.float32), self.top_k * 3
+            q_vec.astype(np.float32), self.top_k
         )
-        candidate_ids = [int(i) for i in ids[0] if i >= 0]
+        # ids[0] is already sorted by L2 distance ascending (closest first)
+        # Filter out -1 padding (FAISS uses -1 for unfilled slots)
+        faiss_ordered_ids = [int(i) for i in ids[0] if i >= 0]
 
-        if not candidate_ids:
+        if not faiss_ordered_ids:
             return []
 
-        # Fetch metadata from SQLite
-        placeholders = ",".join("?" * len(candidate_ids))
+        # Fetch text from SQLite - NOTE: SQLite WHERE IN does NOT preserve input order
+        placeholders = ",".join("?" * len(faiss_ordered_ids))
         conn = sqlite3.connect(self.db_path)
         rows = conn.execute(
-            f"SELECT id, text, emotion_label, safety_score FROM chunks "
-            f"WHERE id IN ({placeholders})",
-            candidate_ids,
+            f"SELECT id, text FROM chunks WHERE id IN ({placeholders})",
+            faiss_ordered_ids,
         ).fetchall()
         conn.close()
 
-        # Re-rank: ONLY by safety_score (no emotion match bonus)
-        def _score(row):
-            _, _, chunk_emotion, safety = row
-            return safety  # No match_bonus - pure semantic similarity + safety
-
-        rows_sorted = sorted(rows, key=_score, reverse=True)[:self.top_k]
-        return [r[1] for r in rows_sorted]
+        # Restore FAISS distance order using id->text map
+        id_to_text = {r[0]: r[1] for r in rows}
+        # Return in FAISS order, skip any ids not found in SQLite
+        return [id_to_text[i] for i in faiss_ordered_ids if i in id_to_text]
 
     def run_condition_c(self, user_message: str) -> dict:
         """
