@@ -2,7 +2,7 @@
 
 **Emotion-Aware Retrieval-Augmented Generation with Safety Guardrails for Student Mental Health**
 
-MSML641 · Applied Machine Learning · Spring 2025 · Ray & Karthik
+University of Maryland - MSML641 · Applied Machine Learning · Spring 2025
 
 ---
 
