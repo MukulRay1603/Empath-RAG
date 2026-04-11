@@ -108,7 +108,7 @@ class EmpathRAGPipeline:
         mistral_path:    str = "models/generator/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
         st_model:        str = "sentence-transformers/all-mpnet-base-v2",
         n_gpu_layers:    int = 28,
-        n_ctx:           int = 2048,
+        n_ctx:           int = 4096,
         top_k:           int = 5,
         tracker_n:       int = 3,
         guardrail_threshold: float = 0.5,
@@ -167,6 +167,7 @@ class EmpathRAGPipeline:
               f"VRAM: {torch.cuda.memory_allocated()/1e9:.2f} GB")
 
         self.tracker = SessionTracker(N=tracker_n)
+        self.conv_history = []  # list of {"role": "user"|"assistant", "content": str}
         print("[EmpathRAG] Pipeline initialised. Ready for inference.")
 
     # ── Stage 1: Emotion classification ───────────────────────────────────────
@@ -233,27 +234,58 @@ class EmpathRAGPipeline:
     # ── Stage 5: Generation ────────────────────────────────────────────────────
 
     def _generate(self, user_message: str, chunks: list[str]) -> str:
-        """Generates empathetic response conditioned on retrieved context."""
+        """Generates empathetic response conditioned on retrieved context and conversation history."""
         context = "\n\n".join(f"[{i+1}] {c}" for i, c in enumerate(chunks))
-        prompt  = (
-            f"[INST] {SYSTEM_PROMPT}\n\n"
+
+        # Build Mistral multi-turn prompt with conversation history
+        # Mistral Instruct format: <s>[INST] msg [/INST] response</s>[INST] msg [/INST]
+        prompt_parts = []
+
+        # First turn always includes system prompt and context
+        first_user = (
+            f"{SYSTEM_PROMPT}\n\n"
             f"Context (for emotional grounding only - never reference this directly):\n{context}\n\n"
-            f"Student: {user_message}\n\n"
-            f"Response: [/INST]"
+            f"Student: {user_message}"
         )
+
+        if not self.conv_history:
+            # No history - simple single turn
+            prompt = f"[INST] {first_user}\n\nResponse: [/INST]"
+        else:
+            # Build multi-turn prompt from history
+            # History entries alternate user/assistant
+            prompt = "<s>"
+            for i, entry in enumerate(self.conv_history):
+                if entry["role"] == "user":
+                    # Include system prompt only on first historical turn
+                    if i == 0:
+                        turn_content = (
+                            f"{SYSTEM_PROMPT}\n\n"
+                            f"Context (for emotional grounding only - never reference this directly):\n{context}\n\n"
+                            f"Student: {entry['content']}"
+                        )
+                    else:
+                        turn_content = f"Student: {entry['content']}"
+                    prompt += f"[INST] {turn_content} [/INST]"
+                else:
+                    # assistant turn
+                    prompt += f" {entry['content']}</s>"
+            # Append current user message
+            prompt += f"[INST] Student: {user_message}\n\nResponse: [/INST]"
+
         out = self.llm(
             prompt,
             max_tokens  = 200,
             temperature = 0.75,
-            stop        = ["[INST]", "Student:", "\n\n\n"],
+            stop        = ["[INST]", "Student:", "\n\n\n", "</s>"],
         )
         raw = out["choices"][0]["text"].strip()
-        # If model already output a blank line separator, use it directly
+
+        # Ensure blank line between the two paragraphs for Gradio rendering
         if "\n\n" in raw:
             return raw
         # Otherwise find the question sentence and split into two paragraphs
         if "?" in raw:
-            # Split into: everything before last sentence containing ?, and that sentence
             sentences = raw.replace("  ", " ").split(". ")
             question_idx = None
             for i, s in enumerate(sentences):
@@ -324,6 +356,11 @@ class EmpathRAGPipeline:
         # ── Stage 5: Generation ────────────────────────────────────────────────
         t0 = time.perf_counter()
         response = self._generate(user_message, chunks)
+        # Update conversation history (keep last 6 entries = 3 turns)
+        self.conv_history.append({"role": "user",      "content": user_message})
+        self.conv_history.append({"role": "assistant", "content": response})
+        if len(self.conv_history) > 6:
+            self.conv_history = self.conv_history[-6:]
         latency["generation_ms"] = round((time.perf_counter() - t0) * 1000)
 
         latency["total_ms"] = sum(latency.values())
@@ -341,5 +378,6 @@ class EmpathRAGPipeline:
         }
 
     def reset_session(self):
-        """Clear session emotion history."""
+        """Clear session emotion history and conversation history."""
         self.tracker.reset()
+        self.conv_history = []
