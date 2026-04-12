@@ -16,9 +16,7 @@
 
 ---
 
-## What Is This?
-
-Standard RAG systems treat every message identically — as a neutral information request. A student in crisis and a student asking for study tips go through the same retrieval pipeline, with no emotional awareness and no safety gate.
+Standard RAG systems treat every message identically as a neutral information request. A student in crisis and a student asking for study tips go through the same retrieval pipeline, with no emotional awareness and no safety gate.
 
 **EmpathRAG fixes this.** It is a 5-stage NLP pipeline that classifies a student's emotional state *before* retrieval, rewrites queries based on that state, and intercepts crisis-level messages with a trained NLI classifier before the language model is ever invoked.
 
@@ -203,7 +201,6 @@ Mistral 7B GGUF → download `mistral-7b-instruct-v0.2.Q4_K_M.gguf` from [TheBlo
 | Adversarial Probe Evaluation (30 probes) | ✅ Complete |
 | Human Evaluation (8–10 raters) | 🔄 In Progress |
 | Loom Demo Recording | 🔄 In Progress |
-| Final Report | 🔄 In Progress |
 
 ---
 
