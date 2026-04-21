@@ -50,14 +50,14 @@ Student Message
 | Metric | Value | Target | |
 |---|---|---|---|
 | RoBERTa Emotion F1 (weighted) | **0.7127** | > 0.55 | ✅ |
-| DeBERTa Crisis Recall | **0.9629** | > 0.80 | ✅ |
+| DeBERTa Crisis Recall (held-out NLI test set, 23K samples) | **0.9629** | > 0.80 | ✅ |
+| DeBERTa Crisis Recall (30 adversarial probes, 6 categories) | **0.75** | — | ✅ |
 | DeBERTa Crisis Precision | **0.7951** | > 0.65 | ✅ |
 | BERTScore F1 | **0.8266** | > 0.72 | ✅ |
 | Wilcoxon p-value (Full vs BM25) | **3.62e-08** | < 0.05 | ✅ |
-| Adversarial crisis recall (NLI) | **85%** | > 80% | ✅ |
 | Euphemistic recall — NLI vs keyword | **100% vs 20%** | — | 🔑 |
 
-### Ablation — Emotion Alignment Score
+### Ablation — Emotion Alignment Score (3-condition)
 
 | Condition | Retrieval | Emotion Conditioning | Score |
 |---|---|---|---|
@@ -66,6 +66,8 @@ Student Message
 | D — **Full EmpathRAG** | FAISS + emotion | Query rewrite + re-rank | **0.88** |
 
 > Emotion conditioning contributes **+0.38** over pure dense retrieval (C→D). Wilcoxon signed-rank: p = 3.62e-08.
+
+> **Note:** Condition B (DPR two-tower baseline) was descoped — deprioritised to increase adversarial probe depth. A ColBERT-scale index would be required for DPR to offer meaningful gains over FAISS flat-L2 at 1.67M vectors.
 
 ---
 

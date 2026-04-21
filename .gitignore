@@ -47,3 +47,13 @@ eval/human_eval_log.jsonl
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+service-account*.json
+.ipynb_checkpoints/
