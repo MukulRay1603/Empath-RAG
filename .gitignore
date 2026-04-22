@@ -58,3 +58,14 @@ credentials*.json
 service-account*.json
 .ipynb_checkpoints/
 .claude/
+
+# Data artifacts
+data/processed/
+eval/ragas_results.json
+
+# Session artifacts
+CHANGES_APPLIED.md
+CLEANUP_DONE_*.md
+*_VERIFICATION.md
+*_RECON.md
+ROTATION_CHECKLIST.md
