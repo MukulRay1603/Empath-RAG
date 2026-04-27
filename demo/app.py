@@ -12,6 +12,7 @@ import uuid
 import datetime
 import os
 import threading
+from html import escape
 from pipeline.pipeline import EmpathRAGPipeline
 
 # Constants
@@ -26,10 +27,15 @@ LABEL_COLORS = {
 LOG_PATH = "eval/human_eval_log.jsonl"
 LOG_TURNS = os.getenv("EMPATHRAG_LOG_TURNS") == "1"
 SHARE_DEMO = os.getenv("EMPATHRAG_SHARE") == "1"
+RETRIEVAL_CORPUS = os.getenv("EMPATHRAG_RETRIEVAL_CORPUS", "auto")
 
 # Initialize pipeline (runs once at module load)
 print("[Demo] Initialising EmpathRAG pipeline...")
-pipeline = EmpathRAGPipeline(use_real_guardrail=True, guardrail_threshold=0.5)
+pipeline = EmpathRAGPipeline(
+    use_real_guardrail=True,
+    guardrail_threshold=0.5,
+    retrieval_corpus=RETRIEVAL_CORPUS,
+)
 pipeline_lock = threading.Lock()
 print("[Demo] Pipeline ready.")
 
@@ -127,10 +133,51 @@ def format_ig_panel(is_crisis, confidence, ig_tokens, loading) -> str:
     return html
 
 
+def format_retrieval_panel(result=None) -> str:
+    """Format retrieval corpus and source metadata for the demo side panel."""
+    if not result:
+        return "<div style='color:#888;font-size:13px;padding:8px;'>No retrieval yet.</div>"
+
+    safety_level = escape(str(result.get("safety_level", "unknown")))
+    safety_reason = escape(str(result.get("safety_reason", "")))
+    corpus = escape(str(result.get("retrieval_corpus", "unknown")))
+    html = (
+        "<div style='font-size:12px;line-height:1.35;'>"
+        f"<div><strong>Corpus:</strong> {corpus}</div>"
+        f"<div><strong>Safety:</strong> {safety_level}</div>"
+        f"<div><strong>Reason:</strong> {safety_reason}</div>"
+    )
+
+    sources = result.get("retrieved_sources", [])
+    if not sources:
+        html += "<div style='color:#888;margin-top:8px;'>No sources retrieved.</div></div>"
+        return html
+
+    html += "<div style='margin-top:10px;font-weight:600;'>Top Sources</div>"
+    for source in sources[:3]:
+        title = escape(str(source.get("title", "") or "Untitled source"))
+        source_name = escape(str(source.get("source_name", "") or "Unknown source"))
+        topic = escape(str(source.get("topic", "") or ""))
+        risk = escape(str(source.get("risk_level", "") or ""))
+        url = escape(str(source.get("url", "") or ""))
+        html += (
+            "<div style='border-top:1px solid #ddd;padding-top:6px;margin-top:6px;'>"
+            f"<div><strong>{title}</strong></div>"
+            f"<div>{source_name}</div>"
+            f"<div style='color:#666;'>topic={topic} · risk={risk}</div>"
+        )
+        if url:
+            html += f"<div><a href='{url}' target='_blank'>source link</a></div>"
+        html += "</div>"
+    html += "</div>"
+    return html
+
+
 def respond(message, chat_history, session_state):
     """
     Generator function - yields UI state after each update.
-    Yields tuple of 5 values: (chatbot, timeline_html, trajectory, crisis_html, session_id)
+    Yields chatbot, emotion timeline, trajectory, safety panel, retrieval panel,
+    session ID, and per-user session state.
     """
     if not session_state:
         session_state = new_session_state()
@@ -144,6 +191,7 @@ def respond(message, chat_history, session_state):
                format_emotion_timeline(emotion_history, pipeline.tracker.trajectory()),
                pipeline.tracker.trajectory(),
                format_ig_panel(False, 0.0, [], False),
+               format_retrieval_panel(),
                session_id,
                session_state)
         return
@@ -189,6 +237,7 @@ def respond(message, chat_history, session_state):
                timeline_html,
                result["trajectory"],
                format_ig_panel(True, result["crisis_confidence"], [], loading=True),
+               format_retrieval_panel(result),
                session_id,
                session_state)
 
@@ -201,6 +250,7 @@ def respond(message, chat_history, session_state):
                timeline_html,
                result["trajectory"],
                format_ig_panel(True, confidence, ig_tokens, loading=False),
+               format_retrieval_panel(result),
                session_id,
                session_state)
     else:
@@ -209,6 +259,7 @@ def respond(message, chat_history, session_state):
                timeline_html,
                result["trajectory"],
                format_ig_panel(False, 0.0, [], False),
+               format_retrieval_panel(result),
                session_id,
                session_state)
 
@@ -219,8 +270,9 @@ def reset_session_handler():
 
     placeholder_timeline = "<div style='color:#888;font-size:13px;padding:8px;'>No emotions detected yet.</div>"
     placeholder_crisis = "<div style='color:#888;font-size:13px;padding:8px;'>No crisis detected this session.</div>"
+    placeholder_retrieval = "<div style='color:#888;font-size:13px;padding:8px;'>No retrieval yet.</div>"
 
-    return ([], placeholder_timeline, "stable", placeholder_crisis, session_state["session_id"], session_state)
+    return ([], placeholder_timeline, "stable", placeholder_crisis, placeholder_retrieval, session_state["session_id"], session_state)
 
 
 # Gradio UI
@@ -259,12 +311,14 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
 
             gr.Markdown("### Safety Guardrail")
             crisis_out = gr.HTML(value="<div style='color:#888;font-size:13px;padding:8px;'>No crisis detected this session.</div>")
+            gr.Markdown("### Retrieval Sources")
+            retrieval_out = gr.HTML(value="<div style='color:#888;font-size:13px;padding:8px;'>No retrieval yet.</div>")
 
     # Wire up interactions
     msg_box.submit(
         respond,
         inputs=[msg_box, chatbot, session_state],
-        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box, session_state]
+        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, retrieval_out, session_id_box, session_state]
     ).then(
         lambda: "",
         outputs=msg_box
@@ -273,7 +327,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
     send_btn.click(
         respond,
         inputs=[msg_box, chatbot, session_state],
-        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box, session_state]
+        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, retrieval_out, session_id_box, session_state]
     ).then(
         lambda: "",
         outputs=msg_box
@@ -281,7 +335,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
 
     reset_btn.click(
         reset_session_handler,
-        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box, session_state]
+        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, retrieval_out, session_id_box, session_state]
     )
 
 

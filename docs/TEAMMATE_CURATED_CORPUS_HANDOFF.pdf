@@ -1,0 +1,1409 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Length 2083 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+() Tj
+T*
+(EMPATHRAG V2 CURATED CORPUS HANDOFF) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(This document is the teammate handoff for building the first curated support) Tj
+T*
+(corpus for EmpathRAG V2. The goal is to produce clean, source-cited,) Tj
+T*
+(student-support content that can be directly ingested into a separate curated) Tj
+T*
+(FAISS + SQLite retrieval index.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(1. Objective) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(EmpathRAG currently has a large Reddit-based retrieval corpus. That corpus is) Tj
+T*
+(useful for research comparison and ablation, but it should not be the primary) Tj
+T*
+(student-facing support source for a mental-health-adjacent demo.) Tj
+T*
+() Tj
+T*
+(Your task is to create a safer curated corpus from official and reputable public) Tj
+T*
+(resources. This corpus should help EmpathRAG retrieve grounding context for:) Tj
+T*
+() Tj
+T*
+(- anxiety before exams, thesis defense, or presentations) Tj
+T*
+(- advisor conflict and academic frustration) Tj
+T*
+(- burnout, isolation, loneliness, and imposter feelings) Tj
+T*
+(- depression/help-seeking language) Tj
+T*
+(- campus counseling navigation) Tj
+T*
+(- after-hours and crisis support) Tj
+T*
+(- disability/accessibility support) Tj
+T*
+(- graduate student stress, funding stress, and academic pressure) Tj
+T*
+(- grounding exercises and help-seeking scripts) Tj
+T*
+() Tj
+T*
+(Prioritize correctness, source quality, and safety over volume.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(2. Deliverables) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Please deliver a folder like this:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    curated_corpus_delivery/) Tj
+T*
+(      README_corpus_notes.md) Tj
+T*
+(      source_inventory.csv) Tj
+T*
+(      excluded_sources.csv) Tj
+T*
+(      resources_seed.jsonl) Tj
+T*
+(      raw_pages/) Tj
+T*
+(        src_001.txt) Tj
+T*
+(        src_002.txt) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Required files:) Tj
+T*
+() Tj
+T*
+(- `source_inventory.csv`: every source/page reviewed.) Tj
+T*
+(- `resources_seed.jsonl`: final clean chunks for ingestion.) Tj
+T*
+(- `README_corpus_notes.md`: summary of what was collected and any concerns.) Tj
+ET
+endstream
+endobj
+3 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>
+endobj
+4 0 obj
+<< /Length 1617 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+() Tj
+T*
+(Optional but helpful:) Tj
+T*
+() Tj
+T*
+(- `raw_pages/`: saved raw text snapshots from pages.) Tj
+T*
+(- `excluded_sources.csv`: pages reviewed but rejected.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(3. Source Priority) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use official/public sources first.) Tj
+T*
+() Tj
+T*
+(Priority order:) Tj
+T*
+() Tj
+T*
+(1. UMD Counseling Center) Tj
+T*
+(2. UMD after-hours or crisis support pages) Tj
+T*
+(3. UMD Graduate School resources) Tj
+T*
+(4. UMD Accessibility and Disability Service) Tj
+T*
+(5. UMD Ombuds, conflict-resolution, or student support resources) Tj
+T*
+(6. 988 Lifeline) Tj
+T*
+(7. NIMH) Tj
+T*
+(8. SAMHSA) Tj
+T*
+(9. CDC mental health or suicide prevention resources) Tj
+T*
+(10. Other reputable nonprofit/clinical education resources only if they fill a) Tj
+T*
+(    real coverage gap) Tj
+T*
+() Tj
+T*
+(Do not use:) Tj
+T*
+() Tj
+T*
+(- Reddit, Quora, forums, or social media) Tj
+T*
+(- random blogs) Tj
+T*
+(- commercial therapy marketing pages) Tj
+T*
+(- personal stories with graphic crisis details) Tj
+T*
+(- pages that describe self-harm methods) Tj
+T*
+(- content that gives diagnosis, treatment, or medication instructions) Tj
+T*
+(- login-gated or private pages) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(4. Source Inventory Format) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Create `source_inventory.csv`.) Tj
+T*
+() Tj
+T*
+(Required columns:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    source_id,source_name,source_type,title,url,domain,date_accessed,include_status,reason,license_) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Allowed `include_status` values:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    include) Tj
+T*
+(    partial) Tj
+T*
+(    exclude) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 1601 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+(    needs_review) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Example:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    src_001,UMD Counseling Center,university_resource,Counseling Services,https://counseling.umd.ed) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use `needs_review` when the page seems useful but contains sensitive, ambiguous,) Tj
+T*
+(or policy-heavy content that should be checked before inclusion.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(5. Main Corpus Format) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Create `resources_seed.jsonl`.) Tj
+T*
+() Tj
+T*
+(Use JSONL format: one valid JSON object per line. Do not wrap the file in a JSON) Tj
+T*
+(array.) Tj
+T*
+() Tj
+T*
+(Required schema:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    {) Tj
+T*
+(      "id": "umd_counseling_001",) Tj
+T*
+(      "source_id": "src_001",) Tj
+T*
+(      "source_name": "UMD Counseling Center",) Tj
+T*
+(      "source_type": "university_resource",) Tj
+T*
+(      "title": "Counseling Services",) Tj
+T*
+(      "url": "https://example.edu/page",) Tj
+T*
+(      "topic": "counseling_services",) Tj
+T*
+(      "audience": "umd_student",) Tj
+T*
+(      "risk_level": "safe",) Tj
+T*
+(      "usage_mode": "retrieval",) Tj
+T*
+(      "text": "Clean paragraph-sized text chunk suitable for retrieval.",) Tj
+T*
+(      "summary": "One sentence summary of the chunk.",) Tj
+T*
+(      "last_checked": "2026-04-27",) Tj
+T*
+(      "notes": "Why this chunk is useful.") Tj
+T*
+(    }) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Every field is required. Every `id` must be unique.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(6. Allowed Field Values) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(`source_type`) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use one of:) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 1232 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+() Tj
+T*
+(    university_resource) Tj
+T*
+(    crisis_resource) Tj
+T*
+(    government_public_health) Tj
+T*
+(    student_support) Tj
+T*
+(    clinician_review_candidate) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(`topic`) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use one primary topic per chunk:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    crisis_immediate_help) Tj
+T*
+(    counseling_services) Tj
+T*
+(    after_hours_support) Tj
+T*
+(    academic_burnout) Tj
+T*
+(    advisor_conflict) Tj
+T*
+(    isolation_loneliness) Tj
+T*
+(    anxiety_stress) Tj
+T*
+(    depression_support) Tj
+T*
+(    accessibility_disability) Tj
+T*
+(    graduate_student_support) Tj
+T*
+(    help_seeking_script) Tj
+T*
+(    grounding_exercise) Tj
+T*
+(    campus_navigation) Tj
+T*
+(    therapy_expectations) Tj
+T*
+(    peer_support) Tj
+T*
+(    emergency_services) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(If a chunk fits multiple topics, choose the most specific one.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(`audience`) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use one of:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    umd_student) Tj
+T*
+(    graduate_student) Tj
+T*
+(    student_general) Tj
+T*
+(    crisis_support) Tj
+T*
+(    supporter_or_friend) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(`risk_level`) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use one of:) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 1498 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+() Tj
+T*
+() Tj
+T*
+(    safe) Tj
+T*
+(    wellbeing) Tj
+T*
+(    crisis_resource) Tj
+T*
+(    exclude) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Meanings:) Tj
+T*
+() Tj
+T*
+(- `safe`: normal support/resource text.) Tj
+T*
+(- `wellbeing`: distress/help-seeking content, but not crisis.) Tj
+T*
+(- `crisis_resource`: crisis resource or urgent-support content.) Tj
+T*
+(- `exclude`: do not put this in the final retrieval corpus.) Tj
+T*
+() Tj
+T*
+(Prefer putting excluded content in `excluded_sources.csv` instead of) Tj
+T*
+(`resources_seed.jsonl`.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(`usage_mode`) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Use one of:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    retrieval) Tj
+T*
+(    wellbeing_only) Tj
+T*
+(    crisis_only) Tj
+T*
+(    metadata_only) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Meanings:) Tj
+T*
+() Tj
+T*
+(- `retrieval`: safe for normal RAG retrieval.) Tj
+T*
+(- `wellbeing_only`: use only when the user is distressed/help-seeking.) Tj
+T*
+(- `crisis_only`: use only when triage detects crisis or emergency.) Tj
+T*
+(- `metadata_only`: useful as source/contact metadata, not generation context.) Tj
+T*
+() Tj
+T*
+(Examples:) Tj
+T*
+() Tj
+T*
+(- UMD counseling overview: `retrieval`) Tj
+T*
+(- 988 immediate crisis guidance: `crisis_only`) Tj
+T*
+(- grounding exercise: `wellbeing_only`) Tj
+T*
+(- phone-number-only contact page: `metadata_only`) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(7. Chunking Rules) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Do not dump full webpages.) Tj
+T*
+() Tj
+T*
+(Each chunk should be:) Tj
+T*
+() Tj
+T*
+(- 80-250 words) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 1625 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+(- focused on one useful idea) Tj
+T*
+(- understandable without the full page) Tj
+T*
+(- source-cited with URL) Tj
+T*
+(- safe, factual, and student-appropriate) Tj
+T*
+() Tj
+T*
+(Remove:) Tj
+T*
+() Tj
+T*
+(- nav menus) Tj
+T*
+(- footers) Tj
+T*
+(- cookie banners) Tj
+T*
+(- sidebars) Tj
+T*
+(- repeated boilerplate) Tj
+T*
+(- irrelevant event calendars) Tj
+T*
+(- legal disclaimers with no support value) Tj
+T*
+(- raw HTML artifacts) Tj
+T*
+() Tj
+T*
+(If a useful page has 1,000 words, split it into 4-8 focused chunks.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(8. Safety Filtering) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Do not include content that:) Tj
+T*
+() Tj
+T*
+(- describes self-harm methods in detail) Tj
+T*
+(- gives instructions for suicide or self-harm) Tj
+T*
+(- includes graphic personal crisis stories) Tj
+T*
+(- makes diagnosis claims) Tj
+T*
+(- claims to replace therapy, counseling, or emergency care) Tj
+T*
+(- gives medication instructions) Tj
+T*
+(- sounds judgmental, stigmatizing, or moralizing) Tj
+T*
+(- is outdated, unofficial, or unsupported) Tj
+T*
+() Tj
+T*
+(For crisis resources, include only safe action-oriented guidance:) Tj
+T*
+() Tj
+T*
+(- call or text 988) Tj
+T*
+(- contact emergency services) Tj
+T*
+(- contact campus crisis or after-hours support) Tj
+T*
+(- seek immediate support) Tj
+T*
+(- stay with another person) Tj
+T*
+(- ask someone nearby for help) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(9. Recommended Corpus Size) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(First usable version:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    Minimum: 80 chunks) Tj
+T*
+(    Good target: 150-250 chunks) Tj
+T*
+(    Excellent first pass: 300-500 chunks) Tj
+T*
+() Tj
+T*
+() Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 1822 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+(Suggested distribution:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    UMD-specific resources: 40-80 chunks) Tj
+T*
+(    Crisis resources: 20-40 chunks) Tj
+T*
+(    Government/public health: 40-80 chunks) Tj
+T*
+(    Graduate/student academic support: 40-80 chunks) Tj
+T*
+(    Grounding/help-seeking snippets: 20-60 chunks) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(A clean 150-chunk corpus is better than a noisy 1,000-chunk scrape.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(10. Collection and Scraping Method) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Preferred workflow:) Tj
+T*
+() Tj
+T*
+(1. Manually collect official source URLs.) Tj
+T*
+(2. Record every reviewed URL in `source_inventory.csv`.) Tj
+T*
+(3. Use simple scraping only for public pages.) Tj
+T*
+(4. Save raw extracted text in `raw_pages/` when possible.) Tj
+T*
+(5. Manually clean and chunk the useful text.) Tj
+T*
+(6. Annotate every chunk with topic, audience, risk level, and usage mode.) Tj
+T*
+(7. Validate JSONL before handoff.) Tj
+T*
+() Tj
+T*
+(Recommended Python tools:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    requests) Tj
+T*
+(    beautifulsoup4) Tj
+T*
+(    trafilatura) Tj
+T*
+(    pandas) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Basic scraping example:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    import requests) Tj
+T*
+(    from bs4 import BeautifulSoup) Tj
+T*
+() Tj
+T*
+(    url = "https://example.edu/page") Tj
+T*
+(    html = requests.get\(url, timeout=20\).text) Tj
+T*
+(    soup = BeautifulSoup\(html, "html.parser"\)) Tj
+T*
+() Tj
+T*
+(    for tag in soup\(["script", "style", "nav", "footer", "header"]\):) Tj
+T*
+(        tag.decompose\(\)) Tj
+T*
+() Tj
+T*
+(    text = soup.get_text\("\\n"\)) Tj
+T*
+(    lines = [line.strip\(\) for line in text.splitlines\(\) if line.strip\(\)]) Tj
+T*
+(    clean_text = "\\n".join\(lines\)) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Do not trust scraper output directly. Every final chunk should be manually) Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 1478 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+(reviewed.) Tj
+T*
+() Tj
+T*
+(Respect:) Tj
+T*
+() Tj
+T*
+(- public pages only) Tj
+T*
+(- no login-gated content) Tj
+T*
+(- no private student information) Tj
+T*
+(- no heavy request volume) Tj
+T*
+(- robots/terms restrictions when applicable) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(11. Manual Annotation Process) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(For each chunk, answer:) Tj
+T*
+() Tj
+T*
+(1. What student problem does this help with?) Tj
+T*
+(2. Is this UMD-specific, general student support, or crisis support?) Tj
+T*
+(3. Is it safe for normal retrieval?) Tj
+T*
+(4. Should it appear only in wellbeing/crisis contexts?) Tj
+T*
+(5. Does it contain actionable resource/navigation information?) Tj
+T*
+(6. Is the URL official and useful?) Tj
+T*
+() Tj
+T*
+(Then fill:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    "topic": "...",) Tj
+T*
+(    "audience": "...",) Tj
+T*
+(    "risk_level": "...",) Tj
+T*
+(    "usage_mode": "...") Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(LLMs may help draft labels, but a human should approve every final row.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(12. Compatibility With EmpathRAG) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(EmpathRAG currently uses a FAISS index plus SQLite metadata.) Tj
+T*
+() Tj
+T*
+(The current v1 SQLite metadata roughly contains:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    id) Tj
+T*
+(    text) Tj
+T*
+(    emotion_label) Tj
+T*
+(    safety_score) Tj
+T*
+(    source) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(For v2, we will build a separate curated index from `resources_seed.jsonl`.) Tj
+T*
+() Tj
+T*
+(Field mapping:) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 16 0 R >>
+endobj
+18 0 obj
+<< /Length 1747 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+() Tj
+T*
+(    id -> metadata ID) Tj
+T*
+(    text -> embedded retrieval chunk) Tj
+T*
+(    source_name -> source display name) Tj
+T*
+(    url -> citation URL) Tj
+T*
+(    title -> citation title) Tj
+T*
+(    topic -> retrieval/evaluation filter) Tj
+T*
+(    risk_level -> safety filter) Tj
+T*
+(    usage_mode -> routing filter) Tj
+T*
+(    summary -> compact display/eval text) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Do not build FAISS unless asked. Deliver clean structured data; integration will) Tj
+T*
+(happen in EmpathRAG.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(13. Current Reddit Corpus Policy) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Do not mix Reddit into the curated corpus.) Tj
+T*
+() Tj
+T*
+(Current Reddit corpus role:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    research baseline) Tj
+T*
+(    ablation comparison) Tj
+T*
+(    emotion/retrieval experiment) Tj
+T*
+(    not primary student-facing support source) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(New curated corpus role:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    safer student-support retrieval) Tj
+T*
+(    MSML class demo) Tj
+T*
+(    future UMD counseling stakeholder discussion) Tj
+T*
+(    publication-oriented system improvement) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(If you find useful Reddit-like examples, save them separately only if needed for) Tj
+T*
+(future research evaluation. Do not include them in `resources_seed.jsonl`.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(14. Quality Checklist) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Before handoff, verify:) Tj
+T*
+() Tj
+T*
+(- [ ] Every JSONL line is valid JSON.) Tj
+T*
+(- [ ] Every row has a unique `id`.) Tj
+T*
+(- [ ] Every row has a matching `source_id` in `source_inventory.csv`.) Tj
+T*
+(- [ ] Every row has a working `url`.) Tj
+T*
+(- [ ] Every row has `source_name`.) Tj
+T*
+(- [ ] Every row has one allowed `source_type`.) Tj
+ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 18 0 R >>
+endobj
+20 0 obj
+<< /Length 2144 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+(- [ ] Every row has one allowed `topic`.) Tj
+T*
+(- [ ] Every row has one allowed `audience`.) Tj
+T*
+(- [ ] Every row has one allowed `risk_level`.) Tj
+T*
+(- [ ] Every row has one allowed `usage_mode`.) Tj
+T*
+(- [ ] Text chunks are usually 80-250 words.) Tj
+T*
+(- [ ] No nav/footer/cookie/sidebar junk remains.) Tj
+T*
+(- [ ] No Reddit/social media/random blog content appears.) Tj
+T*
+(- [ ] No graphic self-harm details appear.) Tj
+T*
+(- [ ] No diagnosis/treatment/medication instructions appear.) Tj
+T*
+(- [ ] Crisis resources are marked `crisis_resource` and `crisis_only`.) Tj
+T*
+(- [ ] UMD-specific resources are prioritized.) Tj
+T*
+(- [ ] `README_corpus_notes.md` is included.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(15. README Notes Template) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(In `README_corpus_notes.md`, include:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    Corpus creator:) Tj
+T*
+(    Date:) Tj
+T*
+(    Total sources reviewed:) Tj
+T*
+(    Total chunks included:) Tj
+T*
+(    Total chunks excluded:) Tj
+T*
+(    Main source domains:) Tj
+T*
+(    Known limitations:) Tj
+T*
+(    Sources needing review:) Tj
+T*
+(    Pages that were hard to scrape:) Tj
+T*
+(    Content you were unsure about:) Tj
+T*
+(    Suggested next sources:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(16. Good Example Row) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    {) Tj
+T*
+(      "id": "umd_counseling_services_001",) Tj
+T*
+(      "source_id": "src_001",) Tj
+T*
+(      "source_name": "UMD Counseling Center",) Tj
+T*
+(      "source_type": "university_resource",) Tj
+T*
+(      "title": "Counseling Services",) Tj
+T*
+(      "url": "https://counseling.umd.edu/",) Tj
+T*
+(      "topic": "counseling_services",) Tj
+T*
+(      "audience": "umd_student",) Tj
+T*
+(      "risk_level": "safe",) Tj
+T*
+(      "usage_mode": "retrieval",) Tj
+T*
+(      "text": "The University of Maryland Counseling Center provides support services for students ) Tj
+T*
+(      "summary": "Overview of UMD Counseling Center support services for student wellbeing.",) Tj
+T*
+(      "last_checked": "2026-04-27",) Tj
+T*
+(      "notes": "Useful for routing students toward official campus counseling support.") Tj
+T*
+(    }) Tj
+ET
+endstream
+endobj
+21 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 20 0 R >>
+endobj
+22 0 obj
+<< /Length 1567 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(17. Bad Example Row) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Do not include:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    {) Tj
+T*
+(      "text": "I saw someone on Reddit say they fixed depression by ignoring everyone and taking ra) Tj
+T*
+(    }) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Why this is bad:) Tj
+T*
+() Tj
+T*
+(- unofficial) Tj
+T*
+(- anecdotal) Tj
+T*
+(- potentially unsafe) Tj
+T*
+(- not student-resource grounded) Tj
+T*
+(- no source metadata) Tj
+T*
+(- not appropriate for mental-health support retrieval) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(18. Validation Commands) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(If using Python, validate JSONL with:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(    import json) Tj
+T*
+(    from pathlib import Path) Tj
+T*
+() Tj
+T*
+(    path = Path\("resources_seed.jsonl"\)) Tj
+T*
+(    seen = set\(\)) Tj
+T*
+() Tj
+T*
+(    for line_no, line in enumerate\(path.read_text\(encoding="utf-8"\).splitlines\(\), 1\):) Tj
+T*
+(        row = json.loads\(line\)) Tj
+T*
+(        assert row["id"] not in seen, f"duplicate id on line {line_no}") Tj
+T*
+(        seen.add\(row["id"]\)) Tj
+T*
+(        for field in [) Tj
+T*
+(            "id", "source_id", "source_name", "source_type", "title", "url",) Tj
+T*
+(            "topic", "audience", "risk_level", "usage_mode", "text",) Tj
+T*
+(            "summary", "last_checked", "notes") Tj
+T*
+(        ]:) Tj
+T*
+(            assert row.get\(field\), f"missing {field} on line {line_no}") Tj
+T*
+() Tj
+T*
+(    print\(f"Valid rows: {len\(seen\)}"\)) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(19. Final Handoff Standard) Tj
+T*
+() Tj
+T*
+() Tj
+ET
+endstream
+endobj
+23 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 22 0 R >>
+endobj
+24 0 obj
+<< /Length 662 >>
+stream
+BT
+/F1 10 Tf
+50 760 Td
+14 TL
+(The handoff is ready when:) Tj
+T*
+() Tj
+T*
+(- `resources_seed.jsonl` is valid JSONL.) Tj
+T*
+(- `source_inventory.csv` explains every source.) Tj
+T*
+(- UMD resources are clearly prioritized.) Tj
+T*
+(- Crisis resources are separated by `risk_level` and `usage_mode`.) Tj
+T*
+(- No unsafe or noisy web content is included.) Tj
+T*
+(- The data can be ingested without further scraping.) Tj
+T*
+() Tj
+T*
+(Once delivered, EmpathRAG can build:) Tj
+T*
+() Tj
+T*
+(- curated FAISS index) Tj
+T*
+(- curated SQLite metadata) Tj
+T*
+(- source-cited retrieval) Tj
+T*
+(- safer MSML class demo) Tj
+T*
+(- stronger research direction for publication) Tj
+ET
+endstream
+endobj
+25 0 obj
+<< /Type /Page /Parent 26 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 24 0 R >>
+endobj
+26 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R 19 0 R 21 0 R 23 0 R 25 0 R] /Count 12 >>
+endobj
+27 0 obj
+<< /Type /Catalog /Pages 26 0 R >>
+endobj
+xref
+0 28
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000002214 00000 n 
+0000002341 00000 n 
+0000004010 00000 n 
+0000004137 00000 n 
+0000005790 00000 n 
+0000005917 00000 n 
+0000007201 00000 n 
+0000007328 00000 n 
+0000008879 00000 n 
+0000009008 00000 n 
+0000010686 00000 n 
+0000010815 00000 n 
+0000012690 00000 n 
+0000012819 00000 n 
+0000014350 00000 n 
+0000014479 00000 n 
+0000016279 00000 n 
+0000016408 00000 n 
+0000018605 00000 n 
+0000018734 00000 n 
+0000020354 00000 n 
+0000020483 00000 n 
+0000021197 00000 n 
+0000021326 00000 n 
+0000021459 00000 n 
+trailer
+<< /Size 28 /Root 27 0 R >>
+startxref
+21510
+%%EOF

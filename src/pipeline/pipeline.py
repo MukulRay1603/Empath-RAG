@@ -20,6 +20,7 @@ VRAM sequencing on RTX 3060 6GB:
 import asyncio
 import sqlite3
 import time
+from pathlib import Path
 import torch
 import numpy as np
 import faiss
@@ -106,6 +107,9 @@ class EmpathRAGPipeline:
         guardrail_ckpt:  str = "models/safety_guardrail",
         faiss_index_path:str = "data/indexes/faiss_flat.index",
         db_path:         str = "data/indexes/metadata.db",
+        retrieval_corpus: str = "reddit_research",
+        curated_index_path: str = "data/curated/indexes/faiss_curated.index",
+        curated_db_path: str = "data/curated/indexes/metadata_curated.db",
         mistral_path:    str = "models/generator/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
         st_model:        str = "sentence-transformers/all-mpnet-base-v2",
         n_gpu_layers:    int = 28,
@@ -118,7 +122,11 @@ class EmpathRAGPipeline:
     ):
         self.top_k               = top_k
         self.guardrail_threshold = guardrail_threshold
-        self.db_path             = db_path
+        self.retrieval_corpus    = self._resolve_retrieval_corpus(
+            retrieval_corpus, curated_index_path, curated_db_path
+        )
+        self.faiss_index_path    = curated_index_path if self.retrieval_corpus == "curated_support" else faiss_index_path
+        self.db_path             = curated_db_path if self.retrieval_corpus == "curated_support" else db_path
         self.safety_policy       = SafetyTriagePolicy(
             support_threshold=guardrail_threshold
         )
@@ -170,7 +178,8 @@ class EmpathRAGPipeline:
         # Start on CPU — we move to GPU only during encode(), then back
 
         print("[EmpathRAG] Loading FAISS index...")
-        self.faiss_index = faiss.read_index(faiss_index_path)
+        self.faiss_index = faiss.read_index(self.faiss_index_path)
+        print(f"[EmpathRAG] Retrieval corpus: {self.retrieval_corpus}")
         print(f"[EmpathRAG] FAISS: {self.faiss_index.ntotal:,} vectors")
 
         print("[EmpathRAG] Loading Mistral 7B (GPU)...")
@@ -186,6 +195,20 @@ class EmpathRAGPipeline:
         self.tracker = SessionTracker(N=tracker_n)
         self.conv_history = []  # list of {"role": "user"|"assistant", "content": str}
         print("[EmpathRAG] Pipeline initialised. Ready for inference.")
+
+    def _resolve_retrieval_corpus(
+        self,
+        retrieval_corpus: str,
+        curated_index_path: str,
+        curated_db_path: str,
+    ) -> str:
+        allowed = {"reddit_research", "curated_support", "auto"}
+        if retrieval_corpus not in allowed:
+            raise ValueError(f"retrieval_corpus must be one of {sorted(allowed)}")
+        if retrieval_corpus == "auto":
+            curated_ready = Path(curated_index_path).exists() and Path(curated_db_path).exists()
+            return "curated_support" if curated_ready else "reddit_research"
+        return retrieval_corpus
 
     # ── Stage 1: Emotion classification ───────────────────────────────────────
 
@@ -203,10 +226,10 @@ class EmpathRAGPipeline:
 
     # ── Stage 4: FAISS retrieval ───────────────────────────────────────────────
 
-    def _retrieve(self, query: str, emotion_label: int) -> list[str]:
+    def _retrieve(self, query: str, emotion_label: int) -> list[dict]:
         """
         Encodes query on GPU, searches FAISS, filters via SQLite.
-        Returns top_k chunk texts ranked by emotion match + safety score.
+        Returns top_k chunk metadata dicts.
         GPU usage: ~440 MB during encode, freed before returning.
         """
         # Move encoder to GPU for this call only
@@ -229,6 +252,9 @@ class EmpathRAGPipeline:
         if not candidate_ids:
             return []
 
+        if self.retrieval_corpus == "curated_support":
+            return self._fetch_curated_rows(candidate_ids)
+
         # Fetch metadata from SQLite
         placeholders = ",".join("?" * len(candidate_ids))
         conn = sqlite3.connect(self.db_path)
@@ -246,7 +272,64 @@ class EmpathRAGPipeline:
             return match_bonus + safety
 
         rows_sorted = sorted(rows, key=_score, reverse=True)[: self.top_k]
-        return [r[1] for r in rows_sorted]
+        return [
+            {
+                "id": r[0],
+                "text": r[1],
+                "emotion_label": r[2],
+                "safety_score": r[3],
+                "source_name": "Reddit Mental Health",
+                "source_type": "research_corpus",
+                "title": "Reddit Mental Health chunk",
+                "url": "",
+                "topic": "",
+                "risk_level": "research_only",
+                "usage_mode": "retrieval",
+            }
+            for r in rows_sorted
+        ]
+
+    def _fetch_curated_rows(self, candidate_ids: list[int]) -> list[dict]:
+        placeholders = ",".join("?" * len(candidate_ids))
+        conn = sqlite3.connect(self.db_path)
+        rows = conn.execute(
+            f"""
+            SELECT id, resource_id, text, source_id, source_name, source_type,
+                   title, url, topic, audience, risk_level, usage_mode, summary,
+                   last_checked, notes
+            FROM chunks
+            WHERE id IN ({placeholders})
+            """,
+            candidate_ids,
+        ).fetchall()
+        conn.close()
+
+        by_id = {row[0]: row for row in rows}
+        ordered = [by_id[i] for i in candidate_ids if i in by_id]
+        filtered = [
+            row for row in ordered
+            if row[10] != "exclude" and row[11] != "metadata_only"
+        ][: self.top_k]
+        return [
+            {
+                "id": row[0],
+                "resource_id": row[1],
+                "text": row[2],
+                "source_id": row[3],
+                "source_name": row[4],
+                "source_type": row[5],
+                "title": row[6],
+                "url": row[7],
+                "topic": row[8],
+                "audience": row[9],
+                "risk_level": row[10],
+                "usage_mode": row[11],
+                "summary": row[12],
+                "last_checked": row[13],
+                "notes": row[14],
+            }
+            for row in filtered
+        ]
 
     # ── Stage 5: Generation ────────────────────────────────────────────────────
 
@@ -362,6 +445,8 @@ class EmpathRAGPipeline:
                 "safety_reason":     safety_decision.reason,
                 "ig_highlights":     ig_highlights,
                 "retrieved_chunks":  [],
+                "retrieved_sources": [],
+                "retrieval_corpus":   self.retrieval_corpus,
                 "latency_ms":        latency,
             }
 
@@ -372,7 +457,8 @@ class EmpathRAGPipeline:
 
         # ── Stage 4: Retrieval ─────────────────────────────────────────────────
         t0 = time.perf_counter()
-        chunks = self._retrieve(routed_query, emotion_label)
+        retrieved = self._retrieve(routed_query, emotion_label)
+        chunks = [row["text"] for row in retrieved]
         latency["retrieval_ms"] = round((time.perf_counter() - t0) * 1000)
 
         # ── Stage 5: Generation ────────────────────────────────────────────────
@@ -398,8 +484,23 @@ class EmpathRAGPipeline:
             "safety_reason":     safety_decision.reason,
             "ig_highlights":     [],
             "retrieved_chunks":  chunks,
+            "retrieved_sources": self._source_summaries(retrieved),
+            "retrieval_corpus":  self.retrieval_corpus,
             "latency_ms":        latency,
         }
+
+    def _source_summaries(self, retrieved: list[dict]) -> list[dict]:
+        return [
+            {
+                "title": row.get("title", ""),
+                "source_name": row.get("source_name", ""),
+                "url": row.get("url", ""),
+                "topic": row.get("topic", ""),
+                "risk_level": row.get("risk_level", ""),
+                "usage_mode": row.get("usage_mode", ""),
+            }
+            for row in retrieved
+        ]
 
     def reset_session(self):
         """Clear session emotion history and conversation history."""
