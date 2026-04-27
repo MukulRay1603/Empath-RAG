@@ -11,6 +11,7 @@ import json
 import uuid
 import datetime
 import os
+import threading
 from pipeline.pipeline import EmpathRAGPipeline
 
 # Constants
@@ -23,15 +24,14 @@ LABEL_COLORS = {
     "hopeful":     "#27ae60",
 }
 LOG_PATH = "eval/human_eval_log.jsonl"
+LOG_TURNS = os.getenv("EMPATHRAG_LOG_TURNS") == "1"
+SHARE_DEMO = os.getenv("EMPATHRAG_SHARE") == "1"
 
 # Initialize pipeline (runs once at module load)
 print("[Demo] Initialising EmpathRAG pipeline...")
 pipeline = EmpathRAGPipeline(use_real_guardrail=True, guardrail_threshold=0.5)
+pipeline_lock = threading.Lock()
 print("[Demo] Pipeline ready.")
-
-# Module-level state (not using gr.State)
-emotion_history = []
-session_id = ""
 
 
 def new_session_id() -> str:
@@ -39,12 +39,19 @@ def new_session_id() -> str:
     return uuid.uuid4().hex[:6].upper()
 
 
-# Initialize session ID
-session_id = new_session_id()
+def new_session_state() -> dict:
+    return {
+        "session_id": new_session_id(),
+        "emotion_history": [],
+        "tracker_history": [],
+        "conv_history": [],
+    }
 
 
 def log_turn(session_id, turn, user_message, result):
     """Append turn to human evaluation log (JSONL format)"""
+    if not LOG_TURNS:
+        return
     try:
         log_entry = {
             "session_id": session_id,
@@ -120,12 +127,16 @@ def format_ig_panel(is_crisis, confidence, ig_tokens, loading) -> str:
     return html
 
 
-def respond(message, chat_history):
+def respond(message, chat_history, session_state):
     """
     Generator function - yields UI state after each update.
     Yields tuple of 5 values: (chatbot, timeline_html, trajectory, crisis_html, session_id)
     """
-    global emotion_history, session_id
+    if not session_state:
+        session_state = new_session_state()
+
+    emotion_history = session_state["emotion_history"]
+    session_id = session_state["session_id"]
 
     # Validate input
     if not message.strip():
@@ -133,19 +144,28 @@ def respond(message, chat_history):
                format_emotion_timeline(emotion_history, pipeline.tracker.trajectory()),
                pipeline.tracker.trajectory(),
                format_ig_panel(False, 0.0, [], False),
-               session_id)
+               session_id,
+               session_state)
         return
 
-    # Fast first pass - skip IG computation
-    original_check = pipeline.guardrail.check
-    def fast_check(text, threshold=0.5, skip_ig=False):
-        return original_check(text, threshold=threshold, skip_ig=True)
-    pipeline.guardrail.check = fast_check
+    with pipeline_lock:
+        pipeline.tracker.reset()
+        for label in session_state.get("tracker_history", []):
+            pipeline.tracker.update(label, token_count=5)
+        pipeline.conv_history = list(session_state.get("conv_history", []))
 
-    result = pipeline.run(message)
+        # Fast first pass - skip IG computation
+        original_check = pipeline.guardrail.check
+        def fast_check(text, threshold=0.5, skip_ig=False):
+            return original_check(text, threshold=threshold, skip_ig=True)
+        pipeline.guardrail.check = fast_check
 
-    # Restore original guardrail check immediately
-    pipeline.guardrail.check = original_check
+        result = pipeline.run(message)
+
+        # Restore original guardrail check immediately
+        pipeline.guardrail.check = original_check
+        session_state["tracker_history"] = pipeline.tracker.history()
+        session_state["conv_history"] = list(pipeline.conv_history)
 
     # Update chat history
     chat_history.append((message, result["response"]))
@@ -169,42 +189,44 @@ def respond(message, chat_history):
                timeline_html,
                result["trajectory"],
                format_ig_panel(True, result["crisis_confidence"], [], loading=True),
-               session_id)
+               session_id,
+               session_state)
 
         # Compute real IG
-        _, confidence, ig_tokens = pipeline.guardrail.check(message, threshold=0.5, skip_ig=False)
+        with pipeline_lock:
+            _, confidence, ig_tokens = pipeline.guardrail.check(message, threshold=0.5, skip_ig=False)
 
         # Second yield: show full IG panel
         yield (chat_history,
                timeline_html,
                result["trajectory"],
                format_ig_panel(True, confidence, ig_tokens, loading=False),
-               session_id)
+               session_id,
+               session_state)
     else:
         # Single yield for non-crisis
         yield (chat_history,
                timeline_html,
                result["trajectory"],
                format_ig_panel(False, 0.0, [], False),
-               session_id)
+               session_id,
+               session_state)
 
 
 def reset_session_handler():
     """Reset session - returns 5 values matching respond() outputs"""
-    global emotion_history, session_id
-
-    emotion_history = []
-    pipeline.reset_session()
-    session_id = new_session_id()
+    session_state = new_session_state()
 
     placeholder_timeline = "<div style='color:#888;font-size:13px;padding:8px;'>No emotions detected yet.</div>"
     placeholder_crisis = "<div style='color:#888;font-size:13px;padding:8px;'>No crisis detected this session.</div>"
 
-    return ([], placeholder_timeline, "stable", placeholder_crisis, session_id)
+    return ([], placeholder_timeline, "stable", placeholder_crisis, session_state["session_id"], session_state)
 
 
 # Gradio UI
 with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
+    initial_state = new_session_state()
+    session_state = gr.State(value=initial_state)
     gr.Markdown("""
     # EmpathRAG - Empathetic Student Support
     Emotion-aware conversational support system for graduate students
@@ -213,7 +235,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
     session_id_box = gr.Textbox(
         label="Session ID (use this in the feedback form)",
         interactive=False,
-        value=session_id
+        value=initial_state["session_id"]
     )
 
     with gr.Row():
@@ -241,8 +263,8 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
     # Wire up interactions
     msg_box.submit(
         respond,
-        inputs=[msg_box, chatbot],
-        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box]
+        inputs=[msg_box, chatbot, session_state],
+        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box, session_state]
     ).then(
         lambda: "",
         outputs=msg_box
@@ -250,8 +272,8 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
 
     send_btn.click(
         respond,
-        inputs=[msg_box, chatbot],
-        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box]
+        inputs=[msg_box, chatbot, session_state],
+        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box, session_state]
     ).then(
         lambda: "",
         outputs=msg_box
@@ -259,10 +281,10 @@ with gr.Blocks(theme=gr.themes.Soft(), title="EmpathRAG Demo") as demo:
 
     reset_btn.click(
         reset_session_handler,
-        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box]
+        outputs=[chatbot, timeline_out, trajectory_out, crisis_out, session_id_box, session_state]
     )
 
 
 if __name__ == "__main__":
     os.makedirs("eval", exist_ok=True)
-    demo.launch(share=True)
+    demo.launch(share=SHARE_DEMO)

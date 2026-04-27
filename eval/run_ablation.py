@@ -183,7 +183,11 @@ def run_ablation_eval():
     # Compute Condition C: Dense RAG without emotion conditioning
     print("\nCondition C - Dense RAG without emotion conditioning")
     print("Initializing pipeline (use_real_guardrail=False)...")
-    pipeline = EmpathRAGPipeline(use_real_guardrail=False, guardrail_threshold=0.5)
+    pipeline = EmpathRAGPipeline(
+        use_real_guardrail=False,
+        allow_stub_guardrail=True,
+        guardrail_threshold=0.5,
+    )
 
     # Add Condition C methods
     print("Adding Condition C methods (no query rewriting, no emotion bonus)...")

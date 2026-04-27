@@ -31,6 +31,7 @@ from llama_cpp import Llama
 
 from .session_tracker import SessionTracker
 from .query_router import route_query, LABEL_NAMES
+from .safety_policy import SafetyLevel, SafetyTriagePolicy
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -112,11 +113,15 @@ class EmpathRAGPipeline:
         top_k:           int = 5,
         tracker_n:       int = 3,
         guardrail_threshold: float = 0.5,
-        use_real_guardrail:  bool  = False,
+        use_real_guardrail:  bool  = True,
+        allow_stub_guardrail: bool = False,
     ):
         self.top_k               = top_k
         self.guardrail_threshold = guardrail_threshold
         self.db_path             = db_path
+        self.safety_policy       = SafetyTriagePolicy(
+            support_threshold=guardrail_threshold
+        )
 
         print("[EmpathRAG] Loading emotion classifier (CPU)...")
         self.ec_tok   = AutoTokenizer.from_pretrained(ec_checkpoint)
@@ -139,10 +144,22 @@ class EmpathRAGPipeline:
                 self.guardrail = SafetyGuardrail()
                 print("[EmpathRAG] Real DeBERTa guardrail loaded (CPU).")
             except Exception as e:
+                if not allow_stub_guardrail:
+                    raise RuntimeError(
+                        "Real safety guardrail failed to load. EmpathRAG v2 fails "
+                        "closed by default; pass allow_stub_guardrail=True only for "
+                        "offline development or retrieval-only experiments."
+                    ) from e
                 print(f"[EmpathRAG] WARNING: Real guardrail failed to load ({e}). "
-                      f"Falling back to stub.")
+                      f"Falling back to stub because allow_stub_guardrail=True.")
                 self.guardrail = _GuardrailStub()
         else:
+            if not allow_stub_guardrail:
+                raise RuntimeError(
+                    "use_real_guardrail=False disables the crisis guardrail. Pass "
+                    "allow_stub_guardrail=True only for controlled development or "
+                    "component-level evaluation."
+                )
             self.guardrail = _GuardrailStub()
             print("[EmpathRAG] Guardrail stub active — swap to real once "
                   "models/safety_guardrail/ is populated.")
@@ -324,20 +341,25 @@ class EmpathRAGPipeline:
             user_message, threshold=self.guardrail_threshold
         )
         latency["guardrail_ms"] = round((time.perf_counter() - t0) * 1000)
+        safety_decision = self.safety_policy.classify(
+            user_message, confidence=confidence, model_flag=is_crisis
+        )
 
         # Update session tracker (skip very short filler messages)
         self.tracker.update(emotion_label, token_count)
         trajectory = self.tracker.trajectory()
 
         # ── Guardrail intercept: terminate pipeline, return safe response ──────
-        if is_crisis:
+        if safety_decision.should_intercept:
             return {
-                "response":          SAFE_RESPONSE,
+                "response":          safety_decision.response or SAFE_RESPONSE,
                 "emotion":           emotion_label,
                 "emotion_name":      LABEL_NAMES[emotion_label],
                 "trajectory":        trajectory,
-                "crisis":            True,
+                "crisis":            safety_decision.level in {SafetyLevel.CRISIS, SafetyLevel.EMERGENCY},
                 "crisis_confidence": confidence,
+                "safety_level":      safety_decision.level.value,
+                "safety_reason":     safety_decision.reason,
                 "ig_highlights":     ig_highlights,
                 "retrieved_chunks":  [],
                 "latency_ms":        latency,
@@ -372,6 +394,8 @@ class EmpathRAGPipeline:
             "trajectory":        trajectory,
             "crisis":            False,
             "crisis_confidence": 0.0,
+            "safety_level":      safety_decision.level.value,
+            "safety_reason":     safety_decision.reason,
             "ig_highlights":     [],
             "retrieved_chunks":  chunks,
             "latency_ms":        latency,

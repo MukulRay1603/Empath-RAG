@@ -107,7 +107,11 @@ def run_faithfulness_eval():
         prompts = json.load(f)
 
     print("Initialising pipeline (use_real_guardrail=False for speed)...")
-    pipeline = EmpathRAGPipeline(use_real_guardrail=False, guardrail_threshold=0.5)
+    pipeline = EmpathRAGPipeline(
+        use_real_guardrail=False,
+        allow_stub_guardrail=True,
+        guardrail_threshold=0.5,
+    )
 
     # Monkey-patch guardrail to skip IG (no-op since stub is active, but kept for
     # consistency with other eval scripts in case real guardrail is swapped in)

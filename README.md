@@ -215,6 +215,16 @@ Mistral 7B GGUF → download `mistral-7b-instruct-v0.2.Q4_K_M.gguf` from [TheBlo
 
 ---
 
+## v2 Safety Direction
+
+EmpathRAG v2 is being hardened as a mental-health-adjacent research system, not
+a production counseling replacement. The v2 plan prioritizes fail-closed safety
+loading, multi-level triage, private-by-default demo behavior, curated resource
+retrieval, and stronger safety evaluation. See
+[`docs/V2_SAFETY_AND_DATASET_PLAN.md`](docs/V2_SAFETY_AND_DATASET_PLAN.md).
+
+---
+
 ## License
 
 MIT License — see [`LICENSE`](LICENSE) for details.
