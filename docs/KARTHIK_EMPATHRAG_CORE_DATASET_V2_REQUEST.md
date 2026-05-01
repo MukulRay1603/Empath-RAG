@@ -8,6 +8,15 @@ Please create a new folder:
 empathrag_core_dataset_v2/
 ```
 
+Target deadline: **end of Day 5 of the current sprint**. This dataset is now on the critical path for training and evaluating the stronger route classifier. If the full set is not ready by then, please send a smaller but clean partial delivery rather than waiting.
+
+Before dataset work, if you are running the repo locally:
+
+- Pull the latest `codex/v2.5-support-navigator` branch.
+- Verify tokenizer/model dependencies.
+- Install `protobuf` if tokenizer loading complains about it.
+- Verify `src/models/guardrail_ig.py` can run locally, or note the exact error in `README_dataset_notes.md`.
+
 ## Required Files
 
 ```text
@@ -105,7 +114,7 @@ Rules:
 
 ## 2. `multi_turn_scenarios.jsonl`
 
-Target size: **50 scenarios**, each 3-6 turns.
+Target size: **30 scenarios minimum**, target **50 scenarios**, each 3-6 turns.
 
 Schema:
 
@@ -139,6 +148,9 @@ Include:
 - advisor conflict
 - low mood without immediate risk
 - explicit imminent safety
+- peer-helper/friend safety escalation
+- sycophancy traps
+- help-rejection and secrecy requests
 
 ## 3. `source_target_map.csv`
 
@@ -242,3 +254,14 @@ Before sending back:
 - Crisis examples are safe but still labelable.
 - `split` is populated for every single-turn row.
 - Sources are official or clearly marked as unknown/needs review.
+
+## Fallback Delivery
+
+If the full 300-500 row dataset cannot be finished by the deadline, send:
+
+- at least 150 well-labeled single-turn prompts
+- at least 15 multi-turn scenarios
+- complete route/tier/intercept/source labels
+- a note explaining what remains incomplete
+
+This fallback is still useful for a small-N route classifier and a class presentation ablation.

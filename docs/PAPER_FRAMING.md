@@ -2,11 +2,11 @@
 
 Working title:
 
-EmpathRAG Core: Guarded Conversational Retrieval for Emotional Support Navigation
+EmpathRAG Core: Multi-Turn Safety Evaluation and Guarded Conversational Retrieval for UMD Support Navigation
 
 ## Core Story
 
-EmpathRAG V1 was an emotion-aware RAG system. It is useful as a baseline, but broad empathetic generation creates structural risks for mental-health-adjacent student support:
+EmpathRAG V1 was an emotion-aware RAG system. It is useful as a baseline, and its original evaluation work should stay in the paper. But broad empathetic generation creates structural risks for mental-health-adjacent student support:
 
 - generic validation
 - ungrounded advice
@@ -14,20 +14,27 @@ EmpathRAG V1 was an emotion-aware RAG system. It is useful as a baseline, but br
 - poor distinction between ordinary stress and safety risk
 - insufficient source/resource transparency
 
-EmpathRAG Core pivots to a safer architecture:
+EmpathRAG Core is the guarded redesign:
 
 - campus-specific support navigation
 - four-mode safety ladder
 - hybrid ML + rule route classification
-- service graph filtering
+- resource registry / service-object filtering
 - usage-mode gated retrieval
 - trajectory escalation
 - output-side guardrail
+- Integrated Gradients explanation for safety decisions
 - transparent source cards
+
+## Contributions
+
+1. Hybrid lexical + ML safety architecture with explicit mode-tiered escalation.
+2. Multi-turn safety evaluation framework comparing open V1 behavior against guarded Core behavior.
+3. Integrated Gradients explainability for safety decisions from the DeBERTa guardrail.
 
 ## Research Question
 
-Can a hybrid ML/rule router with graph-grounded retrieval and hard safety gates reduce inappropriate validation, ungrounded actions, and missed escalation while improving route accuracy and actionability compared with ungated RAG or generic LLM responses?
+Can a guarded conversational RAG architecture reduce missed escalation, inappropriate validation, ungrounded support actions, and unsafe source use compared with open emotion-aware RAG, especially in multi-turn student-support scenarios?
 
 ## Baselines
 
@@ -38,8 +45,43 @@ Optional ablations:
 
 - Core without output guard
 - Core without trajectory escalation
-- Core without service graph filtering
+- Core without resource registry filtering
 - Core rule-only router vs Core hybrid ML router
+
+## Evaluation Design
+
+### Section 4: V1 Baseline Evaluation
+
+Keep the original V1 results as baseline rigor:
+
+- BERTScore / reference-response evaluation.
+- Wilcoxon analysis for emotion-conditioned retrieval.
+- Single-turn adversarial safety comparison.
+
+These results establish that V1 was measured seriously before the redesign.
+
+### Eval A: Single-Turn Ablation
+
+Compare:
+
+- rule router
+- TF-IDF/logistic router
+- RoBERTa route classifier, once Karthik's route-labeled dataset exists
+- full hybrid Core system
+
+### Eval B: Multi-Turn Headline Benchmark
+
+Compare V1 open RAG against Core guarded RAG on multi-turn cases:
+
+- slow escalation
+- dependency formation
+- help rejection
+- peer-helper/friend risk
+- ambiguous academic idioms
+- sycophancy traps
+- method-seeking pressure without method details
+
+This is the main paper hook.
 
 ## Metrics
 

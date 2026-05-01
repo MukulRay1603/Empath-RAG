@@ -1,19 +1,21 @@
 # EmpathRAG Current Status Audit
 
-Date: 2026-04-30  
-Branch: `codex-v2-safety-hardening`  
+Date: 2026-05-01  
+Branch: `codex/v2.5-support-navigator`  
 Audience: project team, research planning, MSML demo planning  
-Status: active V2 prototype work in progress
+Status: EmpathRAG Core consolidation in progress
 
 ## 1. One-Line Summary
 
-EmpathRAG is a safety-aware student-support retrieval prototype for UMD-style mental health and campus support help seeking. The current V2 direction is not to act as a therapist, diagnostician, or emergency service; it should route student concerns to appropriate support paths, show grounded sources, and fail closed when safety risk appears.
+EmpathRAG Core is a guarded conversational RAG system for UMD-style support navigation. It is not a therapist, diagnostician, counselor, crisis-prevention system, or emergency service; it should route student concerns to appropriate support paths, show grounded sources, and fail closed when safety risk appears.
+
+The current research hook is not "we made a chatbot." The hook is: V1 open empathetic RAG is evaluated as a baseline, its multi-turn safety failure modes motivate the redesign, and Core is evaluated as a guarded alternative.
 
 ## 2. Overall Idea
 
 The original idea was a mental-health-adjacent RAG system that can respond empathetically to student distress while grounding its answers in relevant resources.
 
-The refined V2 idea is more precise:
+The refined Core idea is more precise:
 
 - Detect the type of student-support need.
 - Detect whether the message is ordinary support, wellbeing/grounding, crisis, or emergency.
@@ -22,7 +24,22 @@ The refined V2 idea is more precise:
 - Show the user why the system retrieved each source.
 - Avoid pretending to provide therapy, diagnosis, crisis counseling, or clinical authority.
 
-This framing is much stronger for class presentation and research because it turns the project from a generic chatbot into a safety-aware support router.
+This framing is much stronger for class presentation and research because it turns the project from a generic chatbot into a safety-aware, source-grounded support navigator.
+
+## 2A. Merged Reviewer Consensus
+
+Keep these decisions locked:
+
+- One active product direction: EmpathRAG Core.
+- V1/V2/V2.5 remain checkpoints and baselines, not separate products.
+- UMD specificity remains the main demo moat.
+- Use synthetic labeled data only for route/safety training and evaluation.
+- Do not scrape Reddit, TikTok, Discord, private chats, or real student stories for the new dataset.
+- Keep V1 BERTScore/Wilcoxon/adversarial work as baseline evaluation.
+- Make multi-turn V1 vs Core safety evaluation the headline result.
+- Keep Integrated Gradients explainability as a named contribution.
+- Use "resource registry" or "service objects" in papers/presentations, not "service graph" unless graph edges/traversal are added.
+- Keep the TF-IDF/logistic router as a fast scaffold and baseline; train a RoBERTa route classifier only after Karthik delivers labeled route data.
 
 ## 3. What We Have Right Now
 
