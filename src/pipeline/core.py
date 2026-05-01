@@ -432,6 +432,10 @@ def _dedupe_sources(rows: list[dict]) -> list[dict]:
 
 
 def _recommended_action(route: str, safety_tier: str) -> str:
+    if safety_tier == SafetyTier.IMMINENT_SAFETY.value:
+        if route == SupportRoute.PEER_HELPER.value:
+            return "Do not handle this alone; contact emergency or crisis support now and involve a trusted nearby person."
+        return "Contact 988 or emergency services now, and move near another person if you can."
     plan = build_response_plan("", route, safety_tier, [], "student")
     return plan.recommended_action
 

@@ -48,6 +48,15 @@ Optional ablations:
 - Core without resource registry filtering
 - Core rule-only router vs Core hybrid ML router
 
+## Future Work Boundary
+
+NLI-style output groundedness is intentionally cut from the 10-day class sprint.
+The current output guard is rule-based and checks missing action, pure
+validation, dependency language, harmful agreement, and unsupported resource
+claims. A later research version can add NLI between response claims and the
+top retrieved service objects, but the live demo should not depend on loading a
+heavy NLI model.
+
 ## Evaluation Design
 
 ### Section 4: V1 Baseline Evaluation

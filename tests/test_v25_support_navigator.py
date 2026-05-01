@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import importlib.util
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -12,6 +13,15 @@ from pipeline.service_graph import match_services
 from pipeline.session_tracker import SessionTracker
 from pipeline.v2_schema import SafetyTier, SupportRoute, classify_route
 import app
+
+_INGEST_SPEC = importlib.util.spec_from_file_location(
+    "ingest_core_dataset_v2",
+    ROOT / "eval" / "ingest_core_dataset_v2.py",
+)
+assert _INGEST_SPEC and _INGEST_SPEC.loader
+_INGEST_MODULE = importlib.util.module_from_spec(_INGEST_SPEC)
+_INGEST_SPEC.loader.exec_module(_INGEST_MODULE)
+validate_delivery = _INGEST_MODULE.validate_delivery
 
 
 def make_fast_pipeline():
@@ -41,8 +51,13 @@ def test_advisor_conflict_does_not_over_escalate():
 def test_basic_needs_route_uses_available_graph_without_hallucinating_pantries():
     result = make_fast_pipeline().run("I have not eaten today because I am out of money")
     assert result["route_label"] == SupportRoute.BASIC_NEEDS.value
-    assert "not invent Pantry" in result["response"]
-    assert any("Dean of Students" in source["source_name"] for source in result["retrieved_sources"])
+    assert "Recommended next action" in result["response"]
+    assert any(
+        "Dean of Students" in source["source_name"]
+        or "Campus Pantry" in source["source_name"]
+        or "Thrive" in source["source_name"]
+        for source in result["retrieved_sources"]
+    )
 
 
 def test_imminent_safety_blocks_normal_generation():
@@ -192,3 +207,11 @@ def test_core_out_of_scope_avoids_support_source_retrieval():
     assert result.should_intercept is False
     assert result.retrieved_sources == []
     assert "outside the system scope" in result.response
+
+
+def test_core_dataset_v2_ingest_fixture_validates():
+    report = validate_delivery(ROOT / "eval" / "fixtures" / "core_dataset_v2_sample")
+    assert report["status"] in {"pass", "pass_with_warnings"}
+    assert report["counts"]["single_turn_rows"] == 2
+    assert report["counts"]["multi_turn_scenarios"] == 1
+    assert not report["errors"]

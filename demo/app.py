@@ -602,6 +602,20 @@ button.secondary {
   line-height: 1.35;
   margin-top: 4px;
 }
+.er-meter {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.88);
+  border: 1px solid rgba(148,219,233,0.12);
+  overflow: hidden;
+  margin-top: 7px;
+}
+.er-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #14b8a6, #22d3ee);
+  box-shadow: 0 0 18px rgba(34,211,238,0.30);
+}
 .er-decision-step.ok {
   border-color: rgba(45,212,191,0.34);
 }
@@ -617,6 +631,41 @@ button.secondary {
   color: #a7fff1;
   font-size: 11px;
   line-height: 1.35;
+}
+.er-demo-arc {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+.er-demo-card {
+  border: 1px solid rgba(148,219,233,0.16);
+  border-radius: 14px;
+  padding: 10px;
+  min-height: 78px;
+  background:
+    linear-gradient(145deg, rgba(45,212,191,0.08), rgba(3,7,18,0.52));
+}
+.er-demo-card span {
+  display: block;
+  color: #99f6e4;
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.er-demo-card strong {
+  display: block;
+  color: var(--er-ink);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.er-demo-card small {
+  display: block;
+  color: var(--er-muted);
+  font-size: 11px;
+  line-height: 1.25;
+  margin-top: 4px;
 }
 .footer, .built-with, .api-docs, footer {
   display: none !important;
@@ -635,6 +684,9 @@ button.secondary {
     grid-template-columns: 1fr 1fr;
   }
   .er-live-rail {
+    grid-template-columns: 1fr;
+  }
+  .er-demo-arc {
     grid-template-columns: 1fr;
   }
 }
@@ -1392,15 +1444,20 @@ def format_decision_trace(result=None) -> str:
     source_count = len(result.get("retrieved_sources", []) or [])
     stop_class = "stop" if should_intercept else "ok"
     guard_class = "warn" if guard_flags else "ok"
+    latency = result.get("latency_ms", {}) or {}
+    total_latency = float(latency.get("total_ms", 0.0) or 0.0)
+    route_width = max(4, min(100, int(route_conf * 100)))
+    tier_width = max(4, min(100, int(tier_conf * 100)))
 
     return (
         "<div class='er-card'>"
         "<div class='er-mini-title'>Core Decision Trace</div>"
         "<div class='er-decision-grid'>"
         f"<div class='er-decision-step {stop_class}'><span>1. Stage-1 Safety</span><strong>{precheck_level}</strong><small>{precheck_reason}</small></div>"
-        f"<div class='er-decision-step ok'><span>2. Route / Tier</span><strong>{route_label} / {safety_tier}</strong><small>{classifier_kind}: {route_conf:.2f}/{tier_conf:.2f}</small></div>"
+        f"<div class='er-decision-step ok'><span>2. Route / Tier</span><strong>{route_label} / {safety_tier}</strong><small>{classifier_kind}: route {route_conf:.2f}, tier {tier_conf:.2f}</small><div class='er-meter'><div class='er-meter-fill' style='width:{route_width}%'></div></div><div class='er-meter'><div class='er-meter-fill' style='width:{tier_width}%'></div></div></div>"
         f"<div class='er-decision-step ok'><span>3. Resource Registry</span><strong>{source_count} source cards</strong><small>{retrieval_mode}</small></div>"
         f"<div class='er-decision-step {guard_class}'><span>4. Output Guard</span><strong>{guard_reason}</strong><small>{', '.join(map(str, guard_flags)) if guard_flags else 'no blocking flags'}</small></div>"
+        f"<div class='er-decision-step ok'><span>5. Latency</span><strong>{total_latency:.1f} ms</strong><small>fast deterministic demo path</small></div>"
         "</div>"
         f"<div class='er-action-card'><span>Recommended next action</span><strong>{recommended_action or 'Waiting for route decision.'}</strong></div>"
         "</div>"
@@ -1707,6 +1764,17 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
                 else "Full local model stack is active; first response may prewarm models."
             )
             gr.HTML(f"<div class='er-terminal-note'>{escape(note)}</div>")
+            gr.HTML(
+                """
+                <div class="er-demo-arc">
+                  <div class="er-demo-card"><span>1</span><strong>Useful</strong><small>Academic setback to next action</small></div>
+                  <div class="er-demo-card"><span>2</span><strong>Trajectory</strong><small>Multi-turn escalation visibility</small></div>
+                  <div class="er-demo-card"><span>3</span><strong>Peer helper</strong><small>Friend-risk handoff path</small></div>
+                  <div class="er-demo-card"><span>4</span><strong>Scope</strong><small>No legal/medical pretending</small></div>
+                  <div class="er-demo-card"><span>5</span><strong>False positives</strong><small>Academic idioms stay academic</small></div>
+                </div>
+                """
+            )
             with gr.Row(elem_classes=["er-prompt-row"]):
                 prompt_counseling = gr.Button("Start counseling")
                 prompt_ads = gr.Button("ADS accommodations")

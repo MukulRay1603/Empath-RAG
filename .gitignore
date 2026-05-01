@@ -76,6 +76,12 @@ eval/empathrag_core_supervised.csv
 eval/router_eval_results.json
 eval/core_eval_results.json
 eval/core_eval_summary.md
+eval/core_dataset_v2_ingest_report.json
+eval/core_dataset_v2_ingest_report.md
+eval/core_dataset_v2_ingest_report.sample.json
+eval/core_dataset_v2_ingest_report.sample.md
+eval/empathrag_core_supervised.sample.csv
+eval/multiturn_scenarios.sample.jsonl
 eval/eval_b_multiturn_summary.md
 pytest-cache-files-*/
 

@@ -27,17 +27,18 @@ Supporting engineering contributions:
 - [x] Preserve curated UMD corpus and source metadata.
 - [x] Add profile path scaffold under `data/profiles/umd/`.
 - [x] Use consistent wording in paper/demo docs: "resource registry", "service objects", or "service-tagged resource schema".
-- [ ] Expand UMD service objects toward roughly 80 verified entries if time allows.
+- [x] Expand UMD service objects with the first high-value verified UMD registry pass.
+- [ ] Continue toward roughly 80 verified entries if time allows.
 - [ ] Add/verify UMD-specific high-value resources:
-  - [ ] Counseling Center
-  - [ ] After-hours crisis support
-  - [ ] ADS
-  - [ ] Graduate Ombuds
+  - [x] Counseling Center
+  - [x] After-hours crisis support
+  - [x] ADS
+  - [x] Graduate Ombuds
   - [ ] Graduate School support
-  - [ ] Campus Pantry / basic-needs support if verified
-  - [ ] CARE to Stop Violence if verified
-  - [ ] MHEART if verified
-- [ ] Use `unknown` for missing hours/location/contact; never invent details.
+  - [x] Campus Pantry / basic-needs support if verified
+  - [x] CARE to Stop Violence if verified
+  - [x] MHEART if verified
+- [x] Use `unknown` for missing hours/location/contact; never invent details.
 
 ## Phase 2: Core Pipeline
 
@@ -69,10 +70,9 @@ Router ablation plan:
 - [x] Deterministic crisis/imminent response path.
 - [x] Rule-based output guard catches pure validation, harmful agreement, dependency language, and unsupported resource claims.
 - [x] Add explicit `out_of_scope` handling in response planner and UI.
-- [ ] Decide by Day 4 whether NLI-style groundedness is included in this sprint or cut from this sprint.
-- [ ] If included, add NLI-style groundedness check for response claims against top retrieved service objects by Day 6.
-- [ ] If not included, document it as future work and do not claim it in current results.
-- [ ] Ensure crisis/imminent prompts never enter normal generation.
+- [x] Cut NLI-style groundedness from this sprint; keep it as future work.
+- [ ] Document NLI groundedness as future work in paper-facing docs.
+- [x] Ensure crisis/imminent prompts never enter normal generation.
 
 ## Phase 4: Response Layer And Demo
 
@@ -88,6 +88,7 @@ Router ablation plan:
   - do not handle immediate safety alone
 - [ ] Polish 5-6 scripted demo prompts.
 - [ ] Keep demo framed as support navigation, not clinical help.
+- [ ] Run and screenshot scripted peer-helper, out-of-scope, academic setback, slow escalation, and idiom prompts.
 
 ## Eval A: Single-Turn Ablation
 
@@ -198,6 +199,8 @@ Blocking deliverables:
 - [ ] `risky_ambiguous_cases.csv`.
 - [ ] `resource_profile_additions.csv`.
 - [ ] `README_dataset_notes.md`.
+- [x] Add local dataset V2 ingest/validation pipeline so the delivery can be integrated quickly.
+- [x] Add fixture smoke test for the dataset V2 ingest contract.
 
 Setup/verification tasks for Karthik if he runs the repo locally:
 
@@ -225,9 +228,11 @@ Fallback if dataset slips:
 
 ## Immediate Next Build Tasks
 
-- [ ] Update docs to consistently use EmpathRAG Core and resource registry wording.
-- [ ] Add explicit Stage-1 lexical safety precheck metadata to Core output.
-- [ ] Add optional DeBERTa + IG hook to Core, disabled or skipped for fast demo when needed.
-- [ ] Improve peer-helper UI and tests.
+- [x] Update docs to consistently use EmpathRAG Core and resource registry wording.
+- [x] Add explicit Stage-1 lexical safety precheck metadata to Core output.
+- [x] Add optional DeBERTa + IG hook to Core, disabled or skipped for fast demo when needed.
+- [x] Improve peer-helper UI and tests.
 - [x] Split eval reports into Eval A and Eval B summaries.
+- [x] Add Karthik dataset intake pipeline and smoke fixture.
+- [x] Add first verified UMD resource registry expansion.
 - [ ] Keep demo polished and deterministic for the class presentation.

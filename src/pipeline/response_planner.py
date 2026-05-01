@@ -81,7 +81,7 @@ def build_response_plan(
             "Food, housing, or money stress can make everything else harder very quickly.",
             "This is a support-navigation problem, not a personal failure.",
             "Contact a campus student-support office and state the concrete need for today.",
-            f"Use {source_label}; I will not invent Pantry, Thrive, hours, or eligibility details unless they are in the verified source metadata.",
+            f"Use {source_label}; rely on the source card for verified contact, hours, and eligibility details.",
             "If your safety or shelter is immediately at risk, use emergency or crisis support instead of waiting.",
             "Is the most urgent need food, housing, money, or a campus contact?",
         )
