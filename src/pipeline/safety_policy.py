@@ -68,6 +68,7 @@ class SafetyTriagePolicy:
         normalized = _normalize(text)
         explicit = _matches_any(normalized, EXPLICIT_CRISIS_PATTERNS)
         imminent = _matches_any(normalized, IMMINENT_RISK_PATTERNS)
+        ambiguous_metaphor = _matches_any(normalized, AMBIGUOUS_METAPHOR_PATTERNS)
         academic_idiom = _matches_any(normalized, ACADEMIC_IDIOM_PATTERNS)
 
         if imminent:
@@ -77,6 +78,14 @@ class SafetyTriagePolicy:
                 reason="imminent_or_attempt_language",
                 should_intercept=True,
                 response=EMERGENCY_RESPONSE,
+            )
+
+        if explicit and ambiguous_metaphor:
+            return SafetyDecision(
+                level=SafetyLevel.WELLBEING_SUPPORT,
+                confidence=confidence,
+                reason="explicit_keyword_with_metaphor_qualifier",
+                should_intercept=False,
             )
 
         if explicit:
@@ -129,18 +138,24 @@ EXPLICIT_CRISIS_PATTERNS = tuple(
         r"\bend my life\b",
         r"\bcommit suicide\b",
         r"\bsuicidal\b",
+        r"\bsuicide plan\b",
         r"\bwant to die\b",
         r"\bdon'?t want to be alive\b",
         r"\bhurt myself\b",
+        r"\bhurt themselves\b",
+        r"\bharming themselves\b",
         r"\bself[- ]?harm\b",
         r"\bbetter off without me\b",
         r"\bnot be here anymore\b",
         r"\bnot existing\b",
         r"\bceas(e|ing) to exist\b",
+        r"\bdisappeared forever\b",
         r"\bthe pain to stop\b",
         r"\bgoodbye (letters|notes)\b",
+        r"\bgoodbye messages\b",
         r"\bending things\b",
         r"\bending it all\b",
+        r"\bpainless ways to disappear\b",
     )
 )
 
@@ -149,15 +164,32 @@ IMMINENT_RISK_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (
         r"\btonight\b.*\b(end|die|suicide|plan|goodbye)\b",
+        r"\b(hurt|harm)(ing)? themselves\b.*\b(tonight|tomorrow|soon)\b",
         r"\b(plan|method|methods)\b.*\b(kill myself|suicide|use them|do it)\b",
+        r"\bsuicide plan\b.*\btonight\b",
         r"\bsit with a plan\b",
         r"\bstay safe tonight\b",
+        r"\bkeep myself safe\b",
         r"\b(can'?t|cannot|don'?t think i can)\s+stay safe\b",
+        r"\bnot safe alone\b",
+        r"\bmight act on urges\b",
         r"\bdone anything drastic\b",
+        r"\bharmed myself badly\b",
+        r"\bhurting myself right now\b",
         r"\b(took|taken).*\b(pills|overdose)\b",
         r"\boverdose\b",
         r"\bsaid my goodbyes\b",
         r"\bwon'?t have to feel this anymore\b",
+        r"\bhow high a bridge needs to be\b",
+    )
+)
+
+AMBIGUOUS_METAPHOR_PATTERNS = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"\bmetaphorically\b",
+        r"\bfigure of speech\b",
+        r"\bnot literally\b",
     )
 )
 
