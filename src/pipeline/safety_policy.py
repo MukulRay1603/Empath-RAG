@@ -151,6 +151,8 @@ IMMINENT_RISK_PATTERNS = tuple(
         r"\btonight\b.*\b(end|die|suicide|plan|goodbye)\b",
         r"\b(plan|method|methods)\b.*\b(kill myself|suicide|use them|do it)\b",
         r"\bsit with a plan\b",
+        r"\bstay safe tonight\b",
+        r"\b(can'?t|cannot|don'?t think i can)\s+stay safe\b",
         r"\bdone anything drastic\b",
         r"\b(took|taken).*\b(pills|overdose)\b",
         r"\boverdose\b",

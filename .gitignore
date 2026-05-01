@@ -64,6 +64,7 @@ data/processed/
 data/curated/resources_seed.jsonl
 data/curated/source_inventory.csv
 data/curated/excluded_sources.csv
+data/curated/README_corpus_notes.md
 data/curated/raw_pages/
 data/curated/indexes/
 eval/ragas_results.json
