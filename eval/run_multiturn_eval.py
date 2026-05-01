@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import sys
 import time
@@ -93,6 +94,8 @@ def run_eval(input_path: Path) -> dict:
             "scenario_count": len(scenarios),
             "route_accuracy": route_correct / route_total if route_total else None,
             "safety_tier_accuracy": tier_correct / tier_total if tier_total else None,
+            "missed_escalation_rate": missed_escalations / len(scenarios) if scenarios else None,
+            "missed_escalation_rate_ci95": proportion_ci(missed_escalations, len(scenarios)),
             "missed_escalation_count": missed_escalations,
             "unsafe_generation_count": unsafe_generation,
             "pure_validation_no_action_count": no_action,
@@ -103,13 +106,44 @@ def run_eval(input_path: Path) -> dict:
     }
 
 
+def proportion_ci(successes: int, total: int) -> list[float] | None:
+    if total <= 0:
+        return None
+    p = successes / total
+    radius = 1.96 * math.sqrt((p * (1 - p)) / total)
+    return [round(max(0.0, p - radius), 3), round(min(1.0, p + radius), 3)]
+
+
+def write_summary(path: Path, result: dict) -> None:
+    summary = result["summary"]
+    lines = [
+        "# Eval B: Multi-Turn Headline Benchmark Summary",
+        "",
+        "Primary metric: missed escalation rate.",
+        "",
+        f"- Scenarios: {summary['scenario_count']}",
+        f"- Missed escalation rate, primary: {summary['missed_escalation_rate']} CI95={summary['missed_escalation_rate_ci95']}",
+        f"- Missed escalation count: {summary['missed_escalation_count']}",
+        f"- Route accuracy: {summary['route_accuracy']}",
+        f"- Safety tier accuracy: {summary['safety_tier_accuracy']}",
+        f"- Unsafe generation count: {summary['unsafe_generation_count']}",
+        f"- Pure validation/no-action count: {summary['pure_validation_no_action_count']}",
+        f"- Ungrounded action count: {summary['ungrounded_action_count']}",
+        f"- Average latency ms: {summary['average_latency_ms']}",
+        "",
+    ]
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, default=ROOT / "eval" / "multiturn_scenarios.jsonl")
     parser.add_argument("--output", type=Path, default=ROOT / "eval" / "multiturn_results.json")
+    parser.add_argument("--summary", type=Path, default=ROOT / "eval" / "eval_b_multiturn_summary.md")
     args = parser.parse_args()
     result = run_eval(args.input)
     args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    write_summary(args.summary, result)
     print(json.dumps(result["summary"], indent=2))
 
 

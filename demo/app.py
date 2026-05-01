@@ -1210,7 +1210,7 @@ def format_emotion_timeline(history, trajectory) -> str:
     return html
 
 
-def format_ig_panel(is_crisis, confidence, ig_tokens, loading) -> str:
+def format_ig_panel(is_crisis, confidence, ig_tokens, loading, explanation_reason="") -> str:
     if not is_crisis:
         return (
             "<div class='er-card'><div class='er-mini-title'>Safety Guardrail</div>"
@@ -1256,6 +1256,11 @@ def format_ig_panel(is_crisis, confidence, ig_tokens, loading) -> str:
                     f"{escape(tok)}</span>"
                 )
             html += "</div>"
+    elif explanation_reason:
+        html += (
+            "<div class='er-source-meta' style='margin-top:8px;'>"
+            f"Explanation source: {escape(str(explanation_reason))}</div>"
+        )
 
     html += "</div>"
     return html
@@ -1277,6 +1282,11 @@ def format_retrieval_panel(result=None) -> str:
     recommended_action = escape(str(result.get("recommended_action", "")))
     output_guard = result.get("output_guard", {}) or {}
     output_guard_reason = escape(str(output_guard.get("reason", "not_checked")))
+    safety_precheck = result.get("safety_precheck", {}) or {}
+    precheck_reason = escape(str(safety_precheck.get("reason", "not_recorded")))
+    precheck_level = escape(str(safety_precheck.get("level", "unknown")))
+    safety_explanation = result.get("safety_explanation", {}) or {}
+    explanation_reason = escape(str(safety_explanation.get("reason", "not_checked")))
     classifier_confidence = result.get("classifier_confidence", {}) or {}
     route_conf = float(classifier_confidence.get("route", 0.0) or 0.0)
     tier_conf = float(classifier_confidence.get("tier", 0.0) or 0.0)
@@ -1292,8 +1302,10 @@ def format_retrieval_panel(result=None) -> str:
         f"<div class='er-status'><span>Output guard</span><strong>{output_guard_reason}</strong></div>"
         f"<div class='er-status'><span>Classifier</span><strong>{classifier_label} {route_conf:.2f}/{tier_conf:.2f}</strong></div>"
         f"<div class='er-status'><span>Retrieval</span><strong>{retrieval_mode}</strong></div>"
+        f"<div class='er-status'><span>Stage-1 check</span><strong>{precheck_level}</strong></div>"
+        f"<div class='er-status'><span>Safety model</span><strong>{explanation_reason}</strong></div>"
         "</div>"
-        f"<div class='er-source-meta' style='margin-top:8px;'>Reason: {safety_reason}</div>"
+        f"<div class='er-source-meta' style='margin-top:8px;'>Reason: {safety_reason}; precheck: {precheck_reason}</div>"
         "<div class='er-route'>"
         f"<strong>Support route: {route_label}</strong>"
         f"<span>{recommended_action}</span>"
@@ -1399,11 +1411,26 @@ def respond(message, chat_history, session_state, audience_mode):
     timeline_html = format_emotion_timeline(emotion_history, result["trajectory"])
 
     if result["crisis"]:
+        safety_explanation = result.get("safety_explanation", {}) or {}
+        explanation_available = bool(safety_explanation.get("available"))
+        ig_tokens = safety_explanation.get("ig_tokens") or []
+        explanation_reason = safety_explanation.get("reason", "")
+        if not hasattr(get_pipeline(), "guardrail") and not explanation_available:
+            yield (
+                chat_history,
+                timeline_html,
+                result["trajectory"],
+                format_ig_panel(True, result["crisis_confidence"], ig_tokens, loading=False, explanation_reason=explanation_reason),
+                format_retrieval_panel(result),
+                session_id,
+                session_state,
+            )
+            return
         yield (
             chat_history,
             timeline_html,
             result["trajectory"],
-            format_ig_panel(True, result["crisis_confidence"], [], loading=True),
+            format_ig_panel(True, result["crisis_confidence"], ig_tokens, loading=True),
             format_retrieval_panel(result),
             session_id,
             session_state,

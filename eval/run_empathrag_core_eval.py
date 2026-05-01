@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 import sys
 import time
@@ -100,8 +101,11 @@ def evaluate_mode(rows: list[dict], backend_mode: str) -> dict:
         "summary": {
             "rows": total,
             "route_accuracy": route_correct / total if total else None,
+            "route_accuracy_ci95": proportion_ci(route_correct, total),
             "safety_tier_accuracy": tier_correct / total if total else None,
+            "safety_tier_accuracy_ci95": proportion_ci(tier_correct, total),
             "intercept_accuracy": intercept_correct / total if total else None,
+            "intercept_accuracy_ci95": proportion_ci(intercept_correct, total),
             "source_org_hit_rate": source_hits / total if total else None,
             "avoid_violation_rate": avoid_violations / total if total else None,
             "unsafe_generation_count": unsafe_generation,
@@ -113,16 +117,32 @@ def evaluate_mode(rows: list[dict], backend_mode: str) -> dict:
     }
 
 
+def proportion_ci(successes: int, total: int) -> list[float] | None:
+    if total <= 0:
+        return None
+    p = successes / total
+    radius = 1.96 * math.sqrt((p * (1 - p)) / total)
+    return [round(max(0.0, p - radius), 3), round(min(1.0, p + radius), 3)]
+
+
 def write_summary(path: Path, result: dict) -> None:
-    lines = ["# EmpathRAG Core Eval Summary", ""]
+    lines = [
+        "# Eval A: Single-Turn Ablation Summary",
+        "",
+        "Primary metric: route accuracy.",
+        "",
+        "Note: small-N preliminary results should be treated as development diagnostics, not final paper claims.",
+        "",
+    ]
     for mode, mode_result in result["modes"].items():
         summary = mode_result["summary"]
+        route_ci = summary.get("route_accuracy_ci95")
         lines.extend(
             [
                 f"## {mode}",
                 "",
                 f"- Rows: {summary['rows']}",
-                f"- Route accuracy: {summary['route_accuracy']:.3f}",
+                f"- Route accuracy, primary: {summary['route_accuracy']:.3f} CI95={route_ci}",
                 f"- Safety tier accuracy: {summary['safety_tier_accuracy']:.3f}",
                 f"- Intercept accuracy: {summary['intercept_accuracy']:.3f}",
                 f"- Source org hit rate: {summary['source_org_hit_rate']:.3f}",

@@ -114,6 +114,35 @@ def test_core_hard_safety_overrides_classifier_missing_or_present():
     assert result.should_intercept is True
     assert result.safety_tier == SafetyTier.IMMINENT_SAFETY.value
     assert result.retrieval_mode == "graph_filtered_crisis_only"
+    assert result.safety_precheck["stage"] == "hard_lexical_precheck"
+    assert result.safety_precheck["ran_before_ml"] is True
+    assert result.safety_precheck["should_intercept"] is True
+
+
+def test_core_optional_guardrail_can_override_without_default_dependency():
+    class FakeGuardrail:
+        def check(self, text, threshold=0.5, skip_ig=False):
+            return True, 0.93, [("unsafe", 1.0)] if not skip_ig else []
+
+    default_core = EmpathRAGCore()
+    default_result = default_core.run_turn(
+        "I am overwhelmed but using ordinary words",
+        session_id="test-no-guardrail-default",
+        backend_mode="hybrid_ml",
+    )
+    assert default_result.safety_explanation["reason"] == "disabled"
+
+    guarded_core = EmpathRAGCore(use_model_guardrail=True, compute_ig_on_intercept=True)
+    guarded_core._guardrail = FakeGuardrail()
+    guarded_result = guarded_core.run_turn(
+        "I am overwhelmed but using ordinary words",
+        session_id="test-guardrail-override",
+        backend_mode="hybrid_ml",
+    )
+    assert guarded_result.should_intercept is True
+    assert guarded_result.safety_tier == SafetyTier.IMMINENT_SAFETY.value
+    assert guarded_result.safety_explanation["available"] is True
+    assert guarded_result.safety_explanation["ig_tokens"]
 
 
 def test_core_low_confidence_or_missing_model_keeps_rule_route():

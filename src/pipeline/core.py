@@ -6,6 +6,7 @@ One guarded conversational RAG interface used by the demo and evaluation.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import os
 from pathlib import Path
 from typing import Literal
 import sqlite3
@@ -36,6 +37,8 @@ class EmpathRAGResult:
     latency_ms: dict
     classifier_confidence: dict
     retrieval_mode: str
+    safety_precheck: dict
+    safety_explanation: dict
     safety_reason: str
     escalation_reason: str
     retrieval_corpus: str
@@ -61,12 +64,20 @@ class EmpathRAGCore:
         top_k: int = 5,
         router_model_dir: Path | str = Path("models/router"),
         ml_confidence_threshold: float = 0.15,
+        use_model_guardrail: bool | None = None,
+        compute_ig_on_intercept: bool | None = None,
+        guardrail_threshold: float = 0.5,
     ):
         self.curated_db_path = Path(curated_db_path)
         self.retrieval_corpus = "curated_support" if self.curated_db_path.exists() else retrieval_corpus
         self.top_k = top_k
         self.safety_policy = SafetyTriagePolicy()
         self.ml_router = MLRouter(Path(router_model_dir), min_confidence=ml_confidence_threshold)
+        self.use_model_guardrail = _env_flag("EMPATHRAG_CORE_USE_GUARDRAIL") if use_model_guardrail is None else use_model_guardrail
+        self.compute_ig_on_intercept = _env_flag("EMPATHRAG_CORE_COMPUTE_IG") if compute_ig_on_intercept is None else compute_ig_on_intercept
+        self.guardrail_threshold = guardrail_threshold
+        self._guardrail = None
+        self._guardrail_error = ""
         self.tier_history: dict[str, list[str]] = {}
         self.locked_sessions: dict[str, str] = {}
 
@@ -90,8 +101,21 @@ class EmpathRAGCore:
         latency: dict[str, float] = {}
 
         t0 = time.perf_counter()
-        safety_decision = self.safety_policy.classify(message, confidence=0.0, model_flag=False)
-        latency["hard_safety_ms"] = _elapsed_ms(t0)
+        stage1_decision = self.safety_policy.classify(message, confidence=0.0, model_flag=False)
+        latency["stage1_precheck_ms"] = _elapsed_ms(t0)
+
+        t0 = time.perf_counter()
+        guardrail_info = self._run_optional_guardrail(message, skip_ig=True) if not stage1_decision.should_intercept else _guardrail_skipped("stage1_intercept")
+        latency["model_guardrail_ms"] = _elapsed_ms(t0)
+        if guardrail_info["available"] and guardrail_info["model_flag"]:
+            safety_decision = self.safety_policy.classify(
+                message,
+                confidence=float(guardrail_info["confidence"]),
+                model_flag=True,
+            )
+        else:
+            safety_decision = stage1_decision
+        latency["hard_safety_ms"] = latency["stage1_precheck_ms"]
 
         wellbeing_request = _wellbeing_request(message)
         safety_tier = map_safety_level(safety_decision.level, wellbeing_request=wellbeing_request)
@@ -118,6 +142,10 @@ class EmpathRAGCore:
 
         should_intercept = safety_decision.should_intercept or safety_tier == SafetyTier.IMMINENT_SAFETY
         retrieval_mode = _retrieval_mode(backend_mode, should_intercept)
+        if should_intercept and self.compute_ig_on_intercept and self.use_model_guardrail:
+            t0 = time.perf_counter()
+            guardrail_info = self._run_optional_guardrail(message, skip_ig=False)
+            latency["integrated_gradients_ms"] = _elapsed_ms(t0)
 
         t0 = time.perf_counter()
         retrieved = self._retrieve(message, route_label, safety_tier.value, audience_mode, should_intercept)
@@ -155,14 +183,79 @@ class EmpathRAGCore:
                 "reason": ml_prediction.reason,
             },
             retrieval_mode=retrieval_mode,
+            safety_precheck={
+                "stage": "hard_lexical_precheck",
+                "level": stage1_decision.level.value,
+                "reason": stage1_decision.reason,
+                "should_intercept": stage1_decision.should_intercept,
+                "ran_before_ml": True,
+            },
+            safety_explanation=guardrail_info,
             safety_reason=safety_reason,
             escalation_reason=escalation_reason,
             retrieval_corpus=self.retrieval_corpus,
             emotion_name=_emotion_name(message),
             crisis=should_intercept,
-            crisis_confidence=1.0 if should_intercept else 0.0,
+            crisis_confidence=float(guardrail_info.get("confidence") or (1.0 if should_intercept else 0.0)),
             retrieved_chunks=[row.get("text", "") for row in retrieved],
         )
+
+    def _run_optional_guardrail(self, message: str, skip_ig: bool) -> dict:
+        if not self.use_model_guardrail:
+            return _guardrail_skipped("disabled")
+        try:
+            guardrail = self._load_guardrail()
+            if guardrail is None:
+                return {
+                    "available": False,
+                    "model": "deberta_nli",
+                    "reason": self._guardrail_error or "load_failed",
+                    "confidence": 0.0,
+                    "model_flag": False,
+                    "ig_tokens": [],
+                }
+            model_flag, confidence, ig_tokens = guardrail.check(
+                message,
+                threshold=self.guardrail_threshold,
+                skip_ig=skip_ig,
+            )
+            return {
+                "available": True,
+                "model": "deberta_nli",
+                "reason": "model_guardrail_checked",
+                "confidence": float(confidence),
+                "model_flag": bool(model_flag),
+                "ig_tokens": ig_tokens,
+                "ig_computed": not skip_ig and bool(ig_tokens),
+            }
+        except Exception as exc:
+            self._guardrail_error = str(exc)
+            return {
+                "available": False,
+                "model": "deberta_nli",
+                "reason": f"guardrail_error: {exc}",
+                "confidence": 0.0,
+                "model_flag": False,
+                "ig_tokens": [],
+            }
+
+    def _load_guardrail(self):
+        if self._guardrail is not None:
+            return self._guardrail
+        try:
+            from src.models.guardrail_ig import SafetyGuardrail
+        except ImportError:
+            try:
+                from models.guardrail_ig import SafetyGuardrail
+            except ImportError as exc:
+                self._guardrail_error = str(exc)
+                return None
+        try:
+            self._guardrail = SafetyGuardrail()
+        except Exception as exc:
+            self._guardrail_error = str(exc)
+            return None
+        return self._guardrail
 
     def _update_trajectory(self, session_id: str, safety_tier: str, message: str) -> str:
         history = self.tier_history.setdefault(session_id, [])
@@ -365,3 +458,19 @@ def _keywords(query: str) -> list[str]:
 
 def _elapsed_ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 2)
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _guardrail_skipped(reason: str) -> dict:
+    return {
+        "available": False,
+        "model": "deberta_nli",
+        "reason": reason,
+        "confidence": 0.0,
+        "model_flag": False,
+        "ig_tokens": [],
+        "ig_computed": False,
+    }

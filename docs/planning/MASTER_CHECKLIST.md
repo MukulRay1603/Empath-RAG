@@ -46,10 +46,10 @@ Supporting engineering contributions:
 - [x] Add TF-IDF/logistic route and tier classifier scaffold.
 - [x] Keep deterministic fallback when model artifacts are missing.
 - [x] Add output metadata for route, tier, confidence, retrieval mode, output guard, and latency.
-- [ ] Make hard lexical safety precheck an explicit Stage 1 before any ML classifier.
-- [ ] Return Stage-1 precheck metadata in `EmpathRAGResult` for UI/eval visibility.
-- [ ] Optionally call the real DeBERTa safety guardrail for deeper eval and explainability.
-- [ ] Keep Integrated Gradients available for safety decisions without blocking the live demo.
+- [x] Make hard lexical safety precheck an explicit Stage 1 before any ML classifier.
+- [x] Return Stage-1 precheck metadata in `EmpathRAGResult` for UI/eval visibility.
+- [x] Optionally call the real DeBERTa safety guardrail for deeper eval and explainability.
+- [x] Keep Integrated Gradients available for safety decisions without blocking the live demo.
 - [ ] Add RoBERTa route classifier only after labeled route dataset exists.
 
 Router ablation plan:
@@ -228,5 +228,5 @@ Fallback if dataset slips:
 - [ ] Add explicit Stage-1 lexical safety precheck metadata to Core output.
 - [ ] Add optional DeBERTa + IG hook to Core, disabled or skipped for fast demo when needed.
 - [ ] Improve peer-helper UI and tests.
-- [ ] Split eval reports into Eval A and Eval B summaries.
+- [x] Split eval reports into Eval A and Eval B summaries.
 - [ ] Keep demo polished and deterministic for the class presentation.

@@ -76,6 +76,7 @@ eval/empathrag_core_supervised.csv
 eval/router_eval_results.json
 eval/core_eval_results.json
 eval/core_eval_summary.md
+eval/eval_b_multiturn_summary.md
 pytest-cache-files-*/
 
 # Session artifacts
