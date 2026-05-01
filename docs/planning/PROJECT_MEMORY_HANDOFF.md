@@ -205,10 +205,10 @@ Implemented:
 
 Files:
 
-- `docs/V2_SAFETY_AND_DATASET_PLAN.md`
-- `docs/TEAMMATE_CURATED_CORPUS_HANDOFF.md`
-- `docs/TEAMMATE_CURATED_CORPUS_HANDOFF.pdf`
-- `docs/KARTHIK_CORPUS_INTEGRATION_STEPS.md`
+- `docs/research/SAFETY_AND_DATASET_PLAN.md`
+- `docs/team/karthik/CURATED_CORPUS_HANDOFF.md`
+- `docs/team/karthik/CURATED_CORPUS_HANDOFF.pdf`
+- `docs/team/karthik/CORPUS_INTEGRATION_STEPS.md`
 - `data/curated/resources_seed.example.jsonl`
 
 Desktop copies were also previously saved:
@@ -390,7 +390,7 @@ Ask Karthik for a cleaned `curated_corpus_delivery_v2/` with:
 
 The cleanup request is saved in:
 
-- `docs/KARTHIK_CORPUS_CLEANUP_REQUEST.md`
+- `docs/team/karthik/CORPUS_CLEANUP_REQUEST.md`
 
 ## Safe Integration Plan Once Cleaned Corpus Arrives
 
@@ -573,7 +573,7 @@ Karthik should now be assigned higher-value work rather than this cleanup:
 Karthik's next concrete assignment is documented in:
 
 ```text
-docs/KARTHIK_NEXT_TASK_EVAL_DATASET.md
+docs/team/karthik/EVAL_DATASET_TASK.md
 ```
 
 Validator for Karthik's next delivery:
@@ -610,5 +610,5 @@ The Gradio app was redesigned for the MSML presentation:
 Presentation runbook:
 
 ```text
-docs/MSML_DEMO_SCRIPT.md
+docs/demo/MSML_CLASS_DEMO_SCRIPT.md
 ```

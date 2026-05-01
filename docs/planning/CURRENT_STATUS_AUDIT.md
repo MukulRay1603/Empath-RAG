@@ -550,4 +550,4 @@ Current local metrics on the prepared 92-row Karthik dataset:
 
 Karthik's next task is documented in:
 
-- `docs/KARTHIK_EMPATHRAG_CORE_DATASET_V2_REQUEST.md`
+- `docs/team/karthik/CORE_DATASET_V2_REQUEST.md`

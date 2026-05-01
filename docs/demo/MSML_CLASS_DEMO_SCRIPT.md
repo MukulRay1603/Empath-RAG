@@ -150,6 +150,6 @@ Use V1 and explain:
 
 Open:
 
-- `docs/V2_DEMO_READINESS_AUDIT_CHECKLIST.md`
-- `docs/KARTHIK_V2_CORPUS_AUDIT.md`
-- `docs/PROJECT_MEMORY_V2_HANDOFF.md`
+- `docs/demo/DEMO_READINESS_CHECKLIST.md`
+- `docs/team/karthik/V2_CORPUS_AUDIT.md`
+- `docs/planning/PROJECT_MEMORY_HANDOFF.md`
