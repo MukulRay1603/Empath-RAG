@@ -22,11 +22,11 @@ Supporting engineering contributions:
 - Output-side groundedness and anti-sycophancy guard.
 - Peer-helper mode for "I am worried about someone else" scenarios.
 
-## Phase 1: Resource Registry
+## Phase 1: Resource Registry / Service Objects
 
 - [x] Preserve curated UMD corpus and source metadata.
 - [x] Add profile path scaffold under `data/profiles/umd/`.
-- [ ] Rename paper/docs wording from "service graph" to "resource registry", "service objects", or "service-tagged resource schema".
+- [ ] Use consistent wording in paper/demo docs: "resource registry", "service objects", or "service-tagged resource schema".
 - [ ] Expand UMD service objects toward roughly 80 verified entries if time allows.
 - [ ] Add/verify UMD-specific high-value resources:
   - [ ] Counseling Center
@@ -47,6 +47,7 @@ Supporting engineering contributions:
 - [x] Keep deterministic fallback when model artifacts are missing.
 - [x] Add output metadata for route, tier, confidence, retrieval mode, output guard, and latency.
 - [ ] Make hard lexical safety precheck an explicit Stage 1 before any ML classifier.
+- [ ] Return Stage-1 precheck metadata in `EmpathRAGResult` for UI/eval visibility.
 - [ ] Optionally call the real DeBERTa safety guardrail for deeper eval and explainability.
 - [ ] Keep Integrated Gradients available for safety decisions without blocking the live demo.
 - [ ] Add RoBERTa route classifier only after labeled route dataset exists.
@@ -68,7 +69,9 @@ Router ablation plan:
 - [x] Deterministic crisis/imminent response path.
 - [x] Rule-based output guard catches pure validation, harmful agreement, dependency language, and unsupported resource claims.
 - [ ] Add explicit `out_of_scope` handling in response planner and UI.
-- [ ] Add NLI-style groundedness check for response claims against top retrieved service objects when feasible.
+- [ ] Decide by Day 4 whether NLI-style groundedness is included in this sprint or cut from this sprint.
+- [ ] If included, add NLI-style groundedness check for response claims against top retrieved service objects by Day 6.
+- [ ] If not included, document it as future work and do not claim it in current results.
 - [ ] Ensure crisis/imminent prompts never enter normal generation.
 
 ## Phase 4: Response Layer And Demo
@@ -85,9 +88,13 @@ Router ablation plan:
 - [ ] Polish 5-6 scripted demo prompts.
 - [ ] Keep demo framed as support navigation, not clinical help.
 
-## Phase 5A: Single-Turn Ablation
+## Eval A: Single-Turn Ablation
 
 Goal: broad comparison across router/system variants.
+
+Primary metric:
+
+- route accuracy
 
 Variants:
 
@@ -98,7 +105,7 @@ Variants:
 
 Metrics:
 
-- route accuracy
+- route accuracy, primary
 - safety tier accuracy
 - intercept accuracy
 - source appropriateness / source hit rate
@@ -107,6 +114,7 @@ Metrics:
 - pure validation / no-action count
 - ungrounded action count
 - latency
+- 95% confidence intervals for headline values when reporting paper/demo results
 
 Target dataset:
 
@@ -117,11 +125,15 @@ Target dataset:
 - no Reddit/TikTok/Discord scraping.
 - no method details.
 
-## Phase 5B: Multi-Turn Headline Evaluation
+## Eval B: Multi-Turn Headline Evaluation
 
 This is the paper hook.
 
 Goal: compare V1 open/emotion-aware RAG against EmpathRAG Core on vulnerability-amplifying conversations.
+
+Primary metric:
+
+- missed escalation rate
 
 Scenario categories:
 
@@ -137,6 +149,7 @@ Scenario categories:
 
 Metrics:
 
+- missed escalation rate, primary
 - missed escalation count
 - turn-by-turn route correctness
 - turn-by-turn tier correctness
@@ -172,6 +185,10 @@ Paper structure:
 
 Deadline: end of Day 5 from the current sprint.
 
+Concrete deadline:
+
+- End-of-day Wednesday, May 6, 2026.
+
 Blocking deliverables:
 
 - [ ] `single_turn_labeled.csv`: 300-500 synthetic prompts.
@@ -190,7 +207,8 @@ Setup/verification tasks for Karthik if he runs the repo locally:
 
 Fallback if dataset slips:
 
-- [ ] Build a smaller hand-labeled set of about 150 prompts with Karthik.
+- [ ] If the full dataset is not delivered by end-of-day Wednesday, May 6, 2026, run a Day 6 morning pair-labeling session with Karthik.
+- [ ] Build a smaller hand-labeled fallback set of about 150 single-turn prompts and 15 multi-turn scenarios.
 - [ ] Train/evaluate TF-IDF and, if feasible, a small RoBERTa route classifier.
 - [ ] Report small-N limitation honestly.
 - [ ] Do not block the demo on RoBERTa route training.

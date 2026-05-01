@@ -25,6 +25,7 @@ This folder is organized by purpose so the project does not turn into a pile of 
 Karthik/data tasks live under [team/karthik](team/karthik/):
 
 - [Core dataset V2 request](team/karthik/CORE_DATASET_V2_REQUEST.md)
+- [Send-now dataset request](team/karthik/send_now/EMPATHRAG_CORE_DATASET_REQUEST_SEND_NOW.md)
 - [Eval dataset task](team/karthik/EVAL_DATASET_TASK.md)
 - [V2 corpus audit](team/karthik/V2_CORPUS_AUDIT.md)
 - [Corpus cleanup request](team/karthik/CORPUS_CLEANUP_REQUEST.md)

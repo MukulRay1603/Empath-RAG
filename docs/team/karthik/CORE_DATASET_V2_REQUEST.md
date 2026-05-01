@@ -8,7 +8,7 @@ Please create a new folder:
 empathrag_core_dataset_v2/
 ```
 
-Target deadline: **end of Day 5 of the current sprint**. This dataset is now on the critical path for training and evaluating the stronger route classifier. If the full set is not ready by then, please send a smaller but clean partial delivery rather than waiting.
+Target deadline: **end-of-day Wednesday, May 6, 2026**. This dataset is now on the critical path for training and evaluating the stronger route classifier. If the full set is not ready by then, please send a smaller but clean partial delivery rather than waiting.
 
 Before dataset work, if you are running the repo locally:
 
@@ -257,7 +257,7 @@ Before sending back:
 
 ## Fallback Delivery
 
-If the full 300-500 row dataset cannot be finished by the deadline, send:
+If the full 300-500 row dataset cannot be finished by end-of-day Wednesday, May 6, 2026, send:
 
 - at least 150 well-labeled single-turn prompts
 - at least 15 multi-turn scenarios
