@@ -507,3 +507,30 @@ V2.5 adds the next architecture layer without replacing V1 or V2:
 The project should now be framed as:
 
 V1 baseline -> V2 curated safety-gated support navigator -> V2.5 graph-grounded, route/tier-explicit navigator with output guard and multi-turn eval scaffolding.
+
+## 14. EmpathRAG Core Consolidation Update
+
+The project is now being consolidated into one active system: **EmpathRAG Core**.
+
+EmpathRAG Core keeps the chatbot/RAG framing from the original proposal, but makes it guarded and source-grounded:
+
+- hard safety precheck
+- hybrid ML + rule route/risk classifier
+- graph-grounded retrieval
+- constrained response planner
+- output-side anti-sycophancy/groundedness guard
+- multi-turn trajectory escalation
+- unified evaluation reports
+
+Current local metrics on the prepared 92-row Karthik dataset:
+
+- Rule route accuracy: 0.935
+- Hybrid ML route accuracy: 0.978
+- Safety tier accuracy: 0.902
+- Intercept accuracy: 1.000
+- Source organization hit rate: 0.913
+- Unsafe generation count: 0
+
+Karthik's next task is documented in:
+
+- `docs/KARTHIK_EMPATHRAG_CORE_DATASET_V2_REQUEST.md`

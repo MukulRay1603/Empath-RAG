@@ -6,6 +6,8 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "demo"))
 
 from pipeline.output_guard import validate_output
+from pipeline.core import EmpathRAGCore
+from pipeline.ml_router import MLRouter
 from pipeline.service_graph import match_services
 from pipeline.session_tracker import SessionTracker
 from pipeline.v2_schema import SafetyTier, SupportRoute, classify_route
@@ -39,7 +41,7 @@ def test_advisor_conflict_does_not_over_escalate():
 def test_basic_needs_route_uses_available_graph_without_hallucinating_pantries():
     result = make_fast_pipeline().run("I have not eaten today because I am out of money")
     assert result["route_label"] == SupportRoute.BASIC_NEEDS.value
-    assert "I will not invent Pantry or Thrive details" in result["response"]
+    assert "not invent Pantry" in result["response"]
     assert any("Dean of Students" in source["source_name"] for source in result["retrieved_sources"])
 
 
@@ -92,3 +94,45 @@ def test_service_graph_matches_ads():
 def test_route_classifier_peer_helper():
     decision = classify_route("My friend keeps saying everyone would be better off without them", SafetyTier.HIGH_DISTRESS)
     assert decision.route == SupportRoute.PEER_HELPER
+
+
+def test_ml_router_missing_models_falls_back():
+    router = MLRouter(ROOT / "missing-router-models")
+    pred = router.predict("I need ADS accommodations", SupportRoute.ACCESSIBILITY_ADS, SafetyTier.SUPPORT_NAVIGATION)
+    assert pred.model_available is False
+    assert pred.used_ml is False
+    assert pred.route_label == SupportRoute.ACCESSIBILITY_ADS.value
+
+
+def test_core_hard_safety_overrides_classifier_missing_or_present():
+    core = EmpathRAGCore()
+    result = core.run_turn(
+        "I do not think I can stay safe tonight",
+        session_id="test-hard-safety",
+        backend_mode="hybrid_ml",
+    )
+    assert result.should_intercept is True
+    assert result.safety_tier == SafetyTier.IMMINENT_SAFETY.value
+    assert result.retrieval_mode == "graph_filtered_crisis_only"
+
+
+def test_core_low_confidence_or_missing_model_keeps_rule_route():
+    core = EmpathRAGCore(router_model_dir=ROOT / "missing-router-models")
+    result = core.run_turn(
+        "I need ADS accommodations for exams",
+        session_id="test-fallback",
+        backend_mode="hybrid_ml",
+    )
+    assert result.classifier_confidence["model_available"] is False
+    assert result.route_label == SupportRoute.ACCESSIBILITY_ADS.value
+
+
+def test_core_normal_academic_stress_avoids_crisis_only_primary_sources():
+    core = EmpathRAGCore()
+    result = core.run_turn(
+        "I failed my exam and need help emailing my professor",
+        session_id="test-academic",
+        backend_mode="hybrid_ml",
+    )
+    assert result.should_intercept is False
+    assert all(source["usage_mode"] != "crisis_only" for source in result.retrieved_sources)

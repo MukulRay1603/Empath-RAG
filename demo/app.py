@@ -20,6 +20,7 @@ import gradio as gr
 sys.path.insert(0, "src")
 
 from pipeline.safety_policy import SafetyLevel, SafetyTriagePolicy
+from pipeline.core import EmpathRAGCore
 from pipeline.output_guard import validate_output
 from pipeline.service_graph import match_services
 from pipeline.v2_schema import (
@@ -540,19 +541,46 @@ button.secondary {
 
 
 class FastDemoPipeline:
-    """Presentation backend that demonstrates V2 behavior without heavyweight model loading."""
+    """Presentation backend backed by EmpathRAG Core without heavyweight LLM loading."""
 
     def __init__(self, db_path: Path, retrieval_corpus: str, top_k: int):
         self.db_path = db_path
         self.retrieval_corpus = "curated_support" if db_path.exists() else retrieval_corpus
         self.top_k = top_k
         self.safety_policy = SafetyTriagePolicy()
+        self.core = EmpathRAGCore(
+            curated_db_path=db_path,
+            retrieval_corpus=self.retrieval_corpus,
+            top_k=top_k,
+        )
         self._turn = 0
         self._tier_history: list[str] = []
         self._crisis_locked = False
         self._last_escalation_reason = ""
 
     def run(self, user_message: str, audience_mode: str = "student") -> dict:
+        core_result = self.core.run_turn(
+            message=user_message,
+            session_id="demo",
+            audience_mode=audience_mode,
+            resource_profile="umd",
+            backend_mode="hybrid_ml",
+        ).to_dict()
+        emotion_name = core_result.get("emotion_name", "neutral")
+        emotion_label = ["distress", "anxiety", "frustration", "neutral", "hopeful"].index(
+            emotion_name if emotion_name in {"distress", "anxiety", "frustration", "neutral", "hopeful"} else "neutral"
+        )
+        core_result.update(
+            {
+                "emotion": emotion_label,
+                "trajectory": core_result.get("trajectory_state", "active"),
+                "crisis_confidence": 1.0 if core_result.get("crisis") else 0.0,
+                "safety_level": core_result.get("safety_tier", ""),
+            }
+        )
+        return core_result
+
+    def _legacy_run(self, user_message: str, audience_mode: str = "student") -> dict:
         self._turn += 1
         emotion_name = self._emotion_name(user_message)
         emotion_label = ["distress", "anxiety", "frustration", "neutral", "hopeful"].index(emotion_name)
@@ -674,6 +702,7 @@ class FastDemoPipeline:
         self._tier_history = []
         self._crisis_locked = False
         self._last_escalation_reason = ""
+        self.core.reset_session("demo")
 
     def _result(
         self,
@@ -1248,6 +1277,11 @@ def format_retrieval_panel(result=None) -> str:
     recommended_action = escape(str(result.get("recommended_action", "")))
     output_guard = result.get("output_guard", {}) or {}
     output_guard_reason = escape(str(output_guard.get("reason", "not_checked")))
+    classifier_confidence = result.get("classifier_confidence", {}) or {}
+    route_conf = float(classifier_confidence.get("route", 0.0) or 0.0)
+    tier_conf = float(classifier_confidence.get("tier", 0.0) or 0.0)
+    classifier_label = "ml" if classifier_confidence.get("used_ml") else "fallback"
+    retrieval_mode = escape(str(result.get("retrieval_mode", "graph_filtered_faiss_plus_router")))
     html = (
         "<div class='er-card'>"
         "<div class='er-mini-title'>Retrieval Sources</div>"
@@ -1256,6 +1290,8 @@ def format_retrieval_panel(result=None) -> str:
         f"<div class='er-status'><span>Tier</span><strong>{safety_tier}</strong></div>"
         f"<div class='er-status'><span>Safety</span><strong>{safety_level}</strong></div>"
         f"<div class='er-status'><span>Output guard</span><strong>{output_guard_reason}</strong></div>"
+        f"<div class='er-status'><span>Classifier</span><strong>{classifier_label} {route_conf:.2f}/{tier_conf:.2f}</strong></div>"
+        f"<div class='er-status'><span>Retrieval</span><strong>{retrieval_mode}</strong></div>"
         "</div>"
         f"<div class='er-source-meta' style='margin-top:8px;'>Reason: {safety_reason}</div>"
         "<div class='er-route'>"
@@ -1425,7 +1461,7 @@ theme = gr.themes.Soft(
     radius_size="sm",
 )
 
-with gr.Blocks(theme=theme, title="EmpathRAG V2", css=APP_CSS) as demo:
+with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
     initial_state = new_session_state()
     session_state = gr.State(value=initial_state)
 
@@ -1434,9 +1470,9 @@ with gr.Blocks(theme=theme, title="EmpathRAG V2", css=APP_CSS) as demo:
         <div class="er-shell">
           <div class="er-title">
             <div>
-              <h1>EmpathRAG</h1>
+              <h1>EmpathRAG Core</h1>
               <div class="er-badges">
-                <span class="er-badge">V2 curated mode</span>
+                <span class="er-badge">Guarded conversational RAG</span>
                 <span class="er-badge">{escape(RETRIEVAL_CORPUS)}</span>
                 <span class="er-badge">logging off by default</span>
               </div>
@@ -1447,7 +1483,7 @@ with gr.Blocks(theme=theme, title="EmpathRAG V2", css=APP_CSS) as demo:
               </div>
             </div>
             <div class="er-kicker">
-              Safety-aware student-support retrieval for UMD-style help seeking.
+              Guarded conversational RAG for emotional and student-support navigation.
               This prototype is not therapy, diagnosis, or emergency care.
             </div>
           </div>
@@ -1470,9 +1506,9 @@ with gr.Blocks(theme=theme, title="EmpathRAG V2", css=APP_CSS) as demo:
     gr.HTML(
         f"""
         <div class="er-state-strip">
-          <div class="er-state-pill"><span>Backend</span><strong>{escape(DEMO_BACKEND)}</strong></div>
+          <div class="er-state-pill"><span>Backend</span><strong>hybrid_ml</strong></div>
           <div class="er-state-pill"><span>Corpus</span><strong>{escape(RETRIEVAL_CORPUS)}</strong></div>
-          <div class="er-state-pill"><span>Safety</span><strong>fail-closed</strong></div>
+          <div class="er-state-pill"><span>Retrieval</span><strong>graph-filtered</strong></div>
           <div class="er-state-pill"><span>Logging</span><strong>{"on" if LOG_TURNS else "off"}</strong></div>
         </div>
         """

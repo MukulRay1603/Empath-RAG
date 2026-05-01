@@ -74,10 +74,13 @@ def classify_route(
     if _is_peer_helper(text, audience_mode):
         return RouteDecision(SupportRoute.PEER_HELPER, safety_tier, "peer_helper_language", audience_mode)
 
-    if _has_any(text, ("accommodation", "disability", "ads", "504", "extended time")):
+    if _has_any(text, ("counseling center", "referral", "off-campus care", "after hours", "after-hours", "brief assessment", "group therapy", "individual counseling", "mental health crises", "number to call")):
+        return RouteDecision(SupportRoute.COUNSELING_NAVIGATION, safety_tier, "counseling_navigation_language", audience_mode)
+
+    if _has_any(text, ("accommodation", "disability", "504", "extended time", "assistive tech", "paratransit")) or _has_word(text, "ads"):
         return RouteDecision(SupportRoute.ACCESSIBILITY_ADS, safety_tier, "accessibility_language", audience_mode)
 
-    if _has_any(text, ("advisor", "ombuds", "funding threatened", "threatened my funding", "pi is")):
+    if _has_any(text, ("advisor", "ombuds", "funding threatened", "threatened my funding", "funding might disappear", "pi is", "my pi", "committee feedback", "retaliatory", "neutral process", "power dynamics")):
         return RouteDecision(SupportRoute.ADVISOR_CONFLICT, safety_tier, "advisor_or_ombuds_language", audience_mode)
 
     if _has_any(text, ("no food", "out of money", "hungry because", "food rent", "food or rent", "can't afford food", "cannot afford food", "nowhere to sleep")):
@@ -89,20 +92,23 @@ def classify_route(
     if _has_any(text, ("failed", "fail", "failed my exam", "future is over", "grade", "grades")):
         return RouteDecision(SupportRoute.ACADEMIC_SETBACK, safety_tier, "academic_setback_language", audience_mode)
 
-    if _has_any(text, ("exam", "midterm", "final", "qualifying exam", "study", "deadline")):
+    if _has_any(text, ("exam", "midterm", "final", "qualifying exam", "study", "deadline", "comps prep", "labs plus ta", "syllabus")):
         return RouteDecision(SupportRoute.EXAM_STRESS, safety_tier, "exam_stress_language", audience_mode)
 
     if _has_any(text, ("counseling", "counselling", "therapy", "therapist", "appointment", "get started")):
         return RouteDecision(SupportRoute.COUNSELING_NAVIGATION, safety_tier, "counseling_navigation_language", audience_mode)
 
-    if _has_any(text, ("lonely", "isolated", "no one cares", "no friends", "alone")):
+    if _has_any(text, ("lonely", "isolated", "no one cares", "no friends", "alone", "roommate moved out", "dorm feels hollow", "nobody texts", "burden people", "disappear socially")):
         return RouteDecision(SupportRoute.LONELINESS_ISOLATION, safety_tier, "loneliness_language", audience_mode)
 
-    if _has_any(text, ("panic", "panicking", "anxiety", "anxious", "grounding", "breathing")):
+    if _has_any(text, ("panic", "panicking", "anxiety", "anxious", "grounding", "breathing", "stomach is wrecked", "freeze in social", "intrusive thoughts", "heart rate", "drinking more", "mindfulness", "sensory overwhelm", "quick reset", "journaling", "worry loops")):
         return RouteDecision(SupportRoute.ANXIETY_PANIC, safety_tier, "anxiety_or_panic_language", audience_mode)
 
-    if _has_any(text, ("depressed", "depressing", "depression", "low mood", "hopeless")):
+    if _has_any(text, ("depressed", "depressing", "depression", "low mood", "hopeless", "feel numb", "motivation disappeared", "canceling plans", "guilty", "dark moods", "pointless")):
         return RouteDecision(SupportRoute.LOW_MOOD, safety_tier, "low_mood_language", audience_mode)
+
+    if _has_any(text, ("prescribe", "hipaa complaint", "litigation", "dining hall rumor", "rumor about mold")):
+        return RouteDecision(SupportRoute.OUT_OF_SCOPE, safety_tier, "out_of_scope_language", audience_mode)
 
     return RouteDecision(SupportRoute.GENERAL_STUDENT_SUPPORT, safety_tier, "default_support_navigation", audience_mode)
 
@@ -145,3 +151,7 @@ def _is_peer_helper(text: str, audience_mode: str) -> bool:
 
 def _has_any(text: str, phrases: tuple[str, ...]) -> bool:
     return any(phrase in text for phrase in phrases)
+
+
+def _has_word(text: str, word: str) -> bool:
+    return bool(re.search(rf"\b{re.escape(word)}\b", text))

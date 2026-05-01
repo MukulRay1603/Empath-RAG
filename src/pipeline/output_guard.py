@@ -93,6 +93,9 @@ def validate_output(
     if _has_ungrounded_contact_claim(response, retrieved_sources):
         flags.append("ungrounded_contact_claim")
 
+    if _has_unsupported_resource_recommendation(response, retrieved_sources):
+        flags.append("unsupported_resource_recommendation")
+
     if flags:
         return OutputGuardResult(
             allowed=False,
@@ -137,6 +140,27 @@ def _has_ungrounded_contact_claim(response: str, retrieved_sources: list[dict]) 
         if claim not in grounded_blob:
             return True
     return False
+
+
+def _has_unsupported_resource_recommendation(response: str, retrieved_sources: list[dict]) -> bool:
+    text = response.lower()
+    if "will not invent" in text or "not invent" in text:
+        return False
+    if "source-grounded option:" not in text:
+        return False
+    known_names = {
+        str(source.get("source_name", "")).lower()
+        for source in retrieved_sources
+        if source.get("source_name")
+    }
+    known_titles = {
+        str(source.get("title", "")).lower()
+        for source in retrieved_sources
+        if source.get("title")
+    }
+    known_blob = " ".join(known_names | known_titles)
+    flagged_resources = ("campus pantry", "thrive", "mheart", "help center", "care to stop violence")
+    return any(resource in text and resource not in known_blob for resource in flagged_resources)
 
 
 def _fallback_response(safety_tier: str, route: str) -> str:
