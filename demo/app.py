@@ -750,7 +750,7 @@ class FastDemoPipeline:
         audience_mode: str = "student",
     ) -> list[dict]:
         if not self.db_path.exists():
-            return [node.as_source("service graph fallback") for node in match_services(route or "", safety_tier or "", audience_mode, limit=self.top_k)]
+            return [node.as_source("resource registry fallback") for node in match_services(route or "", safety_tier or "", audience_mode, limit=self.top_k)]
         topics, source_names = self._targets(message, safety_level, route=route)
         usage_modes = self._usage_modes(safety_level)
         conn = sqlite3.connect(self.db_path)
@@ -826,7 +826,7 @@ class FastDemoPipeline:
             seen_source_titles = {(row.get("source_name", ""), row.get("title", "")) for row in selected}
             graph_rows = []
             for node in match_services(route, safety_tier, audience_mode, limit=self.top_k):
-                source_row = node.as_source("service graph route match")
+                source_row = node.as_source("resource registry route match")
                 key = (source_row.get("source_name", ""), source_row.get("title", ""))
                 if key in seen_source_titles:
                     continue
@@ -1291,7 +1291,7 @@ def format_retrieval_panel(result=None) -> str:
     route_conf = float(classifier_confidence.get("route", 0.0) or 0.0)
     tier_conf = float(classifier_confidence.get("tier", 0.0) or 0.0)
     classifier_label = "ml" if classifier_confidence.get("used_ml") else "fallback"
-    retrieval_mode = escape(str(result.get("retrieval_mode", "graph_filtered_faiss_plus_router")))
+    retrieval_mode = escape(str(result.get("retrieval_mode", "registry_filtered_faiss_plus_router")))
     html = (
         "<div class='er-card'>"
         "<div class='er-mini-title'>Retrieval Sources</div>"
@@ -1526,8 +1526,11 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
     audience_mode_box = gr.Radio(
         choices=[("Student", "student"), ("Helping a friend", "helping_friend")],
         value="student",
-        label="Mode",
+        label="Support mode",
         interactive=True,
+    )
+    gr.HTML(
+        "<div class='er-terminal-note'>Use <strong>Helping a friend</strong> when the prompt is about a roommate, labmate, teammate, or someone else. The response will emphasize escalation and not handling safety risk alone.</div>"
     )
 
     gr.HTML(
@@ -1535,7 +1538,7 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
         <div class="er-state-strip">
           <div class="er-state-pill"><span>Backend</span><strong>hybrid_ml</strong></div>
           <div class="er-state-pill"><span>Corpus</span><strong>{escape(RETRIEVAL_CORPUS)}</strong></div>
-          <div class="er-state-pill"><span>Retrieval</span><strong>graph-filtered</strong></div>
+          <div class="er-state-pill"><span>Retrieval</span><strong>registry-filtered</strong></div>
           <div class="er-state-pill"><span>Logging</span><strong>{"on" if LOG_TURNS else "off"}</strong></div>
         </div>
         """
@@ -1556,6 +1559,9 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
                 prompt_ombuds = gr.Button("Advisor conflict")
                 prompt_grounding = gr.Button("Grounding help")
                 prompt_crisis = gr.Button("Crisis redirect")
+            with gr.Row(elem_classes=["er-prompt-row"]):
+                prompt_friend = gr.Button("Helping a friend")
+                prompt_scope = gr.Button("Out of scope")
             msg_box = gr.Textbox(
                 placeholder="Type a student-support prompt...",
                 label="",
@@ -1613,6 +1619,14 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
     )
     prompt_crisis.click(
         lambda: set_prompt("I do not think I can stay safe tonight."),
+        outputs=msg_box,
+    )
+    prompt_friend.click(
+        lambda: set_prompt("My roommate said goodbye and locked their door, and I am scared they will not answer."),
+        outputs=msg_box,
+    )
+    prompt_scope.click(
+        lambda: set_prompt("Can you prescribe anxiety medication or write a legal complaint for me?"),
         outputs=msg_box,
     )
 

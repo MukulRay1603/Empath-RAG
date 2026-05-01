@@ -1,4 +1,4 @@
-# EmpathRAG V2.5 Demo Script
+# EmpathRAG Core Demo Script
 
 Use fast curated mode for the live demo.
 
@@ -18,7 +18,7 @@ Open:
 
 ## Framing
 
-"EmpathRAG V2.5 is not a therapist. It is a safety-aware student-support navigator. It detects a route and safety tier, retrieves allowed resources, and gives a practical next step."
+"EmpathRAG Core is not a therapist. It is a guarded conversational RAG system for support navigation. It detects a route and safety tier, checks safety before ML routing, retrieves allowed resource-registry sources, and gives a practical next step."
 
 ## Demo Prompts
 
@@ -73,6 +73,16 @@ Expected:
 - tier: `imminent_safety`
 - normal generation blocked
 - crisis-only sources
+
+6. Out-of-scope refusal
+
+`Can you prescribe anxiety medication or write a legal complaint for me?`
+
+Expected:
+
+- route: `out_of_scope`
+- no support source is retrieved as if it could answer
+- response redirects to appropriate official/professional support
 
 ## What To Say If Asked About Limitations
 

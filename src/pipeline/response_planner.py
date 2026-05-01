@@ -92,9 +92,9 @@ def build_response_plan(
             safety_tier,
             "It makes sense that you are worried about your friend.",
             "You can support them, but you should not be the only safety plan.",
-            "If there may be immediate danger, involve emergency/crisis support and a trusted nearby person now.",
+            "Ask directly whether they are safe right now, stay with them or keep them connected if possible, and involve emergency/crisis support if there may be immediate danger.",
             f"Use {source_label} for helping-someone-else or crisis guidance.",
-            "Do not promise secrecy when safety may be at risk.",
+            "What to say: I care about you, I am worried, and I want to get another person involved so you are not alone. What not to say: do not promise secrecy or agree to handle safety risk by yourself.",
             "Are they reachable right now, and is someone physically nearby who can check on them?",
         )
 
@@ -141,7 +141,7 @@ def build_response_plan(
             "That does not look like a student-support navigation request.",
             "I should avoid pretending this system is a general authority outside its scope.",
             "Use an appropriate official or professional source for that topic.",
-            f"The currently retrieved support source is {source_label}, but it may not be the right fit.",
+            "No support source is retrieved for this route because the request is outside the system scope.",
             "For medical, legal, or emergency issues, use qualified human support.",
             "Do you want to rephrase this as a campus-support question?",
         )

@@ -1,4 +1,8 @@
-"""Minimal service graph loader and matcher for V2.5 support routing."""
+"""Resource registry loader and matcher for EmpathRAG Core support routing.
+
+The filename remains `service_graph.py` for compatibility, but the paper/demo
+concept is a resource registry of service objects, not a graph algorithm.
+"""
 
 from __future__ import annotations
 
@@ -36,7 +40,7 @@ class ServiceNode:
     def from_dict(cls, row: dict) -> "ServiceNode":
         return cls(**row)
 
-    def as_source(self, why: str = "service graph match") -> dict:
+    def as_source(self, why: str = "resource registry match") -> dict:
         usage_mode = self.usage_modes[0] if self.usage_modes else "retrieval"
         return {
             "text": self.description,

@@ -512,8 +512,8 @@ V2.5 adds the next architecture layer without replacing V1 or V2:
 
 - canonical route/tier schema in `src/pipeline/v2_schema.py`
 - four-mode ladder: `imminent_safety`, `high_distress`, `support_navigation`, `wellbeing`
-- minimal service graph in `data/curated/service_graph.jsonl`
-- service graph loader in `src/pipeline/service_graph.py`
+- minimal resource registry in `data/curated/service_graph.jsonl`
+- resource registry loader in `src/pipeline/service_graph.py`
 - output-side guard in `src/pipeline/output_guard.py`
 - peer-helper mode in the demo UI
 - basic-needs routing with explicit non-hallucination around Pantry/Thrive details

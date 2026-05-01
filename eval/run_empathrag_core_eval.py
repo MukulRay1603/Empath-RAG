@@ -169,7 +169,7 @@ def main() -> None:
         "dataset": str(args.dataset),
         "modes": {
             "v25_rule_router": evaluate_mode(rows, "demo_fast"),
-            "hybrid_ml_graph_guarded": evaluate_mode(rows, "hybrid_ml"),
+            "hybrid_ml_registry_guarded": evaluate_mode(rows, "hybrid_ml"),
         },
     }
     args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")

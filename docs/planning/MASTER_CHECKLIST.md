@@ -26,7 +26,7 @@ Supporting engineering contributions:
 
 - [x] Preserve curated UMD corpus and source metadata.
 - [x] Add profile path scaffold under `data/profiles/umd/`.
-- [ ] Use consistent wording in paper/demo docs: "resource registry", "service objects", or "service-tagged resource schema".
+- [x] Use consistent wording in paper/demo docs: "resource registry", "service objects", or "service-tagged resource schema".
 - [ ] Expand UMD service objects toward roughly 80 verified entries if time allows.
 - [ ] Add/verify UMD-specific high-value resources:
   - [ ] Counseling Center
@@ -68,7 +68,7 @@ Router ablation plan:
   - `wellbeing`
 - [x] Deterministic crisis/imminent response path.
 - [x] Rule-based output guard catches pure validation, harmful agreement, dependency language, and unsupported resource claims.
-- [ ] Add explicit `out_of_scope` handling in response planner and UI.
+- [x] Add explicit `out_of_scope` handling in response planner and UI.
 - [ ] Decide by Day 4 whether NLI-style groundedness is included in this sprint or cut from this sprint.
 - [ ] If included, add NLI-style groundedness check for response claims against top retrieved service objects by Day 6.
 - [ ] If not included, document it as future work and do not claim it in current results.
@@ -79,8 +79,8 @@ Router ablation plan:
 - [x] Constrained response planner for non-crisis responses.
 - [x] Recommended next action included in Core result metadata.
 - [x] Gradio demo shows route, tier, confidence, retrieval mode, source cards, and output guard.
-- [ ] Make peer-helper mode a first-class visible feature, not only a route label.
-- [ ] Add peer-helper-specific wording:
+- [x] Make peer-helper mode a first-class visible feature, not only a route label.
+- [x] Add peer-helper-specific wording:
   - what to say
   - what not to say
   - when to escalate

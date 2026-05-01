@@ -279,10 +279,12 @@ class EmpathRAGCore:
         audience_mode: str,
         should_intercept: bool,
     ) -> list[dict]:
+        if route == SupportRoute.OUT_OF_SCOPE.value:
+            return []
         usage_modes = ("crisis_only",) if should_intercept else ("retrieval", "wellbeing_only") if safety_tier == "wellbeing" else ("retrieval",)
         selected: list[dict] = []
         graph_rows = [
-            node.as_source("service graph route match")
+            node.as_source("resource registry route match")
             for node in match_services(route, safety_tier, audience_mode, limit=self.top_k)
             if (node.usage_modes[0] if node.usage_modes else "retrieval") in usage_modes
         ]
@@ -378,10 +380,10 @@ def _apply_contextual_safety_overrides(
 
 def _retrieval_mode(backend_mode: str, should_intercept: bool) -> str:
     if should_intercept:
-        return "graph_filtered_crisis_only"
+        return "registry_filtered_crisis_only"
     if backend_mode == "demo_fast":
-        return "graph_filtered_faiss"
-    return "graph_filtered_faiss_plus_router"
+        return "registry_filtered_faiss"
+    return "registry_filtered_faiss_plus_router"
 
 
 def _targets_for_route(route: str, message: str) -> tuple[set[str], set[str]]:

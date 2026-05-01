@@ -8,7 +8,7 @@ EmpathRAG Core is a guarded conversational RAG system for emotional/student supp
 2. Hard safety precheck: deterministic safety policy scans the current message.
 3. Hybrid classifier: lightweight TF-IDF + logistic regression predicts route and safety tier when confidence is sufficient.
 4. Hard safety override: crisis/imminent rules override ML predictions.
-5. Service graph and curated retrieval: filter by route/tier/usage mode before source cards are shown.
+5. Resource registry and curated retrieval: filter by route/tier/usage mode before source cards are shown.
 6. Response planner: validation, reframe, recommended next action, source option, backup option, follow-up question.
 7. Output guard: catches pure validation, unsafe agreement, dependency language, and ungrounded contact/resource claims.
 8. UI/eval metadata: route, tier, classifier confidence, retrieval mode, output guard, sources, trajectory.
@@ -37,9 +37,9 @@ EmpathRAG Core is a guarded conversational RAG system for emotional/student supp
 - `general_student_support`
 - `out_of_scope`
 
-## Service Graph
+## Resource Registry / Service Objects
 
-Minimal graph file:
+Minimal resource registry file:
 
 - `data/curated/service_graph.jsonl`
 
@@ -47,7 +47,7 @@ Loader:
 
 - `src/pipeline/service_graph.py`
 
-The graph only uses verified source URLs from the current corpus. Missing phone numbers, hours, locations, and eligibility rules are marked `unknown`.
+The current filename is retained for compatibility, but the paper/demo concept is a resource registry of service objects, not a graph algorithm. It only uses verified source URLs from the current corpus. Missing phone numbers, hours, locations, and eligibility rules are marked `unknown`.
 
 ## Output Guard
 
