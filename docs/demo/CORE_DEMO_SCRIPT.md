@@ -32,6 +32,7 @@ Expected:
 - tier: `support_navigation` or `high_distress`
 - includes professor/TA email script
 - does not use crisis-only sources
+- Core Decision Trace shows Stage-1 check, route/tier, registry retrieval, output guard, and recommended action
 
 2. ADS accommodations
 

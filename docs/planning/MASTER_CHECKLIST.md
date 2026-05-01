@@ -79,6 +79,7 @@ Router ablation plan:
 - [x] Constrained response planner for non-crisis responses.
 - [x] Recommended next action included in Core result metadata.
 - [x] Gradio demo shows route, tier, confidence, retrieval mode, source cards, and output guard.
+- [x] Add live Core decision trace and recommended-action card for presentation clarity.
 - [x] Make peer-helper mode a first-class visible feature, not only a route label.
 - [x] Add peer-helper-specific wording:
   - what to say

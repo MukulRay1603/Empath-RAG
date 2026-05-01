@@ -68,6 +68,7 @@ APP_CSS = """
   --er-blue: #38bdf8;
   --er-amber: #f59e0b;
   --er-rose: #fb7185;
+  --er-danger: #fb7185;
   --er-violet: #a78bfa;
 }
 
@@ -452,6 +453,39 @@ button.secondary {
   margin-top: 10px;
   margin-bottom: 12px;
 }
+.er-live-rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+  position: relative;
+}
+.er-live-step {
+  border: 1px solid rgba(148,219,233,0.18);
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(3,7,18,0.46);
+  min-height: 68px;
+}
+.er-live-step span {
+  display: block;
+  color: var(--er-dim);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.er-live-step strong {
+  display: block;
+  color: var(--er-ink);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.er-live-step.active {
+  border-color: rgba(45,212,191,0.48);
+  background: linear-gradient(135deg, rgba(13,148,136,0.26), rgba(3,7,18,0.50));
+  box-shadow: 0 0 28px rgba(45,212,191,0.10), inset 0 1px 0 rgba(255,255,255,0.06);
+}
 .er-state-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -514,6 +548,70 @@ button.secondary {
   font-size: 12px;
   line-height: 1.45;
 }
+.er-action-card {
+  border: 1px solid rgba(45,212,191,0.42);
+  border-radius: 16px;
+  padding: 13px;
+  margin-top: 10px;
+  background:
+    linear-gradient(135deg, rgba(20,184,166,0.18), rgba(8,47,73,0.48)),
+    rgba(3,7,18,0.42);
+  box-shadow: 0 16px 44px rgba(13,148,136,0.12);
+}
+.er-action-card span {
+  display: block;
+  color: #99f6e4;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.er-action-card strong {
+  display: block;
+  color: var(--er-ink);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.er-decision-grid {
+  display: grid;
+  gap: 8px;
+}
+.er-decision-step {
+  border: 1px solid rgba(148,219,233,0.16);
+  border-radius: 13px;
+  padding: 10px;
+  background: rgba(3,7,18,0.48);
+}
+.er-decision-step span {
+  display: block;
+  color: var(--er-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.er-decision-step strong {
+  display: block;
+  color: var(--er-ink);
+  font-size: 13px;
+}
+.er-decision-step small {
+  display: block;
+  color: var(--er-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+.er-decision-step.ok {
+  border-color: rgba(45,212,191,0.34);
+}
+.er-decision-step.warn {
+  border-color: rgba(245,158,11,0.42);
+}
+.er-decision-step.stop {
+  border-color: rgba(251,113,133,0.46);
+  background: linear-gradient(135deg, rgba(251,113,133,0.14), rgba(3,7,18,0.52));
+}
 .er-why {
   margin-top: 8px;
   color: #a7fff1;
@@ -535,6 +633,9 @@ button.secondary {
   }
   .er-state-strip {
     grid-template-columns: 1fr 1fr;
+  }
+  .er-live-rail {
+    grid-template-columns: 1fr;
   }
 }
 """
@@ -1266,6 +1367,46 @@ def format_ig_panel(is_crisis, confidence, ig_tokens, loading, explanation_reaso
     return html
 
 
+def format_decision_trace(result=None) -> str:
+    if not result:
+        return (
+            "<div class='er-card'><div class='er-mini-title'>Core Decision Trace</div>"
+            "<div class='er-empty'>Run a prompt to see safety, routing, retrieval, and guard decisions.</div></div>"
+        )
+
+    route_label = escape(str(result.get("route_label", "unknown")))
+    safety_tier = escape(str(result.get("safety_tier", "unknown")))
+    should_intercept = bool(result.get("crisis") or result.get("should_intercept"))
+    retrieval_mode = escape(str(result.get("retrieval_mode", "unknown")))
+    recommended_action = escape(str(result.get("recommended_action", "")))
+    precheck = result.get("safety_precheck", {}) or {}
+    precheck_reason = escape(str(precheck.get("reason", "not_recorded")))
+    precheck_level = escape(str(precheck.get("level", "unknown")))
+    classifier = result.get("classifier_confidence", {}) or {}
+    classifier_kind = "ML router" if classifier.get("used_ml") else "rule fallback"
+    route_conf = float(classifier.get("route", 0.0) or 0.0)
+    tier_conf = float(classifier.get("tier", 0.0) or 0.0)
+    output_guard = result.get("output_guard", {}) or {}
+    guard_reason = escape(str(output_guard.get("reason", "not_checked")))
+    guard_flags = output_guard.get("flags", []) or []
+    source_count = len(result.get("retrieved_sources", []) or [])
+    stop_class = "stop" if should_intercept else "ok"
+    guard_class = "warn" if guard_flags else "ok"
+
+    return (
+        "<div class='er-card'>"
+        "<div class='er-mini-title'>Core Decision Trace</div>"
+        "<div class='er-decision-grid'>"
+        f"<div class='er-decision-step {stop_class}'><span>1. Stage-1 Safety</span><strong>{precheck_level}</strong><small>{precheck_reason}</small></div>"
+        f"<div class='er-decision-step ok'><span>2. Route / Tier</span><strong>{route_label} / {safety_tier}</strong><small>{classifier_kind}: {route_conf:.2f}/{tier_conf:.2f}</small></div>"
+        f"<div class='er-decision-step ok'><span>3. Resource Registry</span><strong>{source_count} source cards</strong><small>{retrieval_mode}</small></div>"
+        f"<div class='er-decision-step {guard_class}'><span>4. Output Guard</span><strong>{guard_reason}</strong><small>{', '.join(map(str, guard_flags)) if guard_flags else 'no blocking flags'}</small></div>"
+        "</div>"
+        f"<div class='er-action-card'><span>Recommended next action</span><strong>{recommended_action or 'Waiting for route decision.'}</strong></div>"
+        "</div>"
+    )
+
+
 def format_retrieval_panel(result=None) -> str:
     if not result:
         return (
@@ -1366,6 +1507,7 @@ def respond(message, chat_history, session_state, audience_mode):
     if not message.strip():
         yield (
             chat_history,
+            format_decision_trace(),
             format_emotion_timeline(emotion_history, "stable"),
             "stable",
             format_ig_panel(False, 0.0, [], False),
@@ -1418,6 +1560,7 @@ def respond(message, chat_history, session_state, audience_mode):
         if not hasattr(get_pipeline(), "guardrail") and not explanation_available:
             yield (
                 chat_history,
+                format_decision_trace(result),
                 timeline_html,
                 result["trajectory"],
                 format_ig_panel(True, result["crisis_confidence"], ig_tokens, loading=False, explanation_reason=explanation_reason),
@@ -1428,6 +1571,7 @@ def respond(message, chat_history, session_state, audience_mode):
             return
         yield (
             chat_history,
+            format_decision_trace(result),
             timeline_html,
             result["trajectory"],
             format_ig_panel(True, result["crisis_confidence"], ig_tokens, loading=True),
@@ -1445,6 +1589,7 @@ def respond(message, chat_history, session_state, audience_mode):
 
         yield (
             chat_history,
+            format_decision_trace(result),
             timeline_html,
             result["trajectory"],
             format_ig_panel(True, confidence, ig_tokens, loading=False),
@@ -1455,6 +1600,7 @@ def respond(message, chat_history, session_state, audience_mode):
     else:
         yield (
             chat_history,
+            format_decision_trace(result),
             timeline_html,
             result["trajectory"],
             format_ig_panel(False, 0.0, [], False),
@@ -1468,6 +1614,7 @@ def reset_session_handler():
     session_state = new_session_state()
     return (
         [],
+        format_decision_trace(),
         format_emotion_timeline([], "stable"),
         "stable",
         format_ig_panel(False, 0.0, [], False),
@@ -1507,6 +1654,13 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
                 <div class="er-metric"><strong>177</strong><span>curated support chunks</span></div>
                 <div class="er-metric"><strong>gated</strong><span>retrieval by usage mode</span></div>
                 <div class="er-metric"><strong>fail-closed</strong><span>safety-first pipeline</span></div>
+              </div>
+              <div class="er-live-rail">
+                <div class="er-live-step active"><span>Stage 1</span><strong>Lexical safety precheck</strong></div>
+                <div class="er-live-step"><span>Stage 2</span><strong>Hybrid route / tier router</strong></div>
+                <div class="er-live-step"><span>Stage 3</span><strong>Resource registry filter</strong></div>
+                <div class="er-live-step"><span>Stage 4</span><strong>Output guard</strong></div>
+                <div class="er-live-step"><span>Stage 5</span><strong>Visible next action</strong></div>
               </div>
             </div>
             <div class="er-kicker">
@@ -1572,6 +1726,7 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
                 reset_btn = gr.Button("Reset Session")
 
         with gr.Column(scale=1, elem_classes=["er-side"]):
+            decision_out = gr.HTML(value=format_decision_trace())
             timeline_out = gr.HTML(value=format_emotion_timeline([], "stable"))
             trajectory_out = gr.Textbox(label="Trajectory", value="stable", interactive=False)
             crisis_out = gr.HTML(value=format_ig_panel(False, 0.0, [], False))
@@ -1579,6 +1734,7 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
 
     submit_outputs = [
         chatbot,
+        decision_out,
         timeline_out,
         trajectory_out,
         crisis_out,
