@@ -20,6 +20,14 @@ import gradio as gr
 sys.path.insert(0, "src")
 
 from pipeline.safety_policy import SafetyLevel, SafetyTriagePolicy
+from pipeline.output_guard import validate_output
+from pipeline.service_graph import match_services
+from pipeline.v2_schema import (
+    SafetyTier,
+    SupportRoute,
+    classify_route,
+    map_safety_level,
+)
 
 
 LABEL_COLORS = {
@@ -540,8 +548,11 @@ class FastDemoPipeline:
         self.top_k = top_k
         self.safety_policy = SafetyTriagePolicy()
         self._turn = 0
+        self._tier_history: list[str] = []
+        self._crisis_locked = False
+        self._last_escalation_reason = ""
 
-    def run(self, user_message: str) -> dict:
+    def run(self, user_message: str, audience_mode: str = "student") -> dict:
         self._turn += 1
         emotion_name = self._emotion_name(user_message)
         emotion_label = ["distress", "anxiety", "frustration", "neutral", "hopeful"].index(emotion_name)
@@ -557,12 +568,54 @@ class FastDemoPipeline:
             safety_level = safety_decision.level
             safety_reason = safety_decision.reason
 
-        if safety_decision.should_intercept:
-            retrieved = self._retrieve(user_message, SafetyLevel.CRISIS)
-            response = safety_decision.response or (
-                "I am really concerned about your immediate safety. Please call or text 988 now, "
-                "or call emergency services if you may be in immediate danger."
+        safety_tier = map_safety_level(safety_level, wellbeing_request=self._wellbeing_request(user_message))
+        normalized_message = user_message.lower()
+        dependency_or_secrecy = any(
+            phrase in normalized_message
+            for phrase in (
+                "you are the only one",
+                "only one i can talk to",
+                "don't tell anyone",
+                "do not tell anyone",
+                "keep this secret",
+                "no one can help",
             )
+        )
+        peer_context = audience_mode == "helping_friend" or any(
+            phrase in normalized_message
+            for phrase in ("my friend", "my roommate", "my labmate", "my teammate", "someone i know")
+        )
+        peer_imminent = peer_context and (
+            "goodbye" in normalized_message
+            and any(phrase in normalized_message for phrase in ("locked", "will not answer", "won't answer", "not answering"))
+        )
+        if peer_imminent:
+            safety_tier = SafetyTier.IMMINENT_SAFETY
+            safety_reason = "peer_goodbye_unreachable"
+        elif dependency_or_secrecy and safety_tier == SafetyTier.SUPPORT_NAVIGATION:
+            safety_tier = SafetyTier.HIGH_DISTRESS
+            safety_reason = "dependency_or_secrecy_redirect"
+        route_decision = classify_route(user_message, safety_tier, audience_mode=audience_mode)
+        escalation_reason = self._update_trajectory_lock(user_message, safety_tier, route_decision.route)
+
+        if safety_decision.should_intercept or self._crisis_locked or safety_tier == SafetyTier.IMMINENT_SAFETY:
+            retrieved = self._retrieve(
+                user_message,
+                SafetyLevel.CRISIS,
+                route=route_decision.route.value,
+                safety_tier=SafetyTier.IMMINENT_SAFETY.value,
+                audience_mode=audience_mode,
+            )
+            if route_decision.route == SupportRoute.PEER_HELPER:
+                response = (
+                    "I am concerned this could be an immediate safety situation for your friend. "
+                    "Do not handle this alone. Contact emergency/crisis support now, and involve a trusted nearby person, RA, supervisor, or campus support while you try to reach them."
+                )
+            else:
+                response = safety_decision.response or (
+                    "I am really concerned about your immediate safety. Please call or text 988 now, "
+                    "or call emergency services if you may be in immediate danger."
+                )
             return self._result(
                 response=response,
                 emotion_label=emotion_label,
@@ -572,13 +625,31 @@ class FastDemoPipeline:
                 crisis=True,
                 retrieved=retrieved,
                 latency={"demo_backend_ms": 8},
-                route_label="immediate safety",
-                recommended_action=self._recommended_action("immediate safety"),
+                route_label=route_decision.route.value,
+                safety_tier=SafetyTier.IMMINENT_SAFETY.value,
+                recommended_action=self._recommended_action(route_decision.route.value),
+                escalation_reason=escalation_reason,
+                output_guard={"allowed": True, "reason": "crisis_template", "flags": []},
             )
 
-        retrieved = self._retrieve(user_message, safety_level)
-        route_label = self._need_label(user_message, safety_level)
-        response = self._response_for(user_message, retrieved, safety_level)
+        retrieved = self._retrieve(
+            user_message,
+            safety_level,
+            route=route_decision.route.value,
+            safety_tier=safety_tier.value,
+            audience_mode=audience_mode,
+        )
+        route_label = route_decision.route.value
+        response = self._response_for(user_message, retrieved, safety_level, route_label, audience_mode)
+        guard = validate_output(
+            response=response,
+            retrieved_sources=self._source_summaries(retrieved),
+            safety_tier=safety_tier.value,
+            route=route_label,
+            conversation_history=[],
+        )
+        if guard.fallback_required and guard.corrected_response:
+            response = guard.corrected_response
         return self._result(
             response=response,
             emotion_label=emotion_label,
@@ -590,6 +661,9 @@ class FastDemoPipeline:
             latency={"demo_backend_ms": 8},
             route_label=route_label,
             recommended_action=self._recommended_action(route_label),
+            safety_tier=safety_tier.value,
+            escalation_reason=escalation_reason,
+            output_guard={"allowed": guard.allowed, "reason": guard.reason, "flags": guard.flags},
         )
 
     def tracker_trajectory(self) -> str:
@@ -597,6 +671,9 @@ class FastDemoPipeline:
 
     def reset_session(self) -> None:
         self._turn = 0
+        self._tier_history = []
+        self._crisis_locked = False
+        self._last_escalation_reason = ""
 
     def _result(
         self,
@@ -610,6 +687,9 @@ class FastDemoPipeline:
         latency: dict,
         route_label: str,
         recommended_action: str,
+        safety_tier: str,
+        escalation_reason: str,
+        output_guard: dict,
     ) -> dict:
         return {
             "response": response,
@@ -619,7 +699,9 @@ class FastDemoPipeline:
             "crisis": crisis,
             "crisis_confidence": 1.0 if crisis else 0.0,
             "safety_level": safety_level.value,
+            "safety_tier": safety_tier,
             "safety_reason": safety_reason,
+            "escalation_reason": escalation_reason,
             "ig_highlights": [],
             "retrieved_chunks": [row["text"] for row in retrieved],
             "retrieved_sources": self._source_summaries(retrieved),
@@ -627,12 +709,20 @@ class FastDemoPipeline:
             "latency_ms": latency,
             "route_label": route_label,
             "recommended_action": recommended_action,
+            "output_guard": output_guard,
         }
 
-    def _retrieve(self, message: str, safety_level: SafetyLevel) -> list[dict]:
+    def _retrieve(
+        self,
+        message: str,
+        safety_level: SafetyLevel,
+        route: str | None = None,
+        safety_tier: str | None = None,
+        audience_mode: str = "student",
+    ) -> list[dict]:
         if not self.db_path.exists():
-            return []
-        topics, source_names = self._targets(message, safety_level)
+            return [node.as_source("service graph fallback") for node in match_services(route or "", safety_tier or "", audience_mode, limit=self.top_k)]
+        topics, source_names = self._targets(message, safety_level, route=route)
         usage_modes = self._usage_modes(safety_level)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -703,14 +793,47 @@ class FastDemoPipeline:
             source_counts[source] = source_counts.get(source, 0) + 1
             if len(selected) == self.top_k:
                 break
+        if route and safety_tier:
+            seen_source_titles = {(row.get("source_name", ""), row.get("title", "")) for row in selected}
+            graph_rows = []
+            for node in match_services(route, safety_tier, audience_mode, limit=self.top_k):
+                source_row = node.as_source("service graph route match")
+                key = (source_row.get("source_name", ""), source_row.get("title", ""))
+                if key in seen_source_titles:
+                    continue
+                if source_row.get("usage_mode") not in usage_modes:
+                    continue
+                graph_rows.append(source_row)
+                seen_source_titles.add(key)
+            selected = (graph_rows + selected)[: self.top_k]
         return selected
 
-    def _targets(self, message: str, safety_level: SafetyLevel) -> tuple[set[str], set[str]]:
+    def _targets(self, message: str, safety_level: SafetyLevel, route: str | None = None) -> tuple[set[str], set[str]]:
         text = message.lower()
         if safety_level in {SafetyLevel.CRISIS, SafetyLevel.EMERGENCY}:
             return (
                 {"crisis_immediate_help", "emergency_services"},
                 {"988 Suicide & Crisis Lifeline", "UMD Counseling Center"},
+            )
+        if route == SupportRoute.PEER_HELPER.value:
+            return (
+                {"crisis_immediate_help", "help_seeking_script", "counseling_services"},
+                {"988 Suicide & Crisis Lifeline", "UMD Counseling Center", "JED Foundation"},
+            )
+        if route == SupportRoute.BASIC_NEEDS.value:
+            return (
+                {"help_seeking_script", "campus_navigation", "graduate_student_support"},
+                {"UMD Dean of Students", "UMD Graduate School", "UMD Counseling Center"},
+            )
+        if route == SupportRoute.ACCESSIBILITY_ADS.value:
+            return (
+                {"accessibility_disability", "campus_navigation"},
+                {"UMD Accessibility & Disability Service"},
+            )
+        if route == SupportRoute.ADVISOR_CONFLICT.value:
+            return (
+                {"advisor_conflict", "graduate_student_support"},
+                {"UMD Graduate School Ombuds", "UMD Graduate School"},
             )
         if "accommodation" in text or "disability" in text or "ads" in text:
             return (
@@ -805,55 +928,75 @@ class FastDemoPipeline:
         text = message.lower()
         return any(word in text for word in ("grounding", "ground", "panic", "breathing", "cope"))
 
-    def _response_for(self, message: str, rows: list[dict], safety_level: SafetyLevel) -> str:
+    def _response_for(
+        self,
+        message: str,
+        rows: list[dict],
+        safety_level: SafetyLevel,
+        route_label: str,
+        audience_mode: str,
+    ) -> str:
         source = rows[0]["source_name"] if rows else "a student-support resource"
         topic = rows[0]["topic"].replace("_", " ") if rows else "student support"
-        need = self._need_label(message, safety_level)
         source_line = self._source_line(rows)
-        if need == "academic setback":
+        if route_label == SupportRoute.PEER_HELPER.value:
+            return (
+                "Route detected: peer-helper support. This is not something your friend should have to handle alone, and it is not something you should handle alone either.\n\n"
+                "Recommended next action: if there may be immediate danger, contact emergency/crisis support now and involve a trusted nearby person, RA, supervisor, or campus support. Do not promise secrecy when safety may be at risk.\n\n"
+                f"Sources matched: {source_line}\n\n"
+                "A safer thing to say: I care about you, and I am worried enough that we need to get another person involved right now."
+            )
+        if route_label == SupportRoute.BASIC_NEEDS.value:
+            return (
+                "Route detected: basic needs / student support. Food, housing, and money stress are not motivation problems; they are support-navigation problems.\n\n"
+                "Recommended next action: contact a campus student-support office or Dean of Students-style support path and say plainly what you need help with today. I will not invent Pantry or Thrive details unless they are in the verified corpus.\n\n"
+                f"Sources matched: {source_line}"
+            )
+        if route_label == SupportRoute.ACADEMIC_SETBACK.value:
             return (
                 "Route detected: academic setback with distress. Failing an exam can feel catastrophic, but this is exactly the kind of moment where the next step matters more than the spiral.\n\n"
-                f"Best next actions: 1. stabilize for the next hour, 2. check what the course policy allows, 3. contact the instructor/TA or an academic support person, and 4. use UMD support if the stress is bleeding into sleep, panic, or hopelessness.\n\n"
+                "Recommended next action: send a short office-hours note instead of trying to solve the whole semester tonight.\n\n"
+                "Email script: Hi Professor/TA [Name], I am trying to understand what went wrong on [exam/assignment] and what I can do differently before the next assessment. Could I come to office hours or schedule a short meeting to review my mistakes?\n\n"
                 f"Sources matched: {source_line}"
             )
-        if need == "low mood":
+        if route_label == SupportRoute.LOW_MOOD.value:
             return (
                 "Route detected: low mood / depression support. I am not reading this as an emergency from the wording alone, but it is serious enough to deserve support instead of being minimized.\n\n"
-                f"Best next actions: 1. tell one trusted person what is going on, 2. use a campus counseling starting point, and 3. if this shifts into not feeling safe, use crisis support immediately.\n\n"
+                f"Recommended next action: tell one trusted person what is going on, then use a campus counseling starting point. If this shifts into not feeling safe, use crisis support immediately.\n\n"
                 f"Sources matched: {source_line}"
             )
-        if need == "academic stress":
+        if route_label == SupportRoute.EXAM_STRESS.value:
             return (
                 "That sounds like the kind of grade panic that can make everything feel bigger and more permanent than it actually is.\n\n"
-                f"I found {topic} resources anchored around {source}. What would help most first: making a next-step plan, finding someone to contact, or getting through the next hour without spiraling?\n\n"
+                f"Recommended next action: choose one academic action for the next 24 hours: office hours, TA email, syllabus policy check, or advisor check-in. I found {topic} resources anchored around {source}.\n\n"
                 f"Sources matched: {source_line}"
             )
-        if need == "stress overload":
+        if route_label == SupportRoute.ANXIETY_PANIC.value:
             return (
                 "That sounds like stress has moved from background noise into something that is taking over the whole room.\n\n"
-                f"I found {topic} resources anchored around {source}. What would help most right now: a grounding step, a campus support path, or a simple next-step plan?\n\n"
+                f"Recommended next action: first do one short grounding step, then choose whether you need a campus support path or a simple next-step plan. I found {topic} resources anchored around {source}.\n\n"
                 f"Sources matched: {source_line}"
             )
-        if need == "accessibility":
+        if route_label == SupportRoute.ACCESSIBILITY_ADS.value:
             return (
                 "Route detected: accessibility / accommodations support. This is a practical support path, not something you have to improvise alone.\n\n"
-                f"Best next actions: 1. identify the class or exam barrier, 2. review ADS documentation expectations, and 3. use the official ADS student process so the request is traceable.\n\n"
+                f"Recommended next action: identify the class or exam barrier, then use the official ADS student process so the request is traceable.\n\n"
                 f"Sources matched: {source_line}"
             )
-        if need == "advisor conflict":
+        if route_label == SupportRoute.ADVISOR_CONFLICT.value:
             return (
                 "Route detected: advisor conflict / graduate support. The safest next step is to keep the record factual and use a neutral campus channel before the situation escalates.\n\n"
-                f"Best next actions: 1. write down the specific concern, 2. separate urgent academic deadlines from relationship issues, and 3. consider Ombuds or graduate support resources.\n\n"
+                f"Recommended next action: write down the specific concern, separate urgent academic deadlines from relationship issues, and consider Ombuds or graduate support resources.\n\n"
                 f"Sources matched: {source_line}"
             )
         if safety_level == SafetyLevel.WELLBEING_SUPPORT:
             return (
-                f"That sounds like a sharp spike of {need}, and it makes sense to want something steadying rather than another wall of advice.\n\n"
-                f"I found {topic} resources anchored around {source}. What would help most right now: a short grounding step, who to contact, or what to expect next?"
+                f"That sounds like a sharp spike of student stress, and it makes sense to want something steadying rather than another wall of advice.\n\n"
+                f"Recommended next action: take one short grounding step, then decide whether you need who to contact or what to expect next. I found {topic} resources anchored around {source}."
             )
         return (
-            f"That sounds like a real {need} concern, and you should not have to untangle it from scratch.\n\n"
-            f"I found {topic} resources anchored around {source}. What would help most to focus on first: next steps, who to contact, or what to expect?\n\n"
+            f"That sounds like a real student-support concern, and you should not have to untangle it from scratch.\n\n"
+            f"Recommended next action: pick one concrete support path before trying to solve the whole situation. I found {topic} resources anchored around {source}. What would help most to focus on first: next steps, who to contact, or what to expect?\n\n"
             f"Sources matched: {source_line}"
         )
 
@@ -894,17 +1037,46 @@ class FastDemoPipeline:
 
     def _recommended_action(self, route_label: str) -> str:
         actions = {
-            "immediate safety": "Stop normal advice. Show 988, emergency, and campus crisis options first.",
-            "academic setback": "Stabilize the moment, identify the course policy path, then route to instructor/TA or campus support.",
-            "low mood": "Validate seriousness, suggest one trusted person plus counseling navigation, and watch for safety escalation.",
-            "academic stress": "Turn the prompt into a short next-step plan instead of generic reassurance.",
-            "stress overload": "Offer grounding or a simple campus support path before broader resources.",
-            "accessibility": "Route to ADS process, documentation expectations, and student-facing accommodations support.",
-            "advisor conflict": "Route to Ombuds/graduate support and keep the language neutral and non-escalatory.",
-            "counseling navigation": "Explain how to start with UMD Counseling and what to expect from first contact.",
-            "anxiety": "Offer grounding first, then counseling or public-health resources if symptoms persist.",
+            SupportRoute.CRISIS_IMMEDIATE.value: "Stop normal advice. Show 988, emergency, and campus crisis options first.",
+            SupportRoute.PEER_HELPER.value: "Do not ask the peer to handle risk alone. Escalate to a trusted person, campus support, or crisis help when safety may be at risk.",
+            SupportRoute.ACADEMIC_SETBACK.value: "Send a short office-hours note and identify the next academic policy/support step.",
+            SupportRoute.LOW_MOOD.value: "Tell one trusted person and use a campus counseling starting point; escalate if safety changes.",
+            SupportRoute.EXAM_STRESS.value: "Choose one academic action for the next 24 hours: office hours, TA email, syllabus policy check, or advisor check-in.",
+            SupportRoute.ANXIETY_PANIC.value: "Start with one grounding step, then choose a support path if symptoms keep interfering.",
+            SupportRoute.ACCESSIBILITY_ADS.value: "Route to the official ADS process and keep the accommodations request traceable.",
+            SupportRoute.ADVISOR_CONFLICT.value: "Keep the record factual and consider Ombuds or graduate support before escalating the conflict.",
+            SupportRoute.COUNSELING_NAVIGATION.value: "Explain how to start with UMD Counseling and what to expect from first contact.",
+            SupportRoute.BASIC_NEEDS.value: "Route to verified campus student-support resources without inventing Pantry/Thrive details.",
         }
         return actions.get(route_label, "Keep the answer practical, source-grounded, and student-support oriented.")
+
+    def _update_trajectory_lock(self, message: str, safety_tier: SafetyTier, route: SupportRoute) -> str:
+        self._tier_history.append(safety_tier.value)
+        self._tier_history = self._tier_history[-3:]
+        text = message.lower()
+        reason = ""
+        if len(self._tier_history) == 3 and all(tier in {"imminent_safety", "high_distress"} for tier in self._tier_history):
+            self._crisis_locked = True
+            reason = "three_consecutive_high_risk_turns"
+        dependency_or_secrecy = any(
+            phrase in text
+            for phrase in (
+                "you are the only one",
+                "only one i can talk to",
+                "don't tell anyone",
+                "do not tell anyone",
+                "keep this secret",
+                "no one can help",
+            )
+        )
+        if dependency_or_secrecy:
+            reason = reason or "dependency_or_secrecy_redirect"
+            if safety_tier == SafetyTier.IMMINENT_SAFETY:
+                self._crisis_locked = True
+        if self._crisis_locked and not reason:
+            reason = "crisis_locked"
+        self._last_escalation_reason = reason
+        return reason
 
 
 pipeline_lock = threading.Lock()
@@ -1069,15 +1241,21 @@ def format_retrieval_panel(result=None) -> str:
 
     safety_level = escape(str(result.get("safety_level", "unknown")))
     safety_reason = escape(str(result.get("safety_reason", "")))
+    safety_tier = escape(str(result.get("safety_tier", "unknown")))
+    escalation_reason = escape(str(result.get("escalation_reason", "")))
     corpus = escape(str(result.get("retrieval_corpus", "unknown")))
     route_label = escape(str(result.get("route_label", "student-support")))
     recommended_action = escape(str(result.get("recommended_action", "")))
+    output_guard = result.get("output_guard", {}) or {}
+    output_guard_reason = escape(str(output_guard.get("reason", "not_checked")))
     html = (
         "<div class='er-card'>"
         "<div class='er-mini-title'>Retrieval Sources</div>"
         "<div class='er-status-grid'>"
         f"<div class='er-status'><span>Corpus</span><strong>{corpus}</strong></div>"
+        f"<div class='er-status'><span>Tier</span><strong>{safety_tier}</strong></div>"
         f"<div class='er-status'><span>Safety</span><strong>{safety_level}</strong></div>"
+        f"<div class='er-status'><span>Output guard</span><strong>{output_guard_reason}</strong></div>"
         "</div>"
         f"<div class='er-source-meta' style='margin-top:8px;'>Reason: {safety_reason}</div>"
         "<div class='er-route'>"
@@ -1085,6 +1263,8 @@ def format_retrieval_panel(result=None) -> str:
         f"<span>{recommended_action}</span>"
         "</div>"
     )
+    if escalation_reason:
+        html += f"<div class='er-source-meta' style='margin-top:8px;'>Escalation: {escalation_reason}</div>"
 
     if safety_level in {"crisis", "emergency"}:
         html += (
@@ -1128,7 +1308,7 @@ def format_retrieval_panel(result=None) -> str:
     return html
 
 
-def respond(message, chat_history, session_state):
+def respond(message, chat_history, session_state, audience_mode):
     if not session_state:
         session_state = new_session_state()
 
@@ -1166,7 +1346,7 @@ def respond(message, chat_history, session_state):
             session_state["tracker_history"] = active_pipeline.tracker.history()
             session_state["conv_history"] = list(active_pipeline.conv_history)
         else:
-            result = active_pipeline.run(message)
+            result = active_pipeline.run(message, audience_mode=audience_mode or "student")
             session_state["tracker_history"] = session_state.get("tracker_history", []) + [result["emotion"]]
             session_state["conv_history"] = session_state.get("conv_history", [])
 
@@ -1280,6 +1460,12 @@ with gr.Blocks(theme=theme, title="EmpathRAG V2", css=APP_CSS) as demo:
         interactive=False,
         value=initial_state["session_id"],
     )
+    audience_mode_box = gr.Radio(
+        choices=[("Student", "student"), ("Helping a friend", "helping_friend")],
+        value="student",
+        label="Mode",
+        interactive=True,
+    )
 
     gr.HTML(
         f"""
@@ -1334,13 +1520,13 @@ with gr.Blocks(theme=theme, title="EmpathRAG V2", css=APP_CSS) as demo:
 
     msg_box.submit(
         respond,
-        inputs=[msg_box, chatbot, session_state],
+        inputs=[msg_box, chatbot, session_state, audience_mode_box],
         outputs=submit_outputs,
     ).then(lambda: "", outputs=msg_box)
 
     send_btn.click(
         respond,
-        inputs=[msg_box, chatbot, session_state],
+        inputs=[msg_box, chatbot, session_state, audience_mode_box],
         outputs=submit_outputs,
     ).then(lambda: "", outputs=msg_box)
 

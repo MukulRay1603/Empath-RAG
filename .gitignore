@@ -69,6 +69,8 @@ data/curated/raw_pages/
 data/curated/indexes/
 eval/ragas_results.json
 eval/curated_retrieval_audit.json
+eval/multiturn_results.json
+pytest-cache-files-*/
 
 # Session artifacts
 CHANGES_APPLIED.md

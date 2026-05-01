@@ -483,3 +483,27 @@ For the MSML class demo, the current fast curated app is the right path.
 
 For research/publication, the next hard work is evaluation, source quality, safety validation, and real backend reliability.
 
+## 13. V2.5 Checkpoint Update
+
+V2 was checkpointed locally before V2.5 work:
+
+- V1 baseline branch: `checkpoint/v1-baseline`
+- V2 curated-support branch: `checkpoint/v2-curated-support`
+- V2.5 working branch: `codex/v2.5-support-navigator`
+
+V2.5 adds the next architecture layer without replacing V1 or V2:
+
+- canonical route/tier schema in `src/pipeline/v2_schema.py`
+- four-mode ladder: `imminent_safety`, `high_distress`, `support_navigation`, `wellbeing`
+- minimal service graph in `data/curated/service_graph.jsonl`
+- service graph loader in `src/pipeline/service_graph.py`
+- output-side guard in `src/pipeline/output_guard.py`
+- peer-helper mode in the demo UI
+- basic-needs routing with explicit non-hallucination around Pantry/Thrive details
+- academic setback response with professor/TA email script
+- regression tests in `tests/test_v25_support_navigator.py`
+- multi-turn eval harness in `eval/run_multiturn_eval.py`
+
+The project should now be framed as:
+
+V1 baseline -> V2 curated safety-gated support navigator -> V2.5 graph-grounded, route/tier-explicit navigator with output guard and multi-turn eval scaffolding.
