@@ -2,6 +2,69 @@
 
 This note preserves the current project state, decisions, audit findings, and next steps so the work can continue even if chat context is lost.
 
+## 2026-05-05 Current Core Snapshot
+
+Current branch:
+
+```text
+codex/v2.5-support-navigator
+```
+
+Current framing:
+
+EmpathRAG Core is one consolidated guarded conversational RAG system for
+student-support navigation. V1/V2/V2.5 are checkpoints/baselines, not separate
+products.
+
+Current working pieces:
+
+- Core runtime: `src/pipeline/core.py`
+- Stage-1 lexical safety precheck: `src/pipeline/safety_policy.py`
+- TF-IDF/logistic router: `src/pipeline/ml_router.py`
+- Route/tier schema: `src/pipeline/v2_schema.py`
+- Resource registry: `data/curated/service_graph.jsonl`
+- Response planner: `src/pipeline/response_planner.py`
+- Output guard: `src/pipeline/output_guard.py`
+- Demo: `demo/app.py`
+- Dataset ingest: `eval/ingest_core_dataset_v2.py`
+- Eval A: `eval/run_empathrag_core_eval.py`
+- Eval B: `eval/run_multiturn_eval.py`
+- Safety supplement: `eval/multiturn_safety_supplement.jsonl`
+
+Karthik's `empathrag_core_dataset_v2` was received and ingested:
+
+- 360 single-turn prompts
+- 50 multi-turn scenarios
+- 22 risky/ambiguous cases
+- 11 resource additions
+- 216/72/72 train/dev/test split
+
+Current Eval A:
+
+- Rule route accuracy: `0.389`
+- Hybrid Core route accuracy: `0.856`
+- Source organization hit rate: `1.000`
+- Unsafe generation count: `0`
+
+Current Eval B with safety supplement:
+
+- 74 scenarios
+- 28 escalation scenarios
+- Missed escalation count: `0`
+- Unsafe generation count: `0`
+- Pure validation/no-action count: `0`
+
+Important caveat:
+
+These are synthetic development results. They are good for class presentation and preliminary research framing, but not clinical/deployment claims.
+
+Latest pushed checkpoints:
+
+- `f046303 Ingest Core dataset and harden router policy`
+- `433900d Add Eval B safety supplement`
+
+The older notes below are archival and may mention previous branch names or early corpus-only work.
+
 ## Current Goal
 
 EmpathRAG is a mental-health-adjacent RAG project for student support. The near-term goal is a clear, working MSML class demo within roughly 10 days. The longer-term goal is a safer, research-oriented version that could eventually be evaluated for usefulness to UMD student mental-health support contexts.

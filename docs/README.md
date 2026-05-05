@@ -6,6 +6,7 @@ This folder is organized by purpose so the project does not turn into a pile of 
 
 - [Master checklist](planning/MASTER_CHECKLIST.md): current single source of truth for the EmpathRAG Core sprint.
 - [Current status audit](planning/CURRENT_STATUS_AUDIT.md): what exists, what works, and what remains risky.
+- [Karthik Core Dataset V2 audit](audits/KARTHIK_CORE_DATASET_V2_AUDIT.md): dataset ingest result, Eval A/B metrics, and remaining data caveats.
 - [Core architecture](architecture/EMPATHRAG_CORE_ARCHITECTURE.md): runtime design and pipeline structure.
 - [Paper framing](research/PAPER_FRAMING.md): research story, claims, baselines, and evaluation framing.
 

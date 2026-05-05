@@ -1,6 +1,6 @@
 # EmpathRAG Core Master Checklist
 
-Date: 2026-05-01  
+Date: 2026-05-05  
 Active branch: `codex/v2.5-support-navigator`  
 Status: one consolidated product direction; V1/V2/V2.5 are baselines/checkpoints only.
 
@@ -51,14 +51,14 @@ Supporting engineering contributions:
 - [x] Return Stage-1 precheck metadata in `EmpathRAGResult` for UI/eval visibility.
 - [x] Optionally call the real DeBERTa safety guardrail for deeper eval and explainability.
 - [x] Keep Integrated Gradients available for safety decisions without blocking the live demo.
-- [ ] Add RoBERTa route classifier only after labeled route dataset exists.
+- [ ] Add RoBERTa route classifier only if time remains after slides/demo screenshots.
 
 Router ablation plan:
 
 - [x] Rule router baseline.
 - [x] TF-IDF/logistic router baseline.
 - [ ] RoBERTa route classifier trained on Karthik's labeled synthetic data.
-- [ ] Full hybrid system: lexical safety + ML routing + resource registry retrieval + output guard.
+- [x] Full hybrid system: lexical safety + ML routing + resource registry retrieval + output guard.
 
 ## Phase 3: Safety And Output Gates
 
@@ -71,7 +71,7 @@ Router ablation plan:
 - [x] Rule-based output guard catches pure validation, harmful agreement, dependency language, and unsupported resource claims.
 - [x] Add explicit `out_of_scope` handling in response planner and UI.
 - [x] Cut NLI-style groundedness from this sprint; keep it as future work.
-- [ ] Document NLI groundedness as future work in paper-facing docs.
+- [x] Document NLI groundedness as future work in paper-facing docs.
 - [x] Ensure crisis/imminent prompts never enter normal generation.
 
 ## Phase 4: Response Layer And Demo
@@ -100,10 +100,10 @@ Primary metric:
 
 Variants:
 
-- [ ] Rule router
-- [ ] TF-IDF/logistic router
+- [x] Rule router
+- [x] TF-IDF/logistic router
 - [ ] RoBERTa route classifier
-- [ ] Full hybrid Core system
+- [x] Full hybrid Core system
 
 Metrics:
 
@@ -164,8 +164,8 @@ Metrics:
 
 Minimum target:
 
-- 30 multi-turn scenarios for class demo/paper draft.
-- 50 multi-turn scenarios for stronger research version.
+- 74 multi-turn scenarios currently available for class demo/paper draft.
+- 28 scenarios currently require true escalation.
 
 ## Phase 6: V1 Results Preservation
 
@@ -193,12 +193,12 @@ Concrete deadline:
 
 Blocking deliverables:
 
-- [ ] `single_turn_labeled.csv`: 300-500 synthetic prompts.
-- [ ] `multi_turn_scenarios.jsonl`: at least 30 scenarios, target 50.
-- [ ] `source_target_map.csv`.
-- [ ] `risky_ambiguous_cases.csv`.
-- [ ] `resource_profile_additions.csv`.
-- [ ] `README_dataset_notes.md`.
+- [x] `single_turn_labeled.csv`: 300-500 synthetic prompts.
+- [x] `multi_turn_scenarios.jsonl`: at least 30 scenarios, target 50.
+- [x] `source_target_map.csv`.
+- [x] `risky_ambiguous_cases.csv`.
+- [x] `resource_profile_additions.csv`.
+- [x] `README_dataset_notes.md`.
 - [x] Add local dataset V2 ingest/validation pipeline so the delivery can be integrated quickly.
 - [x] Add fixture smoke test for the dataset V2 ingest contract.
 
@@ -211,11 +211,10 @@ Setup/verification tasks for Karthik if he runs the repo locally:
 
 Fallback if dataset slips:
 
-- [ ] If the full dataset is not delivered by end-of-day Wednesday, May 6, 2026, run a Day 6 morning pair-labeling session with Karthik.
-- [ ] Build a smaller hand-labeled fallback set of about 150 single-turn prompts and 15 multi-turn scenarios.
-- [ ] Train/evaluate TF-IDF and, if feasible, a small RoBERTa route classifier.
-- [ ] Report small-N limitation honestly.
-- [ ] Do not block the demo on RoBERTa route training.
+- [x] Dataset arrived before fallback was needed.
+- [x] Train/evaluate TF-IDF router on Karthik's labels.
+- [x] Report synthetic-data limitation honestly.
+- [x] Do not block the demo on RoBERTa route training.
 
 ## Claims To Avoid
 
@@ -235,4 +234,5 @@ Fallback if dataset slips:
 - [x] Split eval reports into Eval A and Eval B summaries.
 - [x] Add Karthik dataset intake pipeline and smoke fixture.
 - [x] Add first verified UMD resource registry expansion.
+- [x] Add Karthik dataset integration and Eval B safety supplement.
 - [ ] Keep demo polished and deterministic for the class presentation.
