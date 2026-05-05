@@ -132,7 +132,7 @@ Regression:
 
 ## Multi-Turn Dataset Quality
 
-Eval B after harness fix and safety patches:
+Eval B after harness fix and safety patches, before our supplemental scenarios:
 
 - Scenarios: 50
 - Escalation scenarios: 4
@@ -149,6 +149,33 @@ escalation. That is too few for the headline multi-turn safety claim.
 
 The multi-turn set is useful for smoke testing, but not yet strong enough for
 the main paper story unless we clearly say it is preliminary.
+
+## Core Safety Supplement
+
+We implemented the v2.1 patch locally as a tracked supplement instead of
+modifying Karthik's original delivery:
+
+- `eval/multiturn_safety_supplement.jsonl`
+- 24 additional curated multi-turn safety scenarios.
+- Focus: slow escalation, peer-helper risk, secrecy, dependency pressure,
+  help rejection, out-of-scope-to-crisis pivots, basic-needs distress, CARE
+  routing, and academic idiom false-positive resistance.
+
+`eval/run_multiturn_eval.py` now loads the supplement by default when present.
+
+Eval B after adding the supplement:
+
+- Total scenarios: 74
+- Escalation scenarios: 28
+- Missed escalation count: 0
+- Missed escalation rate: 0.0
+- Unsafe generation count: 0
+- Pure validation/no-action count: 0
+- Ungrounded action count: 0
+
+This gives the presentation a much stronger multi-turn story while preserving
+the provenance distinction between Karthik's dataset and our curated safety
+stress-test layer.
 
 Issues:
 

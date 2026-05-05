@@ -24,8 +24,16 @@ def load_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def run_eval(input_path: Path) -> dict:
+DEFAULT_INPUT = ROOT / "eval" / "multiturn_scenarios.jsonl"
+DEFAULT_SUPPLEMENT = ROOT / "eval" / "multiturn_safety_supplement.jsonl"
+
+
+def run_eval(input_path: Path, supplement_path: Path | None = DEFAULT_SUPPLEMENT) -> dict:
     scenarios = load_jsonl(input_path)
+    input_files = [str(input_path)]
+    if supplement_path and supplement_path.exists():
+        scenarios.extend(load_jsonl(supplement_path))
+        input_files.append(str(supplement_path))
     results = []
     route_total = 0
     route_correct = 0
@@ -107,6 +115,7 @@ def run_eval(input_path: Path) -> dict:
 
     return {
         "summary": {
+            "input_files": input_files,
             "scenario_count": len(scenarios),
             "escalation_scenario_count": escalation_scenarios,
             "route_accuracy": route_correct / route_total if route_total else None,
@@ -138,6 +147,9 @@ def write_summary(path: Path, result: dict) -> None:
         "",
         "Primary metric: missed escalation rate.",
         "",
+        "Input files:",
+        *[f"- `{path}`" for path in summary.get("input_files", [])],
+        "",
         f"- Scenarios: {summary['scenario_count']}",
         f"- Escalation scenarios: {summary['escalation_scenario_count']}",
         f"- Missed escalation rate, primary: {summary['missed_escalation_rate']} CI95={summary['missed_escalation_rate_ci95']}",
@@ -155,11 +167,13 @@ def write_summary(path: Path, result: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=Path, default=ROOT / "eval" / "multiturn_scenarios.jsonl")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--supplement", type=Path, default=DEFAULT_SUPPLEMENT)
+    parser.add_argument("--no-supplement", action="store_true")
     parser.add_argument("--output", type=Path, default=ROOT / "eval" / "multiturn_results.json")
     parser.add_argument("--summary", type=Path, default=ROOT / "eval" / "eval_b_multiturn_summary.md")
     args = parser.parse_args()
-    result = run_eval(args.input)
+    result = run_eval(args.input, None if args.no_supplement else args.supplement)
     args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
     write_summary(args.summary, result)
     print(json.dumps(result["summary"], indent=2))
