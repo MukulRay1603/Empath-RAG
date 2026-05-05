@@ -181,6 +181,10 @@ IMMINENT_RISK_PATTERNS = tuple(
         r"\bsaid my goodbyes\b",
         r"\bwon'?t have to feel this anymore\b",
         r"\bhow high a bridge needs to be\b",
+        r"\btonight\b.*\bsurvivable\b",
+        r"\bdoesn'?t feel survivable\b",
+        r"\bimpulses?\b.*\b(loud|fast|unspecified)\b",
+        r"\bspiraling fast\b.*\bimpulses?\b",
     )
 )
 

@@ -74,6 +74,9 @@ def classify_route(
     if _is_peer_helper(text, audience_mode):
         return RouteDecision(SupportRoute.PEER_HELPER, safety_tier, "peer_helper_language", audience_mode)
 
+    if _has_any(text, ("prescribe", "diagnose", "medication dosage", "hipaa complaint", "legal complaint", "lawsuit", "litigation", "dining hall rumor", "rumor about mold")):
+        return RouteDecision(SupportRoute.OUT_OF_SCOPE, safety_tier, "out_of_scope_language", audience_mode)
+
     if _has_any(text, ("counseling center", "referral", "off-campus care", "after hours", "after-hours", "brief assessment", "group therapy", "individual counseling", "mental health crises", "number to call")):
         return RouteDecision(SupportRoute.COUNSELING_NAVIGATION, safety_tier, "counseling_navigation_language", audience_mode)
 
@@ -106,9 +109,6 @@ def classify_route(
 
     if _has_any(text, ("depressed", "depressing", "depression", "low mood", "hopeless", "feel numb", "motivation disappeared", "canceling plans", "guilty", "dark moods", "pointless")):
         return RouteDecision(SupportRoute.LOW_MOOD, safety_tier, "low_mood_language", audience_mode)
-
-    if _has_any(text, ("prescribe", "diagnose", "medication dosage", "hipaa complaint", "legal complaint", "lawsuit", "litigation", "dining hall rumor", "rumor about mold")):
-        return RouteDecision(SupportRoute.OUT_OF_SCOPE, safety_tier, "out_of_scope_language", audience_mode)
 
     return RouteDecision(SupportRoute.GENERAL_STUDENT_SUPPORT, safety_tier, "default_support_navigation", audience_mode)
 

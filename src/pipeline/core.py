@@ -63,7 +63,7 @@ class EmpathRAGCore:
         retrieval_corpus: str = "curated_support",
         top_k: int = 5,
         router_model_dir: Path | str = Path("models/router"),
-        ml_confidence_threshold: float = 0.15,
+        ml_confidence_threshold: float = 0.35,
         use_model_guardrail: bool | None = None,
         compute_ig_on_intercept: bool | None = None,
         guardrail_threshold: float = 0.5,
@@ -265,8 +265,19 @@ class EmpathRAGCore:
         if len(history[-3:]) == 3 and all(tier in {"imminent_safety", "high_distress"} for tier in history[-3:]):
             self.locked_sessions[session_id] = "three_consecutive_high_risk_turns"
             return "three_consecutive_high_risk_turns"
+        if safety_tier in {"imminent_safety", "high_distress"} and "goodbye" in text:
+            return "peer_goodbye_or_farewell_escalation"
         if safety_tier in {"imminent_safety", "high_distress"} and any(
-            phrase in text for phrase in ("you are the only one", "only one i can talk to", "keep this secret", "don't tell anyone")
+            phrase in text
+            for phrase in (
+                "you are the only one",
+                "only one i can talk to",
+                "keep this secret",
+                "don't tell anyone",
+                "refuse external help",
+                "secrecy",
+                "never suggest counseling",
+            )
         ):
             return "dependency_or_secrecy_redirect"
         return ""
@@ -359,6 +370,20 @@ def _apply_contextual_safety_overrides(
         return SafetyTier.HIGH_DISTRESS, "dependency_or_secrecy_redirect"
     if safety_tier == SafetyTier.SUPPORT_NAVIGATION and any(
         phrase in text for phrase in ("crises if it gets worse", "dark moods", "pointless", "scared to escalate")
+    ):
+        return SafetyTier.HIGH_DISTRESS, "high_distress_language"
+    if any(
+        phrase in text
+        for phrase in (
+            "panic attacks",
+            "hopeless",
+            "everything hollow",
+            "ideation creeping",
+            "goodbye texts",
+            "mentioned goodbye",
+            "refuse external help",
+            "secrecy",
+        )
     ):
         return SafetyTier.HIGH_DISTRESS, "high_distress_language"
     if safety_tier == SafetyTier.SUPPORT_NAVIGATION and any(

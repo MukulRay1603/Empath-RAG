@@ -71,7 +71,7 @@ def load_models(model_dir: Path = DEFAULT_MODEL_DIR) -> tuple[Pipeline | None, P
 
 
 class MLRouter:
-    def __init__(self, model_dir: Path = DEFAULT_MODEL_DIR, min_confidence: float = 0.15):
+    def __init__(self, model_dir: Path = DEFAULT_MODEL_DIR, min_confidence: float = 0.35):
         self.model_dir = model_dir
         self.min_confidence = min_confidence
         self.route_model, self.tier_model = load_models(model_dir)
