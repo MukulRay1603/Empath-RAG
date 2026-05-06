@@ -32,7 +32,7 @@ def test_failed_exam_routes_to_academic_setback_with_action():
     result = make_fast_pipeline().run("I failed my exam and my future is over")
     assert result["route_label"] == SupportRoute.ACADEMIC_SETBACK.value
     assert result["safety_tier"] in {SafetyTier.SUPPORT_NAVIGATION.value, SafetyTier.HIGH_DISTRESS.value}
-    assert "Recommended next action" in result["response"]
+    assert "For right now:" in result["response"]
     assert not any(source["usage_mode"] == "crisis_only" for source in result["retrieved_sources"])
 
 
@@ -40,6 +40,14 @@ def test_ads_exam_prompt_routes_to_accessibility():
     result = make_fast_pipeline().run("I need ADS accommodations for exams")
     assert result["route_label"] == SupportRoute.ACCESSIBILITY_ADS.value
     assert any("Accessibility" in source["source_name"] or "ADS" in source["title"] for source in result["retrieved_sources"])
+
+
+def test_test_tomorrow_distress_routes_to_exam_stress():
+    result = make_fast_pipeline().run("I'm scared about my test tomorrow, I feel very devastated.")
+    assert result["route_label"] == SupportRoute.EXAM_STRESS.value
+    assert result["safety_tier"] in {SafetyTier.SUPPORT_NAVIGATION.value, SafetyTier.HIGH_DISTRESS.value}
+    assert "For right now:" in result["response"]
+    assert "study plan" in result["response"].lower() or "grounding" in result["response"].lower()
 
 
 def test_advisor_conflict_does_not_over_escalate():
@@ -51,7 +59,7 @@ def test_advisor_conflict_does_not_over_escalate():
 def test_basic_needs_route_uses_available_graph_without_hallucinating_pantries():
     result = make_fast_pipeline().run("I have not eaten today because I am out of money")
     assert result["route_label"] == SupportRoute.BASIC_NEEDS.value
-    assert "Recommended next action" in result["response"]
+    assert "For right now:" in result["response"]
     assert any(
         "Dean of Students" in source["source_name"]
         or "Campus Pantry" in source["source_name"]

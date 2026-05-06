@@ -146,7 +146,7 @@ def _has_unsupported_resource_recommendation(response: str, retrieved_sources: l
     text = response.lower()
     if "will not invent" in text or "not invent" in text:
         return False
-    if "source-grounded option:" not in text:
+    if "source-grounded option:" not in text and "grounded support:" not in text:
         return False
     known_names = {
         str(source.get("source_name", "")).lower()

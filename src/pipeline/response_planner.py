@@ -21,9 +21,9 @@ class ResponsePlan:
     def render(self) -> str:
         return (
             f"{self.validation} {self.reframe}\n\n"
-            f"Recommended next action: {self.recommended_action}\n\n"
-            f"Source-grounded option: {self.support_option}\n\n"
-            f"Backup option: {self.backup_option}\n\n"
+            f"For right now: {self.recommended_action}\n\n"
+            f"Grounded support: {self.support_option}\n\n"
+            f"Backup plan: {self.backup_option}\n\n"
             f"{self.follow_up_question}"
         )
 
@@ -48,6 +48,18 @@ def build_response_plan(
             f"Use {source_label} if the stress is affecting sleep, panic, or your ability to function.",
             "If the situation starts feeling unsafe, switch from academic planning to crisis or human support immediately.",
             "Do you want the short email script or the next-step checklist first?",
+        )
+
+    if route == SupportRoute.EXAM_STRESS.value:
+        return ResponsePlan(
+            route,
+            safety_tier,
+            "Tomorrow's test feeling this heavy makes sense, especially when your mind is already jumping to worst-case outcomes.",
+            "I do not want to treat the fear as proof that you are doomed; the useful move is to shrink the next few hours into something controllable.",
+            "Take a 10-minute reset, pick two high-yield topics, and make a small plan for what you will do before sleep instead of trying to fix everything tonight.",
+            f"Use {source_label} if the stress is affecting sleep, panic, or your ability to function.",
+            "If this shifts into not feeling safe or being unable to stay with yourself, use crisis or emergency support instead of continuing study planning.",
+            "Would you rather make a quick study plan, do a grounding reset, or draft a message to your instructor/TA?",
         )
 
     if route == SupportRoute.ACCESSIBILITY_ADS.value:
@@ -149,12 +161,12 @@ def build_response_plan(
     return ResponsePlan(
         route,
         safety_tier,
-        "That sounds like a real support concern.",
-        "The safest way to help is to turn it into one grounded next step instead of a broad reassurance loop.",
-        "Pick one concrete support path from the retrieved sources.",
+        "That sounds like something you should not have to sort through from scratch.",
+        "The helpful next step is to name what kind of support this is, then choose one concrete action instead of staying in a vague overwhelm loop.",
+        "Choose the closest source card and take one small action from it today.",
         f"Use {source_label} as the starting point.",
         "If this becomes urgent or safety-related, switch to crisis or emergency support.",
-        "What would help most first: next steps, who to contact, or what to expect?",
+        "What would help most first: a next-step checklist, who to contact, or what to expect?",
     )
 
 

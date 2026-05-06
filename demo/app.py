@@ -1422,24 +1422,26 @@ def format_ig_panel(is_crisis, confidence, ig_tokens, loading, explanation_reaso
 def format_decision_trace(result=None) -> str:
     if not result:
         return (
-            "<div class='er-card'><div class='er-mini-title'>Core Decision Trace</div>"
-            "<div class='er-empty'>Run a prompt to see safety, routing, retrieval, and guard decisions.</div></div>"
+            "<div class='er-card'><div class='er-mini-title'>Support Map</div>"
+            "<div class='er-empty'>Run a prompt to see the support path, safety check, and next action.</div></div>"
         )
 
-    route_label = escape(str(result.get("route_label", "unknown")))
-    safety_tier = escape(str(result.get("safety_tier", "unknown")))
+    route_label = str(result.get("route_label", "unknown"))
+    safety_tier = str(result.get("safety_tier", "unknown"))
+    route_text = escape(_pretty_route(route_label))
+    tier_text = escape(_pretty_tier(safety_tier))
     should_intercept = bool(result.get("crisis") or result.get("should_intercept"))
     retrieval_mode = escape(str(result.get("retrieval_mode", "unknown")))
     recommended_action = escape(str(result.get("recommended_action", "")))
     precheck = result.get("safety_precheck", {}) or {}
-    precheck_reason = escape(str(precheck.get("reason", "not_recorded")))
-    precheck_level = escape(str(precheck.get("level", "unknown")))
+    precheck_reason = escape(_pretty_reason(str(precheck.get("reason", "not_recorded"))))
+    precheck_level = escape(_pretty_precheck(str(precheck.get("level", "unknown")), should_intercept))
     classifier = result.get("classifier_confidence", {}) or {}
-    classifier_kind = "ML router" if classifier.get("used_ml") else "rule fallback"
+    classifier_kind = "learned router" if classifier.get("used_ml") else "safety fallback"
     route_conf = float(classifier.get("route", 0.0) or 0.0)
     tier_conf = float(classifier.get("tier", 0.0) or 0.0)
     output_guard = result.get("output_guard", {}) or {}
-    guard_reason = escape(str(output_guard.get("reason", "not_checked")))
+    guard_reason = escape(_pretty_reason(str(output_guard.get("reason", "not_checked"))))
     guard_flags = output_guard.get("flags", []) or []
     source_count = len(result.get("retrieved_sources", []) or [])
     stop_class = "stop" if should_intercept else "ok"
@@ -1451,15 +1453,15 @@ def format_decision_trace(result=None) -> str:
 
     return (
         "<div class='er-card'>"
-        "<div class='er-mini-title'>Core Decision Trace</div>"
+        "<div class='er-mini-title'>Support Map</div>"
         "<div class='er-decision-grid'>"
-        f"<div class='er-decision-step {stop_class}'><span>1. Stage-1 Safety</span><strong>{precheck_level}</strong><small>{precheck_reason}</small></div>"
-        f"<div class='er-decision-step ok'><span>2. Route / Tier</span><strong>{route_label} / {safety_tier}</strong><small>{classifier_kind}: route {route_conf:.2f}, tier {tier_conf:.2f}</small><div class='er-meter'><div class='er-meter-fill' style='width:{route_width}%'></div></div><div class='er-meter'><div class='er-meter-fill' style='width:{tier_width}%'></div></div></div>"
-        f"<div class='er-decision-step ok'><span>3. Resource Registry</span><strong>{source_count} source cards</strong><small>{retrieval_mode}</small></div>"
-        f"<div class='er-decision-step {guard_class}'><span>4. Output Guard</span><strong>{guard_reason}</strong><small>{', '.join(map(str, guard_flags)) if guard_flags else 'no blocking flags'}</small></div>"
-        f"<div class='er-decision-step ok'><span>5. Latency</span><strong>{total_latency:.1f} ms</strong><small>fast deterministic demo path</small></div>"
+        f"<div class='er-decision-step {stop_class}'><span>Safety check</span><strong>{precheck_level}</strong><small>{precheck_reason}</small></div>"
+        f"<div class='er-decision-step ok'><span>Support path</span><strong>{route_text}</strong><small>{tier_text} · {classifier_kind}</small><div class='er-meter'><div class='er-meter-fill' style='width:{route_width}%'></div></div></div>"
+        f"<div class='er-decision-step ok'><span>Grounding</span><strong>{source_count} resource cards</strong><small>{_pretty_retrieval_mode(retrieval_mode)}</small></div>"
+        f"<div class='er-decision-step {guard_class}'><span>Response check</span><strong>{guard_reason}</strong><small>{', '.join(map(str, guard_flags)) if guard_flags else 'ready to show'}</small></div>"
+        f"<div class='er-decision-step ok'><span>Speed</span><strong>{total_latency:.1f} ms</strong><small>local MVP path</small></div>"
         "</div>"
-        f"<div class='er-action-card'><span>Recommended next action</span><strong>{recommended_action or 'Waiting for route decision.'}</strong></div>"
+        f"<div class='er-action-card'><span>Next helpful move</span><strong>{recommended_action or 'Waiting for route decision.'}</strong></div>"
         "</div>"
     )
 
@@ -1467,45 +1469,45 @@ def format_decision_trace(result=None) -> str:
 def format_retrieval_panel(result=None) -> str:
     if not result:
         return (
-            "<div class='er-card'><div class='er-mini-title'>Retrieval Sources</div>"
-            "<div class='er-empty'>No sources retrieved yet.</div></div>"
+            "<div class='er-card'><div class='er-mini-title'>Grounded Resources</div>"
+            "<div class='er-empty'>Resources will appear here after the support path is chosen.</div></div>"
         )
 
-    safety_level = escape(str(result.get("safety_level", "unknown")))
-    safety_reason = escape(str(result.get("safety_reason", "")))
-    safety_tier = escape(str(result.get("safety_tier", "unknown")))
+    safety_level = escape(_pretty_tier(str(result.get("safety_level", "unknown"))))
+    safety_reason = escape(_pretty_reason(str(result.get("safety_reason", ""))))
+    safety_tier = escape(_pretty_tier(str(result.get("safety_tier", "unknown"))))
     escalation_reason = escape(str(result.get("escalation_reason", "")))
     corpus = escape(str(result.get("retrieval_corpus", "unknown")))
-    route_label = escape(str(result.get("route_label", "student-support")))
+    route_label = escape(_pretty_route(str(result.get("route_label", "student-support"))))
     recommended_action = escape(str(result.get("recommended_action", "")))
     output_guard = result.get("output_guard", {}) or {}
-    output_guard_reason = escape(str(output_guard.get("reason", "not_checked")))
+    output_guard_reason = escape(_pretty_reason(str(output_guard.get("reason", "not_checked"))))
     safety_precheck = result.get("safety_precheck", {}) or {}
-    precheck_reason = escape(str(safety_precheck.get("reason", "not_recorded")))
-    precheck_level = escape(str(safety_precheck.get("level", "unknown")))
+    precheck_reason = escape(_pretty_reason(str(safety_precheck.get("reason", "not_recorded"))))
+    precheck_level = escape(_pretty_precheck(str(safety_precheck.get("level", "unknown")), bool(result.get("crisis"))))
     safety_explanation = result.get("safety_explanation", {}) or {}
     explanation_reason = escape(str(safety_explanation.get("reason", "not_checked")))
     classifier_confidence = result.get("classifier_confidence", {}) or {}
     route_conf = float(classifier_confidence.get("route", 0.0) or 0.0)
     tier_conf = float(classifier_confidence.get("tier", 0.0) or 0.0)
-    classifier_label = "ml" if classifier_confidence.get("used_ml") else "fallback"
+    classifier_label = "learned" if classifier_confidence.get("used_ml") else "fallback"
     retrieval_mode = escape(str(result.get("retrieval_mode", "registry_filtered_faiss_plus_router")))
     html = (
         "<div class='er-card'>"
-        "<div class='er-mini-title'>Retrieval Sources</div>"
+        "<div class='er-mini-title'>Grounded Resources</div>"
         "<div class='er-status-grid'>"
         f"<div class='er-status'><span>Corpus</span><strong>{corpus}</strong></div>"
         f"<div class='er-status'><span>Tier</span><strong>{safety_tier}</strong></div>"
         f"<div class='er-status'><span>Safety</span><strong>{safety_level}</strong></div>"
-        f"<div class='er-status'><span>Output guard</span><strong>{output_guard_reason}</strong></div>"
+        f"<div class='er-status'><span>Response</span><strong>{output_guard_reason}</strong></div>"
         f"<div class='er-status'><span>Classifier</span><strong>{classifier_label} {route_conf:.2f}/{tier_conf:.2f}</strong></div>"
-        f"<div class='er-status'><span>Retrieval</span><strong>{retrieval_mode}</strong></div>"
-        f"<div class='er-status'><span>Stage-1 check</span><strong>{precheck_level}</strong></div>"
-        f"<div class='er-status'><span>Safety model</span><strong>{explanation_reason}</strong></div>"
+        f"<div class='er-status'><span>Retrieval</span><strong>{_pretty_retrieval_mode(retrieval_mode)}</strong></div>"
+        f"<div class='er-status'><span>Safety check</span><strong>{precheck_level}</strong></div>"
+        f"<div class='er-status'><span>Model guard</span><strong>{_pretty_reason(explanation_reason)}</strong></div>"
         "</div>"
-        f"<div class='er-source-meta' style='margin-top:8px;'>Reason: {safety_reason}; precheck: {precheck_reason}</div>"
+        f"<div class='er-source-meta' style='margin-top:8px;'>Why this path: {safety_reason}; safety check: {precheck_reason}</div>"
         "<div class='er-route'>"
-        f"<strong>Support route: {route_label}</strong>"
+        f"<strong>{route_label}</strong>"
         f"<span>{recommended_action}</span>"
         "</div>"
     )
@@ -1545,7 +1547,7 @@ def format_retrieval_panel(result=None) -> str:
             f"<span class='er-chip'>{usage}</span>"
             f"<span class='er-chip'>{source_type}</span>"
             "</div>"
-            f"<div class='er-why'>{why}</div>"
+            f"<div class='er-why'>Why shown: {_pretty_reason(why)}</div>"
         )
         if url:
             html += f"<div style='margin-top:7px;'><a class='er-link' href='{url}' target='_blank'>Open source</a></div>"
@@ -1685,6 +1687,75 @@ def set_prompt(prompt: str) -> str:
     return prompt
 
 
+def _pretty_route(route: str) -> str:
+    return {
+        "academic_setback": "Academic setback",
+        "exam_stress": "Test or exam stress",
+        "accessibility_ads": "Accessibility accommodations",
+        "advisor_conflict": "Advisor or graduate conflict",
+        "counseling_navigation": "Counseling navigation",
+        "basic_needs": "Basic needs support",
+        "care_violence_confidential": "Confidential CARE support",
+        "peer_helper": "Helping someone else",
+        "loneliness_isolation": "Loneliness or isolation",
+        "anxiety_panic": "Anxiety or panic",
+        "low_mood": "Low mood support",
+        "crisis_immediate": "Immediate safety handoff",
+        "general_student_support": "General student support",
+        "out_of_scope": "Outside support scope",
+    }.get(route, route.replace("_", " ").title())
+
+
+def _pretty_tier(tier: str) -> str:
+    return {
+        "imminent_safety": "Immediate safety",
+        "high_distress": "High distress",
+        "support_navigation": "Support navigation",
+        "wellbeing": "Wellbeing",
+        "pass": "No urgent safety flag",
+        "crisis": "Immediate safety",
+        "emergency": "Emergency safety",
+    }.get(tier, tier.replace("_", " ").title())
+
+
+def _pretty_precheck(level: str, should_intercept: bool) -> str:
+    if should_intercept:
+        return "Human support now"
+    return {
+        "pass": "No urgent safety flag",
+        "wellbeing_support": "Supportive check",
+        "crisis": "Human support now",
+        "emergency": "Emergency handoff",
+    }.get(level, _pretty_tier(level))
+
+
+def _pretty_reason(reason: str) -> str:
+    if not reason:
+        return "Ready"
+    return {
+        "below_support_threshold": "No urgent safety signal detected",
+        "passed_output_guard": "Response passed safety check",
+        "disabled": "Off for fast demo",
+        "not_checked": "Not checked",
+        "not_recorded": "Not recorded",
+        "resource registry route match": "Matched this support path",
+        "curated retrieval match": "Matched the prompt",
+        "exam_stress_language": "Test or exam stress language",
+        "high_distress_language": "Distress language increased the tier",
+        "wellbeing_support_language": "Low-risk coping support",
+        "dependency_or_secrecy_redirect": "Dependency or secrecy needs human support",
+        "stage1_intercept": "Handled by the safety precheck",
+    }.get(reason, reason.replace("_", " "))
+
+
+def _pretty_retrieval_mode(mode: str) -> str:
+    if "crisis_only" in mode:
+        return "crisis-only"
+    if "registry_filtered" in mode:
+        return "resource-filtered"
+    return mode.replace("_", " ")
+
+
 theme = gr.themes.Soft(
     primary_hue="teal",
     secondary_hue="amber",
@@ -1759,7 +1830,7 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
         with gr.Column(scale=2):
             chatbot = gr.Chatbot(label="Conversation", height=500, bubble_full_width=False)
             note = (
-                "Fast curated router is active for the class demo."
+                "MVP mode is active: local routing, grounded resources, and safety checks are running together."
                 if DEMO_BACKEND != "real"
                 else "Full local model stack is active; first response may prewarm models."
             )
@@ -1767,11 +1838,11 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
             gr.HTML(
                 """
                 <div class="er-demo-arc">
-                  <div class="er-demo-card"><span>1</span><strong>Useful</strong><small>Academic setback to next action</small></div>
-                  <div class="er-demo-card"><span>2</span><strong>Trajectory</strong><small>Multi-turn escalation visibility</small></div>
-                  <div class="er-demo-card"><span>3</span><strong>Peer helper</strong><small>Friend-risk handoff path</small></div>
-                  <div class="er-demo-card"><span>4</span><strong>Scope</strong><small>No legal/medical pretending</small></div>
-                  <div class="er-demo-card"><span>5</span><strong>False positives</strong><small>Academic idioms stay academic</small></div>
+                  <div class="er-demo-card"><span>1</span><strong>Usefulness</strong><small>Turns worry into one next move</small></div>
+                  <div class="er-demo-card"><span>2</span><strong>Continuity</strong><small>Tracks escalation across turns</small></div>
+                  <div class="er-demo-card"><span>3</span><strong>Peer mode</strong><small>Guides helping someone else</small></div>
+                  <div class="er-demo-card"><span>4</span><strong>Boundaries</strong><small>Refuses medical/legal pretending</small></div>
+                  <div class="er-demo-card"><span>5</span><strong>Calibration</strong><small>Does not panic on idioms</small></div>
                 </div>
                 """
             )

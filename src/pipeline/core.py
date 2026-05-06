@@ -376,6 +376,9 @@ def _apply_contextual_safety_overrides(
         phrase in text
         for phrase in (
             "panic attacks",
+            "devastated",
+            "terrified",
+            "scared about",
             "hopeless",
             "everything hollow",
             "ideation creeping",
