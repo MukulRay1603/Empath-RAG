@@ -111,6 +111,17 @@ def build_response_plan(
         )
 
     if route == SupportRoute.ANXIETY_PANIC.value:
+        if _is_social_or_date_nerves(message):
+            return ResponsePlan(
+                route,
+                safety_tier,
+                "That kind of nervousness before meeting someone you like is very normal.",
+                "It does not mean something is wrong; it usually means the moment matters to you and your brain is trying to predict every possible outcome.",
+                "Keep it simple: decide one easy opener, one genuine question you can ask her, and one way to exit gracefully if either of you feels awkward.",
+                "You probably do not need a formal campus resource for ordinary date nerves; if anxiety starts disrupting sleep, eating, or daily functioning, the source cards can point you toward support.",
+                "If this shifts into panic, feeling unsafe, or being unable to function, use a human support option rather than trying to push through alone.",
+                "Want to brainstorm a relaxed opening line, a few questions to ask, or how to calm down beforehand?",
+            )
         return ResponsePlan(
             route,
             safety_tier,
@@ -185,6 +196,24 @@ def render_crisis_response(route: str, audience_mode: str = "student") -> str:
 def _source_label(retrieved_sources: list[dict]) -> str:
     names = _source_names(retrieved_sources)
     return names or "the retrieved source cards"
+
+
+def _is_social_or_date_nerves(message: str) -> bool:
+    text = message.lower()
+    return any(
+        phrase in text
+        for phrase in (
+            "asked out",
+            "first date",
+            "meet a girl",
+            "meet a guy",
+            "meet someone",
+            "going on a date",
+            "date tomorrow",
+            "nervous to meet",
+            "romantic",
+        )
+    )
 
 
 def _source_names(retrieved_sources: list[dict]) -> str:

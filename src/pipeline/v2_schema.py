@@ -95,7 +95,10 @@ def classify_route(
     if _has_any(text, ("failed", "fail", "failed my exam", "future is over", "grade", "grades")):
         return RouteDecision(SupportRoute.ACADEMIC_SETBACK, safety_tier, "academic_setback_language", audience_mode)
 
-    if _has_any(text, ("exam", "test", "quiz", "midterm", "final", "qualifying exam", "study", "deadline", "tomorrow", "comps prep", "labs plus ta", "syllabus")):
+    if _has_any(text, ("asked out", "first date", "meet a girl", "meet a guy", "meet someone", "going on a date", "date tomorrow", "nervous to meet", "romantic")):
+        return RouteDecision(SupportRoute.ANXIETY_PANIC, safety_tier, "social_or_date_nerves", audience_mode)
+
+    if _has_any(text, ("exam", "test", "quiz", "midterm", "final", "qualifying exam", "study", "deadline", "comps prep", "labs plus ta", "syllabus")):
         return RouteDecision(SupportRoute.EXAM_STRESS, safety_tier, "exam_stress_language", audience_mode)
 
     if _has_any(text, ("counseling", "counselling", "therapy", "therapist", "appointment", "get started")):

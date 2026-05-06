@@ -50,6 +50,14 @@ def test_test_tomorrow_distress_routes_to_exam_stress():
     assert "study plan" in result["response"].lower() or "grounding" in result["response"].lower()
 
 
+def test_social_date_nerves_do_not_route_to_exam_stress():
+    result = make_fast_pipeline().run("I'm nervous to meet a girl I asked out tomorrow")
+    assert result["route_label"] == SupportRoute.ANXIETY_PANIC.value
+    assert result["safety_tier"] != SafetyTier.IMMINENT_SAFETY.value
+    assert "ordinary date nerves" in result["response"]
+    assert "study plan" not in result["response"].lower()
+
+
 def test_advisor_conflict_does_not_over_escalate():
     result = make_fast_pipeline().run("My advisor threatened my funding and I am scared to complain")
     assert result["route_label"] == SupportRoute.ADVISOR_CONFLICT.value
