@@ -14,7 +14,13 @@ import time
 
 from .ml_router import MLRouter
 from .output_guard import validate_output
-from .response_planner import build_response_plan, render_crisis_response
+from .response_planner import (
+    INTERNATIONAL_SOURCE_HINT,
+    build_response_plan,
+    decide_stage,
+    has_international_concern,
+    render_crisis_response,
+)
 from .safety_policy import SafetyLevel, SafetyTriagePolicy
 from .service_graph import match_services
 from .v2_schema import SafetyTier, SupportRoute, classify_route, map_safety_level
@@ -46,6 +52,9 @@ class EmpathRAGResult:
     crisis: bool = False
     crisis_confidence: float = 0.0
     retrieved_chunks: list[str] | None = None
+    international_concern: bool = False
+    conversation_stage: str = "offer"
+    turn_index: int = 1
 
     def to_dict(self) -> dict:
         row = asdict(self)
@@ -80,14 +89,23 @@ class EmpathRAGCore:
         self._guardrail_error = ""
         self.tier_history: dict[str, list[str]] = {}
         self.locked_sessions: dict[str, str] = {}
+        # Session-scoped sticky flags so context detected on one turn carries
+        # forward (international concern, last specific route) instead of being
+        # re-derived from each message in isolation.
+        self.session_intl_flag: dict[str, bool] = {}
+        self.session_last_specific_route: dict[str, str] = {}
 
     def reset_session(self, session_id: str | None = None) -> None:
         if session_id:
             self.tier_history.pop(session_id, None)
             self.locked_sessions.pop(session_id, None)
+            self.session_intl_flag.pop(session_id, None)
+            self.session_last_specific_route.pop(session_id, None)
         else:
             self.tier_history.clear()
             self.locked_sessions.clear()
+            self.session_intl_flag.clear()
+            self.session_last_specific_route.clear()
 
     def run_turn(
         self,
@@ -96,7 +114,10 @@ class EmpathRAGCore:
         audience_mode: AudienceMode = "student",
         resource_profile: str = "umd",
         backend_mode: BackendMode = "hybrid_ml",
+        turn_index: int | None = None,
     ) -> EmpathRAGResult:
+        if turn_index is None:
+            turn_index = len(self.tier_history.get(session_id, [])) + 1
         t_total = time.perf_counter()
         latency: dict[str, float] = {}
 
@@ -151,18 +172,58 @@ class EmpathRAGCore:
         retrieved = self._retrieve(message, route_label, safety_tier.value, audience_mode, should_intercept)
         latency["retrieval_ms"] = _elapsed_ms(t0)
 
+        # Cross-cutting: when an F-1 / visa / international-status worry shows up
+        # at any point in the session, keep the ISSS surface and the
+        # international-aware framing for subsequent turns. A student who
+        # mentioned deportation on turn 1 shouldn't have to repeat themselves
+        # on turn 3 to keep ISSS visible.
+        intl_now = has_international_concern(message)
+        if intl_now:
+            self.session_intl_flag[session_id] = True
+        intl_session = self.session_intl_flag.get(session_id, False)
+
+        if not should_intercept and intl_session:
+            already_has_isss = any(
+                (s.get("source_name") or "").lower().startswith("umd international")
+                or (s.get("service_id") or "").startswith("umd_isss")
+                for s in retrieved
+            )
+            if not already_has_isss:
+                retrieved = [INTERNATIONAL_SOURCE_HINT] + retrieved
+
+        # `intl_concern` exposed downstream uses the session-sticky value so
+        # diagnostics & support card stay consistent across the conversation.
+        intl_concern = intl_session
         if should_intercept:
             response = render_crisis_response(route_label, audience_mode=audience_mode)
             output_guard = {"allowed": True, "reason": "crisis_template", "flags": []}
             recommended_action = _recommended_action(route_label, safety_tier.value)
+            stage = "offer"
         else:
-            plan = build_response_plan(message, route_label, safety_tier.value, retrieved, audience_mode)
-            response = plan.render()
+            plan = build_response_plan(
+                message,
+                route_label,
+                safety_tier.value,
+                retrieved,
+                audience_mode,
+                international_concern_override=intl_session,
+            )
+            stage = decide_stage(message, route_label, safety_tier.value, turn_index)
+            response = plan.render(stage)
             recommended_action = plan.recommended_action
-            guard = validate_output(response, retrieved, safety_tier.value, route_label, [])
-            output_guard = {"allowed": guard.allowed, "reason": guard.reason, "flags": guard.flags}
-            if guard.fallback_required and guard.corrected_response:
-                response = guard.corrected_response
+            # Output guard catches dead-end validation responses, but LISTEN and
+            # PERMISSION stages are intentionally reflective ("sit with this"
+            # then invite). Applying the missing-action check there would
+            # punish the very thing those stages are designed to do. Run the
+            # safety subset (dependency, harmful agreement, ungrounded contact)
+            # but skip the action/validation checks unless we're in OFFER.
+            if stage == "offer":
+                guard = validate_output(response, retrieved, safety_tier.value, route_label, [])
+                output_guard = {"allowed": guard.allowed, "reason": guard.reason, "flags": guard.flags}
+                if guard.fallback_required and guard.corrected_response:
+                    response = guard.corrected_response
+            else:
+                output_guard = {"allowed": True, "reason": f"listening_stage_{stage}", "flags": []}
 
         latency["total_ms"] = _elapsed_ms(t_total)
         return EmpathRAGResult(
@@ -198,6 +259,9 @@ class EmpathRAGCore:
             crisis=should_intercept,
             crisis_confidence=float(guardrail_info.get("confidence") or (1.0 if should_intercept else 0.0)),
             retrieved_chunks=[row.get("text", "") for row in retrieved],
+            international_concern=intl_concern,
+            conversation_stage=stage,
+            turn_index=turn_index,
         )
 
     def _run_optional_guardrail(self, message: str, skip_ig: bool) -> dict:

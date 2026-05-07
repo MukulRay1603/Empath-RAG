@@ -50,645 +50,699 @@ CURATED_DB_PATH = Path(os.getenv("EMPATHRAG_CURATED_DB", "data/curated/indexes/m
 
 APP_CSS = """
 :root {
-  --er-void: #030712;
-  --er-space: #07111f;
-  --er-deep: #0b1728;
-  --er-panel: rgba(8, 20, 34, 0.76);
-  --er-panel-solid: #0d1b2d;
-  --er-panel-lift: rgba(14, 33, 52, 0.88);
-  --er-panel-2: rgba(3, 12, 24, 0.56);
-  --er-ink: #f3fbff;
-  --er-muted: #9eb4c7;
-  --er-soft: #c8d9e8;
-  --er-dim: #71869a;
-  --er-line: rgba(148, 219, 233, 0.18);
-  --er-line-strong: rgba(45, 212, 191, 0.46);
-  --er-turquoise: #2dd4bf;
-  --er-cyan: #22d3ee;
-  --er-blue: #38bdf8;
-  --er-amber: #f59e0b;
-  --er-rose: #fb7185;
-  --er-danger: #fb7185;
-  --er-violet: #a78bfa;
+  --bg: #0a0c10;
+  --bg-soft: #0d1017;
+  --surface: #11151c;
+  --surface-2: #161c25;
+  --surface-3: #1d2531;
+  --border: rgba(255,255,255,0.06);
+  --border-mid: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.16);
+  --accent: #5eead4;
+  --accent-dim: #2dd4bf;
+  --accent-soft: rgba(94,234,212,0.10);
+  --accent-line: rgba(94,234,212,0.22);
+  --accent-glow: rgba(94,234,212,0.20);
+  --text: #e7ecf2;
+  --text-muted: #8a93a3;
+  --text-dim: #5a6373;
+  --warm: #f5b669;
+  --warm-soft: rgba(245,182,105,0.10);
+  --danger: #f87171;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
 }
 
+* { box-sizing: border-box; }
+
 html, body {
-  min-height: 100% !important;
-  background:
-    linear-gradient(115deg, rgba(45,212,191,0.10), transparent 34%),
-    linear-gradient(245deg, rgba(56,189,248,0.12), transparent 30%),
-    linear-gradient(180deg, #030712 0%, #07111f 46%, #0b1728 100%) !important;
-  color: var(--er-ink) !important;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
 }
 
 body::before {
   content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    radial-gradient(circle at 14% 18%, rgba(125, 249, 233, 0.78) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 78% 12%, rgba(186, 230, 253, 0.70) 0 1px, transparent 1.5px),
-    radial-gradient(circle at 48% 32%, rgba(45, 212, 191, 0.58) 0 1px, transparent 1.4px),
-    radial-gradient(circle at 88% 64%, rgba(167, 139, 250, 0.55) 0 1px, transparent 1.4px),
-    radial-gradient(circle at 21% 78%, rgba(56, 189, 248, 0.58) 0 1px, transparent 1.4px),
-    linear-gradient(rgba(45,212,191,0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(45,212,191,0.045) 1px, transparent 1px);
-  background-size: auto, auto, auto, auto, auto, 72px 72px, 72px 72px;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.92), rgba(0,0,0,0.38));
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
   background:
-    linear-gradient(100deg, transparent 0 38%, rgba(45,212,191,0.10) 38.2%, transparent 39% 100%),
-    linear-gradient(144deg, transparent 0 64%, rgba(56,189,248,0.08) 64.2%, transparent 65% 100%);
-  opacity: 0.85;
+    radial-gradient(900px 480px at 50% -20%, rgba(94,234,212,0.07), transparent 70%),
+    radial-gradient(600px 340px at 90% 110%, rgba(94,234,212,0.04), transparent 70%);
 }
 
 .gradio-container {
-  position: relative;
-  z-index: 1;
-  min-height: 100% !important;
+  position: relative; z-index: 1;
   background: transparent !important;
-  color: var(--er-ink) !important;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  max-width: 880px !important;
+  margin: 0 auto !important;
+  padding: 0 24px 48px !important;
+  color: var(--text) !important;
 }
 
-.gradio-container {
-  max-width: 1360px !important;
-  margin: 0 auto !important;
-  padding: 0 22px 28px !important;
+.gradio-container * { border-color: var(--border); }
+.gradio-container label, .gradio-container .label-wrap {
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
 }
-.gradio-container * {
-  border-color: var(--er-line);
-}
-.gradio-container label,
-.gradio-container p,
-.gradio-container span,
-.gradio-container div,
-.gradio-container h1,
-.gradio-container h2,
-.gradio-container h3,
-.gradio-container h4,
-.gradio-container textarea,
-.gradio-container input {
-  color: var(--er-ink);
-}
-.gradio-container .wrap,
-.gradio-container .contain,
 .gradio-container .block,
 .gradio-container .form,
 .gradio-container .panel,
+.gradio-container .wrap,
+.gradio-container .contain,
 .gradio-container .tabs,
 .gradio-container .tabitem {
   background: transparent !important;
-  border-color: var(--er-line) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.gradio-container label {
-  color: var(--er-muted) !important;
+/* TOP BAR */
+.er-topbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 22px 0 18px !important;
+  margin: 0 0 8px !important;
+  border-bottom: 1px solid var(--border) !important;
+  flex-wrap: nowrap !important;
+}
+.er-topbar > * { flex: none !important; }
+.er-topbar > .er-mode-wrap { flex: 1 1 auto !important; display: flex; justify-content: center; }
+
+.er-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 15.5px; letter-spacing: -0.01em;
+  color: var(--text);
+}
+.er-brand-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+  animation: er-pulse 2.4s ease-in-out infinite;
+}
+.er-brand-meta {
+  color: var(--text-dim); font-size: 12.5px; font-weight: 400; margin-left: 4px;
+}
+@keyframes er-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 14px var(--accent-glow); }
+  50%      { opacity: 0.6; box-shadow: 0 0 6px var(--accent-glow); }
 }
 
-.er-shell {
-  padding: 26px 0 16px;
+/* SEGMENTED MODE TOGGLE (Radio) */
+.gradio-container .er-mode-wrap { padding: 0 !important; }
+.gradio-container .er-mode-wrap > .wrap,
+.gradio-container .er-mode-wrap > .form { background: transparent !important; }
+.gradio-container .er-mode-wrap fieldset,
+.gradio-container .er-mode-wrap .wrap-inner {
+  display: inline-flex !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 999px !important;
+  padding: 3px !important;
+  gap: 0 !important;
 }
-.er-title {
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  gap: 26px;
-  border: 1px solid rgba(125,249,233,0.24);
-  border-radius: 18px;
-  padding: 30px;
-  background:
-    linear-gradient(105deg, rgba(45,212,191,0.20), rgba(34,211,238,0.07) 44%, rgba(167,139,250,0.12)),
-    linear-gradient(180deg, rgba(10,25,42,0.94), rgba(6,16,29,0.88));
-  box-shadow:
-    0 24px 90px rgba(0,0,0,0.46),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-  backdrop-filter: blur(18px) saturate(140%);
+.gradio-container .er-mode-wrap label {
+  padding: 7px 16px !important;
+  border-radius: 999px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
 }
-.er-title::before {
-  content: "";
-  position: absolute;
-  inset: 18px 20px auto auto;
-  width: 420px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(125,249,233,0.70), transparent);
-  transform: rotate(-8deg);
+.gradio-container .er-mode-wrap label:has(input:checked) {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
 }
-.er-title::after {
-  content: "";
-  position: absolute;
-  right: 36px;
-  bottom: 24px;
-  width: 220px;
-  height: 220px;
-  border: 1px solid rgba(45,212,191,0.16);
-  border-radius: 50%;
-  opacity: 0.55;
+.gradio-container .er-mode-wrap input { display: none !important; }
+
+/* INSPECT BUTTON */
+.gradio-container .er-inspect-btn { min-width: 0 !important; }
+.gradio-container .er-inspect-btn button {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  padding: 8px 16px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border-radius: 999px !important;
+  min-width: 0 !important;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+  box-shadow: none !important;
 }
-.er-title h1 {
-  position: relative;
-  font-size: clamp(52px, 8vw, 104px);
-  line-height: 0.86;
-  margin: 0;
-  letter-spacing: 0;
-  font-weight: 820;
-  color: var(--er-ink);
-  text-shadow: 0 0 42px rgba(45,212,191,0.22);
+.gradio-container .er-inspect-btn button:hover {
+  border-color: var(--border-strong) !important;
+  color: var(--text) !important;
+  background: var(--surface) !important;
 }
-.er-kicker {
-  position: relative;
-  align-self: end;
-  color: var(--er-soft);
+
+/* HERO (empty state) */
+.er-hero {
+  text-align: center;
+  padding: 84px 12px 28px;
+}
+.er-hero h1 {
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  margin: 0 0 12px;
+  color: var(--text);
+  line-height: 1.2;
+}
+.er-hero p {
+  color: var(--text-muted);
   font-size: 14px;
-  line-height: 1.55;
-  max-width: 520px;
-  border-left: 1px solid rgba(45,212,191,0.38);
-  padding-left: 18px;
+  margin: 0 auto;
+  max-width: 480px;
+  line-height: 1.6;
 }
-.er-badges {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
+
+/* SUGGESTION CHIPS */
+.er-chips {
+  display: flex !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  margin: 28px 0 0 !important;
+  padding: 0 8px !important;
 }
-.er-badge {
-  border: 1px solid rgba(148,219,233,0.20);
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: rgba(3,7,18,0.54);
-  color: var(--er-soft);
-  font-size: 12px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+.gradio-container .er-chip-btn { min-width: 0 !important; flex: 0 0 auto !important; }
+.gradio-container .er-chip-btn button {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  padding: 9px 14px !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  border-radius: 10px !important;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease, transform 180ms ease;
+  text-align: left !important;
+  min-width: 0 !important;
+  box-shadow: none !important;
 }
-.er-badge:first-child {
-  border-color: var(--er-line-strong);
-  color: #b8fff2;
-  background: rgba(13,148,136,0.22);
+.gradio-container .er-chip-btn button:hover {
+  border-color: var(--accent-line) !important;
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  transform: translateY(-1px);
 }
-.er-mission {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+
+/* CHAT */
+.gradio-container .er-chat {
+  background: transparent !important;
+  border: none !important;
+  margin-top: 8px;
 }
-.er-metric {
-  border: 1px solid rgba(148,219,233,0.16);
-  border-radius: 14px;
-  padding: 12px;
-  background: rgba(4,13,25,0.54);
+.gradio-container .er-chat > .wrap,
+.gradio-container .er-chat > div {
+  background: transparent !important;
+  border: none !important;
 }
-.er-metric strong {
-  display: block;
-  color: #b8fff2;
-  font-size: 15px;
+.gradio-container .er-chat .message-wrap { gap: 6px !important; }
+.gradio-container .er-chat .message {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 15.5px !important;
+  line-height: 1.72 !important;
+  padding: 16px 0 !important;
+  color: var(--text) !important;
+  max-width: 100% !important;
 }
-.er-metric span {
-  display: block;
-  color: var(--er-muted);
-  font-size: 11px;
-  margin-top: 3px;
+.gradio-container .er-chat .message.user,
+.gradio-container .er-chat .user {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  border-radius: 18px 18px 4px 18px !important;
+  padding: 14px 18px !important;
+  max-width: 92% !important;
+  margin-left: auto !important;
+  border: 1px solid var(--accent-line) !important;
+  font-size: 15px !important;
+  line-height: 1.6 !important;
 }
-.er-workspace {
-  border: 1px solid rgba(148,219,233,0.18);
-  border-radius: 18px;
-  padding: 18px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(45,212,191,0.12), transparent 30%),
-    radial-gradient(circle at 88% 24%, rgba(56,189,248,0.10), transparent 34%),
-    linear-gradient(180deg, rgba(15,23,42,0.62), rgba(3,7,18,0.42));
-  box-shadow: 0 30px 95px rgba(0,0,0,0.38);
-  backdrop-filter: blur(12px);
+.gradio-container .er-chat .message.bot,
+.gradio-container .er-chat .bot {
+  padding-left: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  max-width: 100% !important;
 }
-.er-workspace::before {
-  content: "LIVE SUPPORT ROUTER";
-  display: block;
-  color: #99f6e4;
-  letter-spacing: 0.13em;
-  font-size: 11px;
-  margin-bottom: 12px;
-}
-.er-side {
+.gradio-container .er-chat .message p { margin: 0 0 10px !important; }
+.gradio-container .er-chat .message p:last-child { margin: 0 !important; }
+.gradio-container .er-chat .avatar-container { display: none !important; }
+
+/* COMPOSER */
+.er-composer-wrap {
   position: sticky;
-  top: 10px;
-}
-.er-card {
-  border: 1px solid rgba(148,219,233,0.18);
+  bottom: 16px;
+  z-index: 5;
+  margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
   border-radius: 16px;
-  background: var(--er-panel);
-  padding: 14px;
-  box-shadow:
-    0 18px 55px rgba(0,0,0,0.26),
-    inset 0 1px 0 rgba(255,255,255,0.04);
-  backdrop-filter: blur(16px) saturate(135%);
-  color: var(--er-ink);
-  margin-bottom: 12px;
+  padding: 0;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
 }
+.er-composer-wrap:focus-within {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 8px 32px rgba(0,0,0,0.22);
+}
+.gradio-container .er-composer-wrap textarea {
+  background: transparent !important;
+  border: none !important;
+  resize: none !important;
+  color: var(--text) !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  padding: 16px 64px 16px 18px !important;
+  min-height: 56px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+  width: 100% !important;
+}
+.gradio-container .er-composer-wrap textarea::placeholder {
+  color: var(--text-dim) !important;
+}
+.gradio-container .er-send-btn {
+  position: absolute !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  min-width: 0 !important;
+  z-index: 6;
+}
+.gradio-container .er-send-btn button {
+  background: var(--accent) !important;
+  color: #061a16 !important;
+  border: none !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border-radius: 10px !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: filter 180ms ease, transform 120ms ease, box-shadow 180ms ease;
+  box-shadow: 0 0 24px rgba(94,234,212,0.16);
+}
+.gradio-container .er-send-btn button:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 0 32px rgba(94,234,212,0.28);
+}
+.gradio-container .er-send-btn button:active {
+  transform: scale(0.96);
+}
+
+/* RESET */
+.er-toolrow {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-top: 14px !important;
+  gap: 12px !important;
+}
+.er-footnote {
+  color: var(--text-dim);
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+}
+.gradio-container .er-reset-btn { min-width: 0 !important; flex: 0 0 auto !important; }
+.gradio-container .er-reset-btn button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-dim) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  padding: 6px 10px !important;
+  min-width: 0 !important;
+  transition: color 180ms ease;
+  box-shadow: none !important;
+}
+.gradio-container .er-reset-btn button:hover { color: var(--text-muted) !important; }
+
+/* INSPECT DRAWER */
+.er-inspect {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 22px 22px 18px !important;
+  margin-top: 28px !important;
+  animation: er-fade-in 220ms ease both;
+}
+@keyframes er-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.er-inspect-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.er-inspect-title { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
+.er-inspect-sub { font-size: 11.5px; color: var(--text-dim); }
+
+/* TABS inside drawer */
+.gradio-container .er-tabs > div[role="tablist"],
+.gradio-container .er-tabs .tab-nav {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border) !important;
+  margin-bottom: 18px !important;
+  padding: 0 !important;
+}
+.gradio-container .er-tabs button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  padding: 10px 0 !important;
+  margin-right: 24px !important;
+  border-bottom: 1.5px solid transparent !important;
+  border-radius: 0 !important;
+  transition: color 180ms ease, border-color 180ms ease;
+  min-width: 0 !important;
+  box-shadow: none !important;
+}
+.gradio-container .er-tabs button.selected,
+.gradio-container .er-tabs button[aria-selected="true"] {
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+/* INSPECT CARDS */
+.er-card { padding: 0; margin-bottom: 18px; }
+.er-card:last-child { margin-bottom: 0; }
 .er-mini-title {
   font-size: 11px;
-  color: #a7fff1;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
 }
 .er-empty {
-  color: var(--er-muted);
+  color: var(--text-dim);
   font-size: 13px;
-  padding: 10px 2px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
-.er-status-grid {
+
+/* PLAN ROWS */
+.er-plan-rows { display: flex; flex-direction: column; gap: 8px; }
+.er-plan-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.er-plan-row .k {
+  color: var(--text-muted); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 500;
+  flex: 0 0 auto;
+  padding-top: 1px;
+}
+.er-plan-row .v {
+  color: var(--text); font-size: 13.5px; font-weight: 500;
+  text-align: right; line-height: 1.5;
+}
+.er-plan-row.accent { border-color: var(--accent-line); background: var(--accent-soft); }
+.er-plan-row.accent .v { color: var(--accent); }
+
+/* SOURCE CARDS */
+.er-sources { display: flex; flex-direction: column; gap: 8px; }
+.er-source {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px 14px;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.er-source:hover { border-color: var(--accent-line); background: var(--surface-3); }
+.er-source-title { font-size: 13.5px; font-weight: 500; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+.er-source-name { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
+.er-source-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.er-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+.er-tag.crisis { background: rgba(248,113,113,0.10); color: var(--danger); border-color: rgba(248,113,113,0.22); }
+.er-tag.accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+.er-source-why { font-size: 11.5px; color: var(--text-dim); line-height: 1.55; }
+.er-source a {
+  color: var(--accent); font-size: 12px; text-decoration: none;
+  border-bottom: 1px solid var(--accent-line);
+  transition: border-color 180ms ease;
+}
+.er-source a:hover { border-bottom-color: var(--accent); }
+
+/* DIAGNOSTICS GRID */
+.er-diag-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.er-status {
-  border: 1px solid rgba(148,219,233,0.16);
-  border-radius: 12px;
-  padding: 10px;
-  background: var(--er-panel-2);
+.er-diag {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  min-width: 0;
 }
-.er-status span {
-  display: block;
-  color: var(--er-muted);
-  font-size: 11px;
-  margin-bottom: 3px;
+.er-diag .k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+  font-weight: 500;
 }
-.er-status strong {
-  font-size: 13px;
-  color: var(--er-ink);
+.er-diag .v {
+  font-size: 13px; color: var(--text); font-weight: 500; line-height: 1.4;
+  word-break: break-word;
 }
-.er-source {
-  border: 1px solid rgba(148,219,233,0.14);
-  border-radius: 14px;
-  padding: 11px;
+.er-diag.warn { border-color: rgba(245,182,105,0.22); }
+.er-diag.warn .v { color: var(--warm); }
+.er-diag.danger { border-color: rgba(248,113,113,0.22); }
+.er-diag.danger .v { color: var(--danger); }
+
+/* TIMELINE */
+.er-timeline-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.er-time-pill {
+  font-size: 10.5px; padding: 4px 10px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-muted);
+  border: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+
+/* METER */
+.er-meter {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,0.06);
   margin-top: 10px;
-  background:
-    linear-gradient(135deg, rgba(45,212,191,0.08), rgba(14,33,52,0.56));
 }
-.er-source-title {
-  font-weight: 680;
-  font-size: 13px;
-  margin-bottom: 3px;
-  color: var(--er-ink);
+.er-meter > div { height: 100%; background: var(--accent); transition: width 320ms ease; }
+
+/* IG TOKENS */
+.er-ig-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.er-ig {
+  font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(248,113,113,0.10);
+  color: var(--danger);
+  border: 1px solid rgba(248,113,113,0.22);
 }
-.er-source-meta {
-  color: var(--er-muted);
-  font-size: 12px;
-  line-height: 1.35;
+
+/* HIDE GRADIO CRUFT */
+.gradio-container footer { display: none !important; }
+.gradio-container .progress-text { color: var(--text-dim) !important; }
+.gradio-container .icon-button-wrapper { background: transparent !important; }
+
+/* SCROLLBAR */
+.gradio-container ::-webkit-scrollbar { width: 8px; height: 8px; }
+.gradio-container ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06); border-radius: 999px;
 }
-.er-chip-row {
-  display: flex;
-  flex-wrap: wrap;
+.gradio-container ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.12);
+}
+.gradio-container ::-webkit-scrollbar-track { background: transparent; }
+
+/* RESPONSIVE */
+/* TYPING INDICATOR (3 dots) */
+.er-typing {
+  display: inline-flex;
   gap: 5px;
-  margin-top: 7px;
+  align-items: center;
+  height: 1.4em;
+  padding: 4px 0;
 }
-.er-chip {
-  border: 1px solid rgba(148,219,233,0.18);
-  border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 11px;
-  color: var(--er-soft);
-  background: rgba(3,7,18,0.42);
+.er-typing > span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-dim);
+  animation: er-blink 1.4s infinite both;
+  display: inline-block;
 }
-.er-chip-risk {
-  color: #fcd34d;
-  border-color: rgba(245,158,11,0.34);
-  background: rgba(245,158,11,0.14);
+.er-typing > span:nth-child(2) { animation-delay: 0.18s; }
+.er-typing > span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes er-blink {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); background: var(--accent); }
 }
-.er-chip-crisis {
-  color: #fecdd3;
-  border-color: rgba(251,113,133,0.38);
-  background: rgba(251,113,133,0.14);
+
+/* HERO GRADIENT TEXT */
+.er-hero h1 {
+  background: linear-gradient(180deg, #f3f7fc 0%, #b6c2d2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
-.er-link {
-  color: #67e8f9;
-  font-weight: 620;
-  text-decoration: none;
+
+/* MESSAGE ENTRANCE FADE */
+.gradio-container .er-chat .message {
+  animation: er-msg-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
-.er-link:hover {
-  text-decoration: underline;
+@keyframes er-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.er-prompt-row button {
-  min-height: 44px !important;
-  border-radius: 14px !important;
-  font-size: 12px !important;
-  background:
-    linear-gradient(180deg, rgba(30,64,92,0.72), rgba(8,20,34,0.84)) !important;
-  color: var(--er-ink) !important;
-  border: 1px solid rgba(148,219,233,0.20) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+
+/* DRAWER SLIDE-IN (replace plain fade) */
+.er-inspect {
+  animation: er-slide-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
 }
-.er-prompt-row button:hover {
-  border-color: var(--er-line-strong) !important;
-  background:
-    linear-gradient(180deg, rgba(20,184,166,0.22), rgba(8,20,34,0.88)) !important;
+@keyframes er-slide-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-.er-send button {
-  min-height: 46px !important;
-  border-radius: 14px !important;
-}
-textarea, input {
-  border-radius: 14px !important;
-  background: rgba(3,7,18,0.68) !important;
-  color: var(--er-ink) !important;
-  border: 1px solid rgba(148,219,233,0.20) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-}
-textarea::placeholder, input::placeholder {
-  color: #74869c !important;
-}
-button.primary, .primary {
-  background: linear-gradient(135deg, #0d9488, #0891b2 54%, #2563eb) !important;
-  color: #ecfeff !important;
-  border: 1px solid rgba(103,232,249,0.42) !important;
-  box-shadow: 0 18px 44px rgba(14,165,233,0.26);
-}
-button.secondary {
-  background: rgba(30,41,59,0.88) !important;
-  color: var(--er-ink) !important;
-}
-.gradio-container .chatbot {
-  background:
-    linear-gradient(180deg, rgba(3,7,18,0.52), rgba(8,20,34,0.70)) !important;
-  border: 1px solid rgba(148,219,233,0.18) !important;
-  border-radius: 18px !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 24px 70px rgba(0,0,0,0.20);
-  min-height: 430px !important;
-}
-.gradio-container .message,
-.gradio-container .bubble-wrap .message,
-.gradio-container .user,
-.gradio-container .bot {
-  color: var(--er-ink) !important;
-}
-.gradio-container .message.user {
-  background: linear-gradient(135deg, rgba(13,148,136,0.30), rgba(14,116,144,0.22)) !important;
-  border: 1px solid rgba(45,212,191,0.22) !important;
-}
-.gradio-container .message.bot {
-  background: rgba(15,23,42,0.92) !important;
-  border: 1px solid rgba(148,219,233,0.16) !important;
-}
-.bubble-wrap .message {
-  border-radius: 16px !important;
-}
-.er-terminal-note {
-  color: #a7fff1;
-  border: 1px solid rgba(45,212,191,0.18);
-  border-radius: 14px;
-  padding: 10px 12px;
-  background: rgba(3,7,18,0.44);
-  font-size: 12px;
-  margin-top: 10px;
-  margin-bottom: 12px;
-}
-.er-live-rail {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 18px;
+
+/* BRAND-DOT RIPPLE */
+.er-brand-dot {
   position: relative;
 }
-.er-live-step {
-  border: 1px solid rgba(148,219,233,0.18);
-  border-radius: 14px;
-  padding: 10px;
-  background: rgba(3,7,18,0.46);
-  min-height: 68px;
+.er-brand-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  opacity: 0;
+  animation: er-ripple 2.6s ease-out infinite;
 }
-.er-live-step span {
-  display: block;
-  color: var(--er-dim);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 5px;
+@keyframes er-ripple {
+  0%   { transform: scale(0.85); opacity: 0.55; }
+  100% { transform: scale(2.4);  opacity: 0; }
 }
-.er-live-step strong {
-  display: block;
-  color: var(--er-ink);
-  font-size: 12px;
-  line-height: 1.25;
+
+/* USER PILL DEPTH */
+.gradio-container .er-chat .message.user,
+.gradio-container .er-chat .user {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.10) !important;
+  border-radius: 16px 16px 4px 16px !important;
 }
-.er-live-step.active {
-  border-color: rgba(45,212,191,0.48);
-  background: linear-gradient(135deg, rgba(13,148,136,0.26), rgba(3,7,18,0.50));
-  box-shadow: 0 0 28px rgba(45,212,191,0.10), inset 0 1px 0 rgba(255,255,255,0.06);
+
+/* SEND BUTTON GRADIENT + KICK */
+.gradio-container .er-send-btn button {
+  background: linear-gradient(135deg, #5eead4 0%, #7ff0d9 100%) !important;
 }
-.er-state-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+.gradio-container .er-send-btn button:active {
+  transform: scale(0.94);
+  filter: brightness(0.96);
 }
-.er-state-pill {
-  border: 1px solid rgba(148,219,233,0.16);
-  border-radius: 14px;
-  padding: 10px 12px;
-  background: rgba(3,7,18,0.46);
-}
-.er-state-pill span {
-  display: block;
-  color: var(--er-dim);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.er-state-pill strong {
-  color: var(--er-ink);
-  font-size: 13px;
-}
-.er-crisis-banner {
-  border: 1px solid rgba(251,113,133,0.40);
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background:
-    linear-gradient(135deg, rgba(251,113,133,0.16), rgba(15,23,42,0.82));
-}
-.er-crisis-banner strong {
-  display: block;
-  color: #fecdd3;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-.er-crisis-banner span {
-  color: var(--er-soft);
-  font-size: 12px;
-}
-.er-route {
-  border: 1px solid rgba(45,212,191,0.28);
-  border-radius: 14px;
-  padding: 12px;
-  margin-top: 10px;
-  background:
-    linear-gradient(135deg, rgba(20,184,166,0.16), rgba(14,33,52,0.72));
-}
-.er-route strong {
-  display: block;
-  color: #a7fff1;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-.er-route span {
-  display: block;
-  color: var(--er-soft);
-  font-size: 12px;
-  line-height: 1.45;
-}
-.er-action-card {
-  border: 1px solid rgba(45,212,191,0.42);
-  border-radius: 16px;
-  padding: 13px;
-  margin-top: 10px;
-  background:
-    linear-gradient(135deg, rgba(20,184,166,0.18), rgba(8,47,73,0.48)),
-    rgba(3,7,18,0.42);
-  box-shadow: 0 16px 44px rgba(13,148,136,0.12);
-}
-.er-action-card span {
-  display: block;
-  color: #99f6e4;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-.er-action-card strong {
-  display: block;
-  color: var(--er-ink);
-  font-size: 14px;
-  line-height: 1.4;
-}
-.er-decision-grid {
-  display: grid;
-  gap: 8px;
-}
-.er-decision-step {
-  border: 1px solid rgba(148,219,233,0.16);
-  border-radius: 13px;
-  padding: 10px;
-  background: rgba(3,7,18,0.48);
-}
-.er-decision-step span {
-  display: block;
-  color: var(--er-muted);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 3px;
-}
-.er-decision-step strong {
-  display: block;
-  color: var(--er-ink);
-  font-size: 13px;
-}
-.er-decision-step small {
-  display: block;
-  color: var(--er-muted);
+
+/* SOURCE-TYPE GLYPH */
+.er-source-title::before {
+  content: "◇";
+  color: var(--accent);
+  margin-right: 8px;
   font-size: 11px;
-  line-height: 1.35;
-  margin-top: 4px;
+  opacity: 0.7;
 }
-.er-meter {
-  height: 6px;
+.er-source[data-kind="crisis"] .er-source-title::before { content: "✦"; color: var(--danger); opacity: 0.8; }
+.er-source[data-kind="university"] .er-source-title::before { content: "◆"; }
+
+/* CHIP HOVER LIFT (already partial; smooth) */
+.gradio-container .er-chip-btn button {
+  transition: border-color 200ms ease, background 200ms ease, color 200ms ease, transform 200ms ease, box-shadow 200ms ease !important;
+}
+.gradio-container .er-chip-btn button:hover {
+  box-shadow: 0 6px 20px rgba(94,234,212,0.10) !important;
+}
+
+/* COMPOSER FOCUS GLOW (animated border) */
+.er-composer-wrap {
+  transition: border-color 240ms ease, box-shadow 240ms ease !important;
+}
+
+/* HERO PARAGRAPH SUBTLE EMPHASIS */
+.er-hero p {
+  font-style: normal;
+}
+.er-hero p::first-letter {
+  color: var(--text);
+}
+.er-hero-meta {
+  margin-top: 22px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* International concern soft tag (used in body if needed) */
+.er-intl-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(15,23,42,0.88);
-  border: 1px solid rgba(148,219,233,0.12);
-  overflow: hidden;
-  margin-top: 7px;
+  background: rgba(245,182,105,0.10);
+  color: var(--warm);
+  border: 1px solid rgba(245,182,105,0.22);
+  letter-spacing: 0.02em;
 }
-.er-meter-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #14b8a6, #22d3ee);
-  box-shadow: 0 0 18px rgba(34,211,238,0.30);
-}
-.er-decision-step.ok {
-  border-color: rgba(45,212,191,0.34);
-}
-.er-decision-step.warn {
-  border-color: rgba(245,158,11,0.42);
-}
-.er-decision-step.stop {
-  border-color: rgba(251,113,133,0.46);
-  background: linear-gradient(135deg, rgba(251,113,133,0.14), rgba(3,7,18,0.52));
-}
-.er-why {
-  margin-top: 8px;
-  color: #a7fff1;
-  font-size: 11px;
-  line-height: 1.35;
-}
-.er-demo-arc {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  margin: 6px 0 12px;
-}
-.er-demo-card {
-  border: 1px solid rgba(148,219,233,0.16);
-  border-radius: 14px;
-  padding: 10px;
-  min-height: 78px;
-  background:
-    linear-gradient(145deg, rgba(45,212,191,0.08), rgba(3,7,18,0.52));
-}
-.er-demo-card span {
-  display: block;
-  color: #99f6e4;
-  font-size: 10px;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.er-demo-card strong {
-  display: block;
-  color: var(--er-ink);
-  font-size: 12px;
-  line-height: 1.25;
-}
-.er-demo-card small {
-  display: block;
-  color: var(--er-muted);
-  font-size: 11px;
-  line-height: 1.25;
-  margin-top: 4px;
-}
-.footer, .built-with, .api-docs, footer {
-  display: none !important;
-}
-@media (max-width: 900px) {
-  .er-title {
-    grid-template-columns: 1fr;
-  }
-  .er-side {
-    position: static;
-  }
-  .er-mission {
-    grid-template-columns: 1fr;
-  }
-  .er-state-strip {
-    grid-template-columns: 1fr 1fr;
-  }
-  .er-live-rail {
-    grid-template-columns: 1fr;
-  }
-  .er-demo-arc {
-    grid-template-columns: 1fr;
-  }
+
+/* Tighten chip text wrap on smaller widths */
+.gradio-container .er-chip-btn button { white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .gradio-container { padding: 0 16px 32px !important; }
+  .er-topbar { flex-wrap: wrap !important; gap: 10px !important; }
+  .er-topbar > .er-mode-wrap { order: 3; flex-basis: 100% !important; justify-content: center; }
+  .er-hero { padding: 56px 8px 18px; }
+  .er-hero h1 { font-size: 24px; }
+  .er-diag-grid { grid-template-columns: 1fr; }
+  .gradio-container .er-chat .message.user { max-width: 88% !important; }
 }
 """
 
@@ -1330,35 +1384,19 @@ def log_turn(session_id, turn, user_message, result):
 def format_emotion_timeline(history, trajectory) -> str:
     if not history:
         return (
-            "<div class='er-card'><div class='er-mini-title'>Emotion Timeline</div>"
-            "<div class='er-empty'>Waiting for the first turn.</div></div>"
+            "<div class='er-card'><div class='er-mini-title'>Session feel</div>"
+            "<div class='er-empty'>No turns yet.</div></div>"
         )
-
-    trajectory_badge_colors = {
-        "stable": "#64748b",
-        "stable_positive": "#047857",
-        "stable_negative": "#b42318",
-        "escalating": "#b42318",
-        "de_escalating": "#0f766e",
-        "volatile": "#b45309",
-    }
-
-    traj_color = trajectory_badge_colors.get(trajectory, "#64748b")
-    html = "<div class='er-card'><div class='er-mini-title'>Emotion Timeline</div>"
-    html += (
-        f"<div style='margin-bottom:10px;padding:7px 10px;background:{traj_color};"
-        "color:white;border-radius:8px;font-size:12px;font-weight:650;'>"
-        f"Session: {escape(str(trajectory))}</div>"
-    )
-    html += "<div style='display:flex;flex-wrap:wrap;gap:6px;'>"
-    for item in history:
-        label = escape(str(item["label_name"]))
-        turn = escape(str(item["turn"]))
-        color = escape(str(item["color"]))
-        html += (
-            f"<span style='padding:5px 8px;background:{color};color:white;"
-            f"border-radius:999px;font-size:11px;'>T{turn}: {label}</span>"
-        )
+    pretty_traj = escape(str(trajectory).replace("_", " ").title())
+    html = "<div class='er-card'><div class='er-mini-title'>Session feel</div>"
+    html += "<div class='er-plan-rows'>"
+    html += f"<div class='er-plan-row'><span class='k'>Trajectory</span><span class='v'>{pretty_traj}</span></div>"
+    html += "</div>"
+    html += "<div class='er-timeline-row' style='margin-top:10px;'>"
+    for item in history[-12:]:
+        label = escape(str(item['label_name']))
+        turn = escape(str(item['turn']))
+        html += f"<span class='er-time-pill'>T{turn} · {label}</span>"
     html += "</div></div>"
     return html
 
@@ -1366,194 +1404,182 @@ def format_emotion_timeline(history, trajectory) -> str:
 def format_ig_panel(is_crisis, confidence, ig_tokens, loading, explanation_reason="") -> str:
     if not is_crisis:
         return (
-            "<div class='er-card'><div class='er-mini-title'>Safety Guardrail</div>"
-            "<div class='er-empty'>No crisis intercept on this turn.</div></div>"
+            "<div class='er-card'><div class='er-mini-title'>Safety guardrail</div>"
+            "<div class='er-empty'>No safety intercept on this turn.</div></div>"
         )
-
+    conf_pct = max(2, min(100, int(confidence * 100)))
+    html = "<div class='er-card'>"
+    html += "<div class='er-mini-title'>Safety guardrail</div>"
+    html += "<div class='er-plan-rows'>"
+    html += (
+        f"<div class='er-plan-row'><span class='k'>Crisis signal</span>"
+        f"<span class='v' style='color:var(--danger);'>{confidence:.1%}</span></div>"
+    )
+    html += "</div>"
+    html += f"<div class='er-meter'><div style='width:{conf_pct}%; background:var(--danger);'></div></div>"
     if loading:
-        return (
-            "<div class='er-card' style='border-color:rgba(180,35,24,0.26);'>"
-            "<div class='er-mini-title'>Safety Guardrail</div>"
-            f"<div style='font-weight:700;color:var(--er-danger);margin-bottom:4px;'>"
-            f"Crisis signal detected - {confidence:.1%}</div>"
-            "<div class='er-empty'>Computing token attributions...</div></div>"
-        )
-
-    conf_pct = int(confidence * 100)
-    html = "<div class='er-card' style='border-color:rgba(180,35,24,0.26);'>"
-    html += "<div class='er-mini-title'>Safety Guardrail</div>"
-    html += (
-        f"<div style='font-weight:700;color:var(--er-danger);margin-bottom:8px;'>"
-        f"Crisis Confidence: {confidence:.1%}</div>"
-    )
-    html += (
-        "<div style='background:rgba(3,7,18,0.72);height:8px;border-radius:999px;overflow:hidden;margin-bottom:10px;'>"
-        f"<div style='background:var(--er-danger);height:100%;width:{conf_pct}%;'></div></div>"
-    )
-
-    if ig_tokens:
-        valid_tokens = [(tok, score) for tok, score in ig_tokens if tok.strip()]
-        if valid_tokens:
-            max_score = max(score for _, score in valid_tokens)
-            html += (
-                "<div style='font-size:11px;color:#fecdd3;margin-bottom:4px;font-weight:650;'>"
-                "Top Crisis Signals</div>"
-            )
-            html += "<div style='display:flex;flex-wrap:wrap;gap:4px;'>"
-            for tok, score in valid_tokens[:10]:
-                opacity = score / max_score if max_score > 0 else 0.5
-                bg_color = f"rgba(180,35,24,{opacity:.2f})"
-                html += (
-                    f"<span style='padding:3px 7px;background:{bg_color};"
-                    f"border:1px solid #b42318;border-radius:999px;font-size:10px;'>"
-                    f"{escape(tok)}</span>"
-                )
+        html += "<div class='er-empty' style='margin-top:12px;'>Computing token attributions…</div>"
+    elif ig_tokens:
+        valid = [(t, s) for t, s in ig_tokens if t.strip()]
+        if valid:
+            html += "<div class='er-mini-title' style='margin-top:14px;'>Top crisis signals</div>"
+            html += "<div class='er-ig-row'>"
+            for tok, _score in valid[:10]:
+                html += f"<span class='er-ig'>{escape(tok)}</span>"
             html += "</div>"
     elif explanation_reason:
         html += (
-            "<div class='er-source-meta' style='margin-top:8px;'>"
-            f"Explanation source: {escape(str(explanation_reason))}</div>"
+            f"<div class='er-source-why' style='margin-top:10px;'>"
+            f"{escape(str(explanation_reason))}</div>"
         )
-
     html += "</div>"
     return html
 
 
 def format_decision_trace(result=None) -> str:
+    """Support card — what kind of support, what's next, which resources."""
     if not result:
         return (
-            "<div class='er-card'><div class='er-mini-title'>Support Map</div>"
-            "<div class='er-empty'>Run a prompt to see the support path, safety check, and next action.</div></div>"
+            "<div class='er-card'><div class='er-mini-title'>Support card</div>"
+            "<div class='er-empty'>Send a message to see the support path and resources.</div></div>"
         )
-
     route_label = str(result.get("route_label", "unknown"))
     safety_tier = str(result.get("safety_tier", "unknown"))
+    should_intercept = bool(result.get("crisis") or result.get("should_intercept"))
+    recommended_action = escape(str(result.get("recommended_action", "")))
     route_text = escape(_pretty_route(route_label))
     tier_text = escape(_pretty_tier(safety_tier))
-    should_intercept = bool(result.get("crisis") or result.get("should_intercept"))
-    retrieval_mode = escape(str(result.get("retrieval_mode", "unknown")))
-    recommended_action = escape(str(result.get("recommended_action", "")))
-    precheck = result.get("safety_precheck", {}) or {}
-    precheck_reason = escape(_pretty_reason(str(precheck.get("reason", "not_recorded"))))
-    precheck_level = escape(_pretty_precheck(str(precheck.get("level", "unknown")), should_intercept))
-    classifier = result.get("classifier_confidence", {}) or {}
-    classifier_kind = "learned router" if classifier.get("used_ml") else "safety fallback"
-    route_conf = float(classifier.get("route", 0.0) or 0.0)
-    tier_conf = float(classifier.get("tier", 0.0) or 0.0)
-    output_guard = result.get("output_guard", {}) or {}
-    guard_reason = escape(_pretty_reason(str(output_guard.get("reason", "not_checked"))))
-    guard_flags = output_guard.get("flags", []) or []
-    source_count = len(result.get("retrieved_sources", []) or [])
-    stop_class = "stop" if should_intercept else "ok"
-    guard_class = "warn" if guard_flags else "ok"
-    latency = result.get("latency_ms", {}) or {}
-    total_latency = float(latency.get("total_ms", 0.0) or 0.0)
-    route_width = max(4, min(100, int(route_conf * 100)))
-    tier_width = max(4, min(100, int(tier_conf * 100)))
+    sources = result.get("retrieved_sources", []) or []
 
-    return (
-        "<div class='er-card'>"
-        "<div class='er-mini-title'>Support Map</div>"
-        "<div class='er-decision-grid'>"
-        f"<div class='er-decision-step {stop_class}'><span>Safety check</span><strong>{precheck_level}</strong><small>{precheck_reason}</small></div>"
-        f"<div class='er-decision-step ok'><span>Support path</span><strong>{route_text}</strong><small>{tier_text} · {classifier_kind}</small><div class='er-meter'><div class='er-meter-fill' style='width:{route_width}%'></div></div></div>"
-        f"<div class='er-decision-step ok'><span>Grounding</span><strong>{source_count} resource cards</strong><small>{_pretty_retrieval_mode(retrieval_mode)}</small></div>"
-        f"<div class='er-decision-step {guard_class}'><span>Response check</span><strong>{guard_reason}</strong><small>{', '.join(map(str, guard_flags)) if guard_flags else 'ready to show'}</small></div>"
-        f"<div class='er-decision-step ok'><span>Speed</span><strong>{total_latency:.1f} ms</strong><small>local MVP path</small></div>"
-        "</div>"
-        f"<div class='er-action-card'><span>Next helpful move</span><strong>{recommended_action or 'Waiting for route decision.'}</strong></div>"
-        "</div>"
-    )
+    path_class = "" if should_intercept else "accent"
+
+    html = "<div class='er-card'>"
+    html += "<div class='er-mini-title'>Support card</div>"
+    html += "<div class='er-plan-rows'>"
+    html += f"<div class='er-plan-row {path_class}'><span class='k'>Path</span><span class='v'>{route_text}</span></div>"
+    html += f"<div class='er-plan-row'><span class='k'>Tier</span><span class='v'>{tier_text}</span></div>"
+    if recommended_action:
+        html += f"<div class='er-plan-row'><span class='k'>Next move</span><span class='v'>{recommended_action}</span></div>"
+    html += "</div>"
+
+    if sources:
+        html += "<div class='er-mini-title' style='margin-top:18px;'>Resources</div>"
+        html += "<div class='er-sources'>"
+        for src in sources[:4]:
+            title = escape(str(src.get("title") or src.get("source_name") or "Resource"))
+            sname = escape(str(src.get("source_name") or ""))
+            topic = escape(str(src.get("topic") or ""))
+            risk = str(src.get("risk_level") or "")
+            why = str(src.get("why_retrieved") or "matched prompt intent")
+            url = escape(str(src.get("url") or ""))
+            risk_cls = "crisis" if "crisis" in risk else ""
+            html += "<div class='er-source'>"
+            html += f"<div class='er-source-title'>{title}</div>"
+            if sname and sname != title:
+                html += f"<div class='er-source-name'>{sname}</div>"
+            html += "<div class='er-source-tags'>"
+            if topic: html += f"<span class='er-tag'>{escape(topic)}</span>"
+            if risk: html += f"<span class='er-tag {risk_cls}'>{escape(risk)}</span>"
+            html += "</div>"
+            html += f"<div class='er-source-why'>{escape(_pretty_reason(why))}</div>"
+            if url:
+                html += f"<div style='margin-top:8px;'><a href='{url}' target='_blank' rel='noopener'>Open ↗</a></div>"
+            html += "</div>"
+        html += "</div>"
+    else:
+        html += "<div class='er-mini-title' style='margin-top:18px;'>Resources</div>"
+        html += "<div class='er-empty'>No external resource needed for this turn.</div>"
+    html += "</div>"
+    return html
 
 
 def format_retrieval_panel(result=None) -> str:
+    """Diagnostics — pipeline internals for class & eval review."""
     if not result:
         return (
-            "<div class='er-card'><div class='er-mini-title'>Grounded Resources</div>"
-            "<div class='er-empty'>Resources will appear here after the support path is chosen.</div></div>"
+            "<div class='er-card'><div class='er-mini-title'>Diagnostics</div>"
+            "<div class='er-empty'>Pipeline metadata appears here once a turn runs.</div></div>"
         )
-
-    safety_level = escape(_pretty_tier(str(result.get("safety_level", "unknown"))))
-    safety_reason = escape(_pretty_reason(str(result.get("safety_reason", ""))))
-    safety_tier = escape(_pretty_tier(str(result.get("safety_tier", "unknown"))))
-    escalation_reason = escape(str(result.get("escalation_reason", "")))
-    corpus = escape(str(result.get("retrieval_corpus", "unknown")))
-    route_label = escape(_pretty_route(str(result.get("route_label", "student-support"))))
-    recommended_action = escape(str(result.get("recommended_action", "")))
+    safety_tier = _pretty_tier(str(result.get("safety_tier", "unknown")))
+    safety_reason = _pretty_reason(str(result.get("safety_reason", "")))
+    corpus = str(result.get("retrieval_corpus", "unknown"))
     output_guard = result.get("output_guard", {}) or {}
-    output_guard_reason = escape(_pretty_reason(str(output_guard.get("reason", "not_checked"))))
+    output_guard_reason = _pretty_reason(str(output_guard.get("reason", "not_checked")))
+    guard_flags = output_guard.get("flags", []) or []
     safety_precheck = result.get("safety_precheck", {}) or {}
-    precheck_reason = escape(_pretty_reason(str(safety_precheck.get("reason", "not_recorded"))))
-    precheck_level = escape(_pretty_precheck(str(safety_precheck.get("level", "unknown")), bool(result.get("crisis"))))
-    safety_explanation = result.get("safety_explanation", {}) or {}
-    explanation_reason = escape(str(safety_explanation.get("reason", "not_checked")))
-    classifier_confidence = result.get("classifier_confidence", {}) or {}
-    route_conf = float(classifier_confidence.get("route", 0.0) or 0.0)
-    tier_conf = float(classifier_confidence.get("tier", 0.0) or 0.0)
-    classifier_label = "learned" if classifier_confidence.get("used_ml") else "fallback"
-    retrieval_mode = escape(str(result.get("retrieval_mode", "registry_filtered_faiss_plus_router")))
-    html = (
-        "<div class='er-card'>"
-        "<div class='er-mini-title'>Grounded Resources</div>"
-        "<div class='er-status-grid'>"
-        f"<div class='er-status'><span>Corpus</span><strong>{corpus}</strong></div>"
-        f"<div class='er-status'><span>Tier</span><strong>{safety_tier}</strong></div>"
-        f"<div class='er-status'><span>Safety</span><strong>{safety_level}</strong></div>"
-        f"<div class='er-status'><span>Response</span><strong>{output_guard_reason}</strong></div>"
-        f"<div class='er-status'><span>Classifier</span><strong>{classifier_label} {route_conf:.2f}/{tier_conf:.2f}</strong></div>"
-        f"<div class='er-status'><span>Retrieval</span><strong>{_pretty_retrieval_mode(retrieval_mode)}</strong></div>"
-        f"<div class='er-status'><span>Safety check</span><strong>{precheck_level}</strong></div>"
-        f"<div class='er-status'><span>Model guard</span><strong>{_pretty_reason(explanation_reason)}</strong></div>"
-        "</div>"
-        f"<div class='er-source-meta' style='margin-top:8px;'>Why this path: {safety_reason}; safety check: {precheck_reason}</div>"
-        "<div class='er-route'>"
-        f"<strong>{route_label}</strong>"
-        f"<span>{recommended_action}</span>"
-        "</div>"
+    precheck_reason = _pretty_reason(str(safety_precheck.get("reason", "not_recorded")))
+    precheck_level = _pretty_precheck(
+        str(safety_precheck.get("level", "unknown")),
+        bool(result.get("crisis")),
     )
+    classifier = result.get("classifier_confidence", {}) or {}
+    route_conf = float(classifier.get("route", 0.0) or 0.0)
+    tier_conf = float(classifier.get("tier", 0.0) or 0.0)
+    classifier_label = "learned" if classifier.get("used_ml") else "fallback"
+    retrieval_mode = _pretty_retrieval_mode(str(result.get("retrieval_mode", "")))
+    latency = result.get("latency_ms", {}) or {}
+    total_latency = float(latency.get("total_ms", 0.0) or 0.0)
+    should_intercept = bool(result.get("crisis"))
+    safety_cls = "danger" if should_intercept else ""
+    guard_cls = "warn" if guard_flags else ""
+
+    html = "<div class='er-card'>"
+    html += "<div class='er-mini-title'>Diagnostics</div>"
+    html += "<div class='er-diag-grid'>"
+    html += f"<div class='er-diag {safety_cls}'><div class='k'>Safety check</div><div class='v'>{escape(precheck_level)}</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Tier</div><div class='v'>{escape(safety_tier)}</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Classifier</div><div class='v'>{classifier_label} · r {route_conf:.2f} / t {tier_conf:.2f}</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Retrieval</div><div class='v'>{escape(retrieval_mode or '—')}</div></div>"
+    html += f"<div class='er-diag {guard_cls}'><div class='k'>Response check</div><div class='v'>{escape(output_guard_reason)}</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Speed</div><div class='v'>{total_latency:.0f} ms</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Corpus</div><div class='v'>{escape(corpus)}</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Safety reason</div><div class='v'>{escape(safety_reason or '—')}</div></div>"
+    # Surface cross-cutting NLP flags for the grad-course audience.
+    intl_flag = "yes" if result.get("international_concern") else "no"
+    intl_cls = "warn" if result.get("international_concern") else ""
+    stage_label = str(result.get("conversation_stage") or "—")
+    html += f"<div class='er-diag {intl_cls}'><div class='k'>International concern</div><div class='v'>{escape(intl_flag)}</div></div>"
+    html += f"<div class='er-diag'><div class='k'>Conversation stage</div><div class='v'>{escape(stage_label)}</div></div>"
+    html += "</div>"
+
+    notes = []
+    if precheck_reason and precheck_reason not in {"—", "Not recorded"}:
+        notes.append(f"Safety precheck: {escape(precheck_reason)}")
+    escalation_reason = str(result.get("escalation_reason", ""))
     if escalation_reason:
-        html += f"<div class='er-source-meta' style='margin-top:8px;'>Escalation: {escalation_reason}</div>"
-
-    if safety_level in {"crisis", "emergency"}:
-        html += (
-            "<div class='er-crisis-banner'>"
-            "<strong>Normal generation intercepted</strong>"
-            "<span>Crisis resources are shown as source cards; the chat response uses the safety template.</span>"
-            "</div>"
-        )
-
-    sources = result.get("retrieved_sources", [])
-    if not sources:
-        html += "<div class='er-empty'>No sources retrieved for this turn.</div></div>"
-        return html
-
-    for source in sources[:5]:
-        title = escape(str(source.get("title", "") or "Untitled source"))
-        source_name = escape(str(source.get("source_name", "") or "Unknown source"))
-        topic = escape(str(source.get("topic", "") or ""))
-        risk = escape(str(source.get("risk_level", "") or ""))
-        usage = escape(str(source.get("usage_mode", "") or ""))
-        source_type = escape(str(source.get("source_type", "") or ""))
-        why = escape(str(source.get("why_retrieved", "") or "matched prompt intent"))
-        url = escape(str(source.get("url", "") or ""))
-        risk_class = "er-chip-crisis" if "crisis" in risk else "er-chip-risk" if risk else ""
-        html += (
-            "<div class='er-source'>"
-            f"<div class='er-source-title'>{title}</div>"
-            f"<div class='er-source-meta'>{source_name}</div>"
-            "<div class='er-chip-row'>"
-            f"<span class='er-chip'>{topic}</span>"
-            f"<span class='er-chip {risk_class}'>{risk}</span>"
-            f"<span class='er-chip'>{usage}</span>"
-            f"<span class='er-chip'>{source_type}</span>"
-            "</div>"
-            f"<div class='er-why'>Why shown: {_pretty_reason(why)}</div>"
-        )
-        if url:
-            html += f"<div style='margin-top:7px;'><a class='er-link' href='{url}' target='_blank'>Open source</a></div>"
-        html += "</div>"
+        notes.append(f"Escalation: {escape(escalation_reason)}")
+    if guard_flags:
+        flag_text = ", ".join(escape(str(f)) for f in guard_flags)
+        notes.append(f"Guard flags: {flag_text}")
+    if notes:
+        html += "<div class='er-source-why' style='margin-top:14px;line-height:1.7;'>" + "<br>".join(notes) + "</div>"
     html += "</div>"
     return html
+
+
+TYPING_HTML = "<span class='er-typing'><span></span><span></span><span></span></span>"
+STREAM_ENABLED = os.getenv("EMPATHRAG_STREAM", "1") != "0"
+STREAM_WORDS_PER_CHUNK = int(os.getenv("EMPATHRAG_STREAM_WORDS", "2"))
+STREAM_CHUNK_DELAY_MS = int(os.getenv("EMPATHRAG_STREAM_DELAY_MS", "75"))
+TYPING_DELAY_MS = int(os.getenv("EMPATHRAG_TYPING_DELAY_MS", "650"))
+
+
+def _stream_chunks(full_text: str):
+    """Yield growing partial strings to simulate streaming."""
+    if not STREAM_ENABLED or not full_text:
+        yield full_text
+        return
+    words = full_text.split(" ")
+    if len(words) <= STREAM_WORDS_PER_CHUNK:
+        yield full_text
+        return
+    import time as _t
+    cursor = STREAM_WORDS_PER_CHUNK
+    while cursor < len(words):
+        yield " ".join(words[:cursor])
+        _t.sleep(STREAM_CHUNK_DELAY_MS / 1000.0)
+        cursor += STREAM_WORDS_PER_CHUNK
+    yield full_text
 
 
 def respond(message, chat_history, session_state, audience_mode):
@@ -1575,6 +1601,23 @@ def respond(message, chat_history, session_state, audience_mode):
             session_state,
         )
         return
+
+    # Show user message + typing indicator immediately for liveness.
+    chat_history = list(chat_history) + [(message, TYPING_HTML)]
+    yield (
+        chat_history,
+        format_decision_trace(),
+        format_emotion_timeline(emotion_history, "stable"),
+        "stable",
+        format_ig_panel(False, 0.0, [], False),
+        format_retrieval_panel(),
+        session_id,
+        session_state,
+    )
+
+    if STREAM_ENABLED and TYPING_DELAY_MS > 0:
+        import time as _t
+        _t.sleep(TYPING_DELAY_MS / 1000.0)
 
     with pipeline_lock:
         active_pipeline = get_pipeline()
@@ -1599,7 +1642,7 @@ def respond(message, chat_history, session_state, audience_mode):
             session_state["tracker_history"] = session_state.get("tracker_history", []) + [result["emotion"]]
             session_state["conv_history"] = session_state.get("conv_history", [])
 
-    chat_history.append((message, result["response"]))
+    full_response = result["response"]
     emotion_history.append(
         {
             "turn": len(emotion_history) + 1,
@@ -1607,63 +1650,55 @@ def respond(message, chat_history, session_state, audience_mode):
             "color": LABEL_COLORS[result["emotion_name"]],
         }
     )
-
     log_turn(session_id, len(emotion_history), message, result)
     timeline_html = format_emotion_timeline(emotion_history, result["trajectory"])
+    decision_html = format_decision_trace(result)
+    retrieval_html = format_retrieval_panel(result)
 
-    if result["crisis"]:
-        safety_explanation = result.get("safety_explanation", {}) or {}
-        explanation_available = bool(safety_explanation.get("available"))
-        ig_tokens = safety_explanation.get("ig_tokens") or []
-        explanation_reason = safety_explanation.get("reason", "")
-        if not hasattr(get_pipeline(), "guardrail") and not explanation_available:
-            yield (
-                chat_history,
-                format_decision_trace(result),
-                timeline_html,
-                result["trajectory"],
-                format_ig_panel(True, result["crisis_confidence"], ig_tokens, loading=False, explanation_reason=explanation_reason),
-                format_retrieval_panel(result),
-                session_id,
-                session_state,
-            )
-            return
+    # Stream the response into the last chat slot.
+    is_crisis = bool(result.get("crisis"))
+    safety_explanation = result.get("safety_explanation", {}) or {}
+    ig_tokens = safety_explanation.get("ig_tokens") or []
+    explanation_reason = safety_explanation.get("reason", "")
+    explanation_available = bool(safety_explanation.get("available"))
+    ig_panel_html = format_ig_panel(
+        is_crisis,
+        result.get("crisis_confidence", 0.0),
+        ig_tokens,
+        loading=is_crisis and hasattr(get_pipeline(), "guardrail") and not explanation_available,
+        explanation_reason=explanation_reason,
+    )
+
+    for partial in _stream_chunks(full_response):
+        chat_history[-1] = (message, partial)
         yield (
             chat_history,
-            format_decision_trace(result),
+            decision_html,
             timeline_html,
             result["trajectory"],
-            format_ig_panel(True, result["crisis_confidence"], ig_tokens, loading=True),
-            format_retrieval_panel(result),
+            ig_panel_html,
+            retrieval_html,
             session_id,
             session_state,
         )
 
+    # Crisis: optionally compute IG attributions after the message lands.
+    if is_crisis and hasattr(get_pipeline(), "guardrail") and not explanation_available:
         with pipeline_lock:
             active_pipeline = get_pipeline()
             if hasattr(active_pipeline, "guardrail"):
-                _, confidence, ig_tokens = active_pipeline.guardrail.check(message, threshold=0.5, skip_ig=False)
+                _, confidence, ig_tokens = active_pipeline.guardrail.check(
+                    message, threshold=0.5, skip_ig=False
+                )
             else:
                 confidence, ig_tokens = result["crisis_confidence"], []
-
         yield (
             chat_history,
-            format_decision_trace(result),
+            decision_html,
             timeline_html,
             result["trajectory"],
             format_ig_panel(True, confidence, ig_tokens, loading=False),
-            format_retrieval_panel(result),
-            session_id,
-            session_state,
-        )
-    else:
-        yield (
-            chat_history,
-            format_decision_trace(result),
-            timeline_html,
-            result["trajectory"],
-            format_ig_panel(False, 0.0, [], False),
-            format_retrieval_panel(result),
+            retrieval_html,
             session_id,
             session_state,
         )
@@ -1756,121 +1791,128 @@ def _pretty_retrieval_mode(mode: str) -> str:
     return mode.replace("_", " ")
 
 
-theme = gr.themes.Soft(
+theme = gr.themes.Base(
     primary_hue="teal",
-    secondary_hue="amber",
-    neutral_hue="stone",
-    radius_size="sm",
+    secondary_hue="teal",
+    neutral_hue="slate",
+    radius_size=gr.themes.sizes.radius_md,
+    font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
+).set(
+    body_background_fill="#0a0c10",
+    body_background_fill_dark="#0a0c10",
+    body_text_color="#e7ecf2",
+    background_fill_primary="#0a0c10",
+    background_fill_secondary="#11151c",
+    border_color_primary="rgba(255,255,255,0.06)",
+    button_primary_background_fill="#5eead4",
+    button_primary_background_fill_hover="#5eead4",
+    button_primary_text_color="#061a16",
+    button_secondary_background_fill="transparent",
+    button_secondary_text_color="#8a93a3",
+    input_background_fill="#11151c",
+    input_border_color="rgba(255,255,255,0.06)",
+    block_background_fill="transparent",
+    block_border_color="rgba(255,255,255,0.06)",
+    block_label_background_fill="transparent",
+    block_label_text_color="#8a93a3",
 )
 
-with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
+
+with gr.Blocks(theme=theme, title="EmpathRAG", css=APP_CSS) as demo:
     initial_state = new_session_state()
     session_state = gr.State(value=initial_state)
+    inspect_open = gr.State(value=False)
 
-    gr.HTML(
-        f"""
-        <div class="er-shell">
-          <div class="er-title">
-            <div>
-              <h1>EmpathRAG Core</h1>
-              <div class="er-badges">
-                <span class="er-badge">Guarded conversational RAG</span>
-                <span class="er-badge">{escape(RETRIEVAL_CORPUS)}</span>
-                <span class="er-badge">logging off by default</span>
-              </div>
-              <div class="er-mission">
-                <div class="er-metric"><strong>177</strong><span>curated support chunks</span></div>
-                <div class="er-metric"><strong>gated</strong><span>retrieval by usage mode</span></div>
-                <div class="er-metric"><strong>fail-closed</strong><span>safety-first pipeline</span></div>
-              </div>
-              <div class="er-live-rail">
-                <div class="er-live-step active"><span>Stage 1</span><strong>Lexical safety precheck</strong></div>
-                <div class="er-live-step"><span>Stage 2</span><strong>Hybrid route / tier router</strong></div>
-                <div class="er-live-step"><span>Stage 3</span><strong>Resource registry filter</strong></div>
-                <div class="er-live-step"><span>Stage 4</span><strong>Output guard</strong></div>
-                <div class="er-live-step"><span>Stage 5</span><strong>Visible next action</strong></div>
-              </div>
+    # ---- Top bar ----
+    with gr.Row(elem_classes=["er-topbar"]):
+        gr.HTML(
+            """
+            <div class="er-brand">
+              <span class="er-brand-dot"></span>
+              EmpathRAG
+              <span class="er-brand-meta">· support navigator</span>
             </div>
-            <div class="er-kicker">
-              Guarded conversational RAG for emotional and student-support navigation.
-              This prototype is not therapy, diagnosis, or emergency care.
-            </div>
-          </div>
-        </div>
+            """
+        )
+        audience_mode_box = gr.Radio(
+            choices=[("Student", "student"), ("Helping a friend", "helping_friend")],
+            value="student",
+            show_label=False,
+            container=False,
+            elem_classes=["er-mode-wrap"],
+        )
+        inspect_btn = gr.Button("Inspect", elem_classes=["er-inspect-btn"])
+
+    # ---- Hero (empty state) ----
+    hero_block = gr.HTML(
         """
-    )
-
-    session_id_box = gr.Textbox(
-        label="Session ID",
-        interactive=False,
-        value=initial_state["session_id"],
-    )
-    audience_mode_box = gr.Radio(
-        choices=[("Student", "student"), ("Helping a friend", "helping_friend")],
-        value="student",
-        label="Support mode",
-        interactive=True,
-    )
-    gr.HTML(
-        "<div class='er-terminal-note'>Use <strong>Helping a friend</strong> when the prompt is about a roommate, labmate, teammate, or someone else. The response will emphasize escalation and not handling safety risk alone.</div>"
-    )
-
-    gr.HTML(
-        f"""
-        <div class="er-state-strip">
-          <div class="er-state-pill"><span>Backend</span><strong>hybrid_ml</strong></div>
-          <div class="er-state-pill"><span>Corpus</span><strong>{escape(RETRIEVAL_CORPUS)}</strong></div>
-          <div class="er-state-pill"><span>Retrieval</span><strong>registry-filtered</strong></div>
-          <div class="er-state-pill"><span>Logging</span><strong>{"on" if LOG_TURNS else "off"}</strong></div>
+        <div class="er-hero">
+          <h1>How are you doing today?</h1>
+          <p>I'm here to listen first — about academic stress, mental health, advisor pressure, or anything weighing on you. When you're ready, I can also help you find specific UMD resources, including ones for international and F-1 students.</p>
+          <div class="er-hero-meta">Conversations are not logged. Not therapy or emergency care.</div>
         </div>
-        """
+        """,
+        visible=True,
     )
 
-    with gr.Row(elem_classes=["er-workspace"]):
-        with gr.Column(scale=2):
-            chatbot = gr.Chatbot(label="Conversation", height=500, bubble_full_width=False)
-            note = (
-                "MVP mode is active: local routing, grounded resources, and safety checks are running together."
-                if DEMO_BACKEND != "real"
-                else "Full local model stack is active; first response may prewarm models."
-            )
-            gr.HTML(f"<div class='er-terminal-note'>{escape(note)}</div>")
-            gr.HTML(
-                """
-                <div class="er-demo-arc">
-                  <div class="er-demo-card"><span>1</span><strong>Usefulness</strong><small>Turns worry into one next move</small></div>
-                  <div class="er-demo-card"><span>2</span><strong>Continuity</strong><small>Tracks escalation across turns</small></div>
-                  <div class="er-demo-card"><span>3</span><strong>Peer mode</strong><small>Guides helping someone else</small></div>
-                  <div class="er-demo-card"><span>4</span><strong>Boundaries</strong><small>Refuses medical/legal pretending</small></div>
-                  <div class="er-demo-card"><span>5</span><strong>Calibration</strong><small>Does not panic on idioms</small></div>
-                </div>
-                """
-            )
-            with gr.Row(elem_classes=["er-prompt-row"]):
-                prompt_counseling = gr.Button("Start counseling")
-                prompt_ads = gr.Button("ADS accommodations")
-                prompt_ombuds = gr.Button("Advisor conflict")
-                prompt_grounding = gr.Button("Grounding help")
-                prompt_crisis = gr.Button("Crisis redirect")
-            with gr.Row(elem_classes=["er-prompt-row"]):
-                prompt_friend = gr.Button("Helping a friend")
-                prompt_scope = gr.Button("Out of scope")
-            msg_box = gr.Textbox(
-                placeholder="Type a student-support prompt...",
-                label="",
-                autofocus=True,
-            )
-            with gr.Row(elem_classes=["er-send"]):
-                send_btn = gr.Button("Send", variant="primary")
-                reset_btn = gr.Button("Reset Session")
+    with gr.Row(elem_classes=["er-chips"], visible=True) as chip_row:
+        chip_counseling = gr.Button("I'm thinking about counseling", elem_classes=["er-chip-btn"])
+        chip_ads = gr.Button("ADS accommodations", elem_classes=["er-chip-btn"])
+        chip_advisor = gr.Button("Advisor conflict", elem_classes=["er-chip-btn"])
+        chip_intl = gr.Button("F-1 visa & academic worry", elem_classes=["er-chip-btn"])
+        chip_grounding = gr.Button("Pre-exam grounding", elem_classes=["er-chip-btn"])
 
-        with gr.Column(scale=1, elem_classes=["er-side"]):
-            decision_out = gr.HTML(value=format_decision_trace())
-            timeline_out = gr.HTML(value=format_emotion_timeline([], "stable"))
-            trajectory_out = gr.Textbox(label="Trajectory", value="stable", interactive=False)
-            crisis_out = gr.HTML(value=format_ig_panel(False, 0.0, [], False))
-            retrieval_out = gr.HTML(value=format_retrieval_panel())
+    # ---- Chat ----
+    chatbot = gr.Chatbot(
+        elem_classes=["er-chat"],
+        show_label=False,
+        height=520,
+        bubble_full_width=False,
+        avatar_images=None,
+        show_share_button=False,
+        show_copy_button=True,
+        sanitize_html=False,
+    )
 
+    # ---- Composer ----
+    with gr.Group(elem_classes=["er-composer-wrap"]):
+        msg_box = gr.Textbox(
+            placeholder="Tell me what's on your mind…",
+            show_label=False,
+            container=False,
+            lines=1,
+            max_lines=8,
+            autofocus=True,
+        )
+        send_btn = gr.Button("→", elem_classes=["er-send-btn"], variant="primary")
+
+    with gr.Row(elem_classes=["er-toolrow"]):
+        gr.HTML(
+            "<div class='er-footnote'>Conversations are not logged by default. If you are in immediate danger, call or text 988.</div>"
+        )
+        reset_btn = gr.Button("Clear conversation", elem_classes=["er-reset-btn"])
+
+    # Hidden state surfaces (kept to preserve respond() output contract)
+    session_id_box = gr.Textbox(value=initial_state["session_id"], visible=False)
+    trajectory_out = gr.Textbox(value="stable", visible=False)
+
+    # ---- Inspect drawer ----
+    with gr.Column(visible=False, elem_classes=["er-inspect"]) as inspect_drawer:
+        gr.HTML(
+            "<div class='er-inspect-head'>"
+            "<div class='er-inspect-title'>Behind the answer</div>"
+            "<div class='er-inspect-sub'>Pipeline view · class & eval</div>"
+            "</div>"
+        )
+        with gr.Tabs(elem_classes=["er-tabs"]):
+            with gr.Tab("Support card"):
+                decision_out = gr.HTML(value=format_decision_trace())
+            with gr.Tab("Diagnostics"):
+                retrieval_out = gr.HTML(value=format_retrieval_panel())
+                timeline_out = gr.HTML(value=format_emotion_timeline([], "stable"))
+                crisis_out = gr.HTML(value=format_ig_panel(False, 0.0, [], False))
+
+    # ---- Wiring ----
     submit_outputs = [
         chatbot,
         decision_out,
@@ -1880,50 +1922,68 @@ with gr.Blocks(theme=theme, title="EmpathRAG Core", css=APP_CSS) as demo:
         retrieval_out,
         session_id_box,
         session_state,
+        hero_block,
+        chip_row,
     ]
 
+    def respond_with_chrome(message, chat_history, session_state, audience_mode):
+        hide = bool(message and message.strip())
+        chrome = (gr.update(visible=not hide), gr.update(visible=not hide))
+        for tup in respond(message, chat_history, session_state, audience_mode):
+            yield tup + chrome
+
     msg_box.submit(
-        respond,
+        respond_with_chrome,
         inputs=[msg_box, chatbot, session_state, audience_mode_box],
         outputs=submit_outputs,
     ).then(lambda: "", outputs=msg_box)
 
     send_btn.click(
-        respond,
+        respond_with_chrome,
         inputs=[msg_box, chatbot, session_state, audience_mode_box],
         outputs=submit_outputs,
     ).then(lambda: "", outputs=msg_box)
 
-    reset_btn.click(reset_session_handler, outputs=submit_outputs)
+    def reset_with_chrome():
+        base = reset_session_handler()
+        return base + (gr.update(visible=True), gr.update(visible=True))
 
-    prompt_counseling.click(
+    reset_btn.click(reset_with_chrome, outputs=submit_outputs)
+
+    def toggle_inspect(open_state):
+        new_state = not open_state
+        return new_state, gr.update(visible=new_state)
+
+    inspect_btn.click(
+        toggle_inspect,
+        inputs=[inspect_open],
+        outputs=[inspect_open, inspect_drawer],
+    )
+
+    chip_counseling.click(
         lambda: set_prompt("I think I need counseling at UMD, but I do not know how to start."),
         outputs=msg_box,
     )
-    prompt_ads.click(
-        lambda: set_prompt("I need disability accommodations for my graduate assistantship work at UMD."),
+    chip_ads.click(
+        lambda: set_prompt("I need disability accommodations for an upcoming exam at UMD."),
         outputs=msg_box,
     )
-    prompt_ombuds.click(
+    chip_advisor.click(
         lambda: set_prompt("My advisor keeps dismissing my concerns and I need someone neutral to talk to."),
         outputs=msg_box,
     )
-    prompt_grounding.click(
+    chip_grounding.click(
         lambda: set_prompt("I am panicking before my exam. Can you help me with a grounding exercise?"),
         outputs=msg_box,
     )
-    prompt_crisis.click(
-        lambda: set_prompt("I do not think I can stay safe tonight."),
+    chip_intl.click(
+        lambda: set_prompt(
+            "I'm an F-1 student and I think I'm going to fail my final tomorrow. "
+            "I'm scared about what this means for my visa status."
+        ),
         outputs=msg_box,
     )
-    prompt_friend.click(
-        lambda: set_prompt("My roommate said goodbye and locked their door, and I am scared they will not answer."),
-        outputs=msg_box,
-    )
-    prompt_scope.click(
-        lambda: set_prompt("Can you prescribe anxiety medication or write a legal complaint for me?"),
-        outputs=msg_box,
-    )
+
 
 
 if __name__ == "__main__":
