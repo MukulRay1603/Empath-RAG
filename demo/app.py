@@ -17,6 +17,14 @@ from pathlib import Path
 
 import gradio as gr
 
+# Load .env (GROQ_API_KEY, ANTHROPIC_API_KEY, etc.) before any provider
+# checks os.getenv. Soft import so the app still runs without python-dotenv.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv()
+except Exception:
+    pass
+
 sys.path.insert(0, "src")
 
 from pipeline.safety_policy import SafetyLevel, SafetyTriagePolicy
@@ -55,6 +63,7 @@ APP_CSS = """
   --surface: #11151c;
   --surface-2: #161c25;
   --surface-3: #1d2531;
+  --surface-glass: rgba(17,21,28,0.72);
   --border: rgba(255,255,255,0.06);
   --border-mid: rgba(255,255,255,0.10);
   --border-strong: rgba(255,255,255,0.16);
@@ -63,15 +72,24 @@ APP_CSS = """
   --accent-soft: rgba(94,234,212,0.10);
   --accent-line: rgba(94,234,212,0.22);
   --accent-glow: rgba(94,234,212,0.20);
+  --accent-aurora: rgba(94,234,212,0.28);
   --text: #e7ecf2;
   --text-muted: #8a93a3;
   --text-dim: #5a6373;
+  --text-faint: #424b5a;
   --warm: #f5b669;
   --warm-soft: rgba(245,182,105,0.10);
+  --warm-line: rgba(245,182,105,0.22);
   --danger: #f87171;
+  --danger-soft: rgba(248,113,113,0.10);
+  --danger-line: rgba(248,113,113,0.22);
+  --indigo: #818cf8;
+  --indigo-soft: rgba(129,140,248,0.10);
+  --indigo-line: rgba(129,140,248,0.22);
   --radius-sm: 8px;
   --radius: 12px;
   --radius-lg: 16px;
+  --radius-xl: 22px;
 }
 
 * { box-sizing: border-box; }
@@ -90,16 +108,19 @@ body::before {
   position: fixed; inset: 0;
   pointer-events: none; z-index: 0;
   background:
-    radial-gradient(900px 480px at 50% -20%, rgba(94,234,212,0.07), transparent 70%),
-    radial-gradient(600px 340px at 90% 110%, rgba(94,234,212,0.04), transparent 70%);
+    radial-gradient(1100px 520px at 18% -10%, rgba(94,234,212,0.07), transparent 70%),
+    radial-gradient(800px 400px at 100% 20%, rgba(129,140,248,0.045), transparent 70%),
+    radial-gradient(720px 380px at 80% 110%, rgba(94,234,212,0.04), transparent 70%);
 }
 
+/* Natural Gradio flow. Container holds everything at its document-flow
+   height; the page is allowed to be exactly as tall as its content. */
 .gradio-container {
   position: relative; z-index: 1;
   background: transparent !important;
-  max-width: 880px !important;
+  max-width: 1320px !important;
   margin: 0 auto !important;
-  padding: 0 24px 48px !important;
+  padding: 0 32px 24px !important;
   color: var(--text) !important;
 }
 
@@ -127,34 +148,99 @@ body::before {
   align-items: center !important;
   justify-content: space-between !important;
   gap: 16px !important;
-  padding: 22px 0 18px !important;
-  margin: 0 0 8px !important;
+  padding: 14px 0 12px !important;
+  margin: 0 0 16px !important;
   border-bottom: 1px solid var(--border) !important;
   flex-wrap: nowrap !important;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(14px) saturate(140%);
+  background: linear-gradient(180deg, rgba(10,12,16,0.94) 0%, rgba(10,12,16,0.80) 100%);
+  height: 64px;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .er-topbar > * { flex: none !important; }
 .er-topbar > .er-mode-wrap { flex: 1 1 auto !important; display: flex; justify-content: center; }
 
 .er-brand {
-  display: flex; align-items: center; gap: 10px;
-  font-weight: 600; font-size: 15.5px; letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 12px;
+  font-weight: 600; font-size: 16px; letter-spacing: -0.012em;
   color: var(--text);
 }
 .er-brand-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 9px; height: 9px; border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 14px var(--accent-glow);
+  box-shadow: 0 0 18px var(--accent-glow);
   animation: er-pulse 2.4s ease-in-out infinite;
+  position: relative;
+}
+.er-brand-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  opacity: 0;
+  animation: er-ripple 2.6s ease-out infinite;
+}
+@keyframes er-ripple {
+  0%   { transform: scale(0.85); opacity: 0.55; }
+  100% { transform: scale(2.5);  opacity: 0; }
 }
 .er-brand-meta {
-  color: var(--text-dim); font-size: 12.5px; font-weight: 400; margin-left: 4px;
+  color: var(--text-dim); font-size: 12.5px; font-weight: 400;
 }
 @keyframes er-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 14px var(--accent-glow); }
-  50%      { opacity: 0.6; box-shadow: 0 0 6px var(--accent-glow); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
 }
 
-/* SEGMENTED MODE TOGGLE (Radio) */
+/* MODE BAR — ablation toggle row between topbar and studio */
+.gradio-container .er-modebar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 10px 14px !important;
+  margin: 0 0 14px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  flex-wrap: wrap !important;
+}
+.er-modebar-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.er-modebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.er-modebar-help {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.gradio-container .er-rephrase-toggle { flex: 0 0 auto !important; }
+.gradio-container .er-rephrase-toggle fieldset,
+.gradio-container .er-rephrase-toggle .wrap-inner {
+  background: var(--bg-soft) !important;
+}
+.gradio-container .er-rephrase-toggle label:has(input:checked) {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+
+/* SEGMENTED MODE TOGGLE */
 .gradio-container .er-mode-wrap { padding: 0 !important; }
 .gradio-container .er-mode-wrap > .wrap,
 .gradio-container .er-mode-wrap > .form { background: transparent !important; }
@@ -168,7 +254,7 @@ body::before {
   gap: 0 !important;
 }
 .gradio-container .er-mode-wrap label {
-  padding: 7px 16px !important;
+  padding: 7px 18px !important;
   border-radius: 999px !important;
   font-size: 12.5px !important;
   font-weight: 500 !important;
@@ -187,55 +273,118 @@ body::before {
 }
 .gradio-container .er-mode-wrap input { display: none !important; }
 
-/* INSPECT BUTTON */
-.gradio-container .er-inspect-btn { min-width: 0 !important; }
-.gradio-container .er-inspect-btn button {
-  background: transparent !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text-muted) !important;
-  padding: 8px 16px !important;
+/* TOPBAR RIGHT (reset). Explicitly visible, never clipped */
+.gradio-container .er-reset-btn {
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  min-width: 0 !important;
+  visibility: visible !important;
+  display: inline-flex !important;
+}
+.gradio-container .er-reset-btn button {
+  background: var(--surface) !important;
+  border: 1px solid var(--border-mid) !important;
+  color: var(--text) !important;
+  padding: 7px 16px !important;
   font-size: 12.5px !important;
   font-weight: 500 !important;
   border-radius: 999px !important;
   min-width: 0 !important;
-  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+  transition: all 180ms ease;
   box-shadow: none !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
 }
-.gradio-container .er-inspect-btn button:hover {
-  border-color: var(--border-strong) !important;
-  color: var(--text) !important;
-  background: var(--surface) !important;
+.gradio-container .er-reset-btn button:hover {
+  border-color: var(--accent-line) !important;
+  color: var(--accent) !important;
+  background: var(--surface-2) !important;
+}
+.er-topbar > * { flex-shrink: 0 !important; }
+.er-topbar { overflow: visible !important; flex: 0 0 auto !important; }
+.gradio-container .er-modebar { flex: 0 0 auto !important; }
+
+/* STUDIO 2-COLUMN LAYOUT — natural Gradio flow.
+
+   The chatbot has its height controlled in Python via gr.Chatbot(height=N)
+   which is the framework's official sizing API. Around it, hero/chips/dock
+   flow naturally below. The right column is sticky so it stays visible as
+   the user scrolls. We do NOT lock the page to 100vh; Gradio expects pages
+   to be as tall as their content. */
+.gradio-container .er-studio {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 360px !important;
+  gap: 32px !important;
+  align-items: start !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
-/* HERO (empty state) */
+.gradio-container .er-chat-col,
+.gradio-container .er-context-col {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* CONTEXT COLUMN — sticky to the top so it stays visible while the chat
+   column flows. max-height + overflow-y on the column body lets the
+   diagnostics accordion scroll independently inside it. */
+.gradio-container .er-context-col {
+  position: sticky !important;
+  top: 84px !important;  /* below sticky topbar */
+  align-self: start !important;
+  max-height: calc(100vh - 100px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 0 6px 16px 24px !important;
+  border-left: 1px solid var(--border) !important;
+  scrollbar-gutter: stable;
+}
+
+/* HERO (empty state). Compact so it fits the viewport */
 .er-hero {
-  text-align: center;
-  padding: 84px 12px 28px;
+  text-align: left;
+  padding: 8px 4px 6px;
 }
 .er-hero h1 {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 500;
-  letter-spacing: -0.025em;
-  margin: 0 0 12px;
-  color: var(--text);
+  letter-spacing: -0.024em;
+  margin: 0 0 8px;
   line-height: 1.2;
+  background: linear-gradient(180deg, #f3f7fc 0%, #b6c2d2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 .er-hero p {
   color: var(--text-muted);
-  font-size: 14px;
-  margin: 0 auto;
-  max-width: 480px;
+  font-size: 13.5px;
+  margin: 0;
+  max-width: 580px;
   line-height: 1.6;
 }
+.er-hero-meta {
+  margin-top: 10px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
-/* SUGGESTION CHIPS */
+/* CHIPS. Outlined pills, no fill. Sits directly above the input. */
 .er-chips {
   display: flex !important;
-  gap: 8px !important;
+  gap: 6px !important;
   flex-wrap: wrap !important;
-  justify-content: center !important;
-  margin: 28px 0 0 !important;
-  padding: 0 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 .gradio-container .er-chip-btn { min-width: 0 !important; flex: 0 0 auto !important; }
 .gradio-container .er-chip-btn button {
@@ -243,26 +392,28 @@ body::before {
   border: 1px solid var(--border) !important;
   color: var(--text-muted) !important;
   padding: 9px 14px !important;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   font-weight: 400 !important;
-  border-radius: 10px !important;
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease, transform 180ms ease;
+  border-radius: 999px !important;
+  transition: all 200ms ease;
   text-align: left !important;
   min-width: 0 !important;
   box-shadow: none !important;
+  white-space: nowrap;
 }
 .gradio-container .er-chip-btn button:hover {
   border-color: var(--accent-line) !important;
   background: var(--surface-2) !important;
   color: var(--text) !important;
   transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(94,234,212,0.10) !important;
 }
 
 /* CHAT */
 .gradio-container .er-chat {
   background: transparent !important;
   border: none !important;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .gradio-container .er-chat > .wrap,
 .gradio-container .er-chat > div {
@@ -276,9 +427,14 @@ body::before {
   box-shadow: none !important;
   font-size: 15.5px !important;
   line-height: 1.72 !important;
-  padding: 16px 0 !important;
+  padding: 18px 0 !important;
   color: var(--text) !important;
   max-width: 100% !important;
+  animation: er-msg-in 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes er-msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .gradio-container .er-chat .message.user,
 .gradio-container .er-chat .user {
@@ -289,8 +445,7 @@ body::before {
   max-width: 92% !important;
   margin-left: auto !important;
   border: 1px solid var(--accent-line) !important;
-  font-size: 15px !important;
-  line-height: 1.6 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.10) !important;
 }
 .gradio-container .er-chat .message.bot,
 .gradio-container .er-chat .bot {
@@ -299,305 +454,11 @@ body::before {
   border: none !important;
   max-width: 100% !important;
 }
-.gradio-container .er-chat .message p { margin: 0 0 10px !important; }
+.gradio-container .er-chat .message p { margin: 0 0 12px !important; }
 .gradio-container .er-chat .message p:last-child { margin: 0 !important; }
 .gradio-container .er-chat .avatar-container { display: none !important; }
 
-/* COMPOSER */
-.er-composer-wrap {
-  position: sticky;
-  bottom: 16px;
-  z-index: 5;
-  margin-top: 24px;
-  background: var(--surface);
-  border: 1px solid var(--border-mid);
-  border-radius: 16px;
-  padding: 0;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-  position: relative;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-}
-.er-composer-wrap:focus-within {
-  border-color: var(--accent-line);
-  box-shadow: 0 0 0 3px var(--accent-soft), 0 8px 32px rgba(0,0,0,0.22);
-}
-.gradio-container .er-composer-wrap textarea {
-  background: transparent !important;
-  border: none !important;
-  resize: none !important;
-  color: var(--text) !important;
-  font-size: 15px !important;
-  line-height: 1.55 !important;
-  padding: 16px 64px 16px 18px !important;
-  min-height: 56px !important;
-  outline: none !important;
-  box-shadow: none !important;
-  font-family: inherit !important;
-  width: 100% !important;
-}
-.gradio-container .er-composer-wrap textarea::placeholder {
-  color: var(--text-dim) !important;
-}
-.gradio-container .er-send-btn {
-  position: absolute !important;
-  right: 8px !important;
-  bottom: 8px !important;
-  min-width: 0 !important;
-  z-index: 6;
-}
-.gradio-container .er-send-btn button {
-  background: var(--accent) !important;
-  color: #061a16 !important;
-  border: none !important;
-  width: 38px !important;
-  height: 38px !important;
-  min-width: 38px !important;
-  border-radius: 10px !important;
-  padding: 0 !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  transition: filter 180ms ease, transform 120ms ease, box-shadow 180ms ease;
-  box-shadow: 0 0 24px rgba(94,234,212,0.16);
-}
-.gradio-container .er-send-btn button:hover {
-  filter: brightness(1.06);
-  box-shadow: 0 0 32px rgba(94,234,212,0.28);
-}
-.gradio-container .er-send-btn button:active {
-  transform: scale(0.96);
-}
-
-/* RESET */
-.er-toolrow {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  margin-top: 14px !important;
-  gap: 12px !important;
-}
-.er-footnote {
-  color: var(--text-dim);
-  font-size: 11.5px;
-  letter-spacing: 0.01em;
-}
-.gradio-container .er-reset-btn { min-width: 0 !important; flex: 0 0 auto !important; }
-.gradio-container .er-reset-btn button {
-  background: transparent !important;
-  border: none !important;
-  color: var(--text-dim) !important;
-  font-size: 12px !important;
-  font-weight: 400 !important;
-  padding: 6px 10px !important;
-  min-width: 0 !important;
-  transition: color 180ms ease;
-  box-shadow: none !important;
-}
-.gradio-container .er-reset-btn button:hover { color: var(--text-muted) !important; }
-
-/* INSPECT DRAWER */
-.er-inspect {
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important;
-  padding: 22px 22px 18px !important;
-  margin-top: 28px !important;
-  animation: er-fade-in 220ms ease both;
-}
-@keyframes er-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.er-inspect-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-.er-inspect-title { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: 0.01em; }
-.er-inspect-sub { font-size: 11.5px; color: var(--text-dim); }
-
-/* TABS inside drawer */
-.gradio-container .er-tabs > div[role="tablist"],
-.gradio-container .er-tabs .tab-nav {
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid var(--border) !important;
-  margin-bottom: 18px !important;
-  padding: 0 !important;
-}
-.gradio-container .er-tabs button {
-  background: transparent !important;
-  border: none !important;
-  color: var(--text-muted) !important;
-  font-size: 12.5px !important;
-  font-weight: 500 !important;
-  padding: 10px 0 !important;
-  margin-right: 24px !important;
-  border-bottom: 1.5px solid transparent !important;
-  border-radius: 0 !important;
-  transition: color 180ms ease, border-color 180ms ease;
-  min-width: 0 !important;
-  box-shadow: none !important;
-}
-.gradio-container .er-tabs button.selected,
-.gradio-container .er-tabs button[aria-selected="true"] {
-  color: var(--accent) !important;
-  border-bottom-color: var(--accent) !important;
-}
-
-/* INSPECT CARDS */
-.er-card { padding: 0; margin-bottom: 18px; }
-.er-card:last-child { margin-bottom: 0; }
-.er-mini-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin-bottom: 12px;
-}
-.er-empty {
-  color: var(--text-dim);
-  font-size: 13px;
-  padding: 12px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-/* PLAN ROWS */
-.er-plan-rows { display: flex; flex-direction: column; gap: 8px; }
-.er-plan-row {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 14px;
-  padding: 12px 14px;
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-.er-plan-row .k {
-  color: var(--text-muted); font-size: 11px;
-  text-transform: uppercase; letter-spacing: 0.06em;
-  font-weight: 500;
-  flex: 0 0 auto;
-  padding-top: 1px;
-}
-.er-plan-row .v {
-  color: var(--text); font-size: 13.5px; font-weight: 500;
-  text-align: right; line-height: 1.5;
-}
-.er-plan-row.accent { border-color: var(--accent-line); background: var(--accent-soft); }
-.er-plan-row.accent .v { color: var(--accent); }
-
-/* SOURCE CARDS */
-.er-sources { display: flex; flex-direction: column; gap: 8px; }
-.er-source {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 13px 14px;
-  transition: border-color 180ms ease, background 180ms ease;
-}
-.er-source:hover { border-color: var(--accent-line); background: var(--surface-3); }
-.er-source-title { font-size: 13.5px; font-weight: 500; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
-.er-source-name { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
-.er-source-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.er-tag {
-  display: inline-block;
-  font-size: 10.5px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  letter-spacing: 0.02em;
-}
-.er-tag.crisis { background: rgba(248,113,113,0.10); color: var(--danger); border-color: rgba(248,113,113,0.22); }
-.er-tag.accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
-.er-source-why { font-size: 11.5px; color: var(--text-dim); line-height: 1.55; }
-.er-source a {
-  color: var(--accent); font-size: 12px; text-decoration: none;
-  border-bottom: 1px solid var(--accent-line);
-  transition: border-color 180ms ease;
-}
-.er-source a:hover { border-bottom-color: var(--accent); }
-
-/* DIAGNOSTICS GRID */
-.er-diag-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.er-diag {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 11px 12px;
-  min-width: 0;
-}
-.er-diag .k {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  margin-bottom: 5px;
-  font-weight: 500;
-}
-.er-diag .v {
-  font-size: 13px; color: var(--text); font-weight: 500; line-height: 1.4;
-  word-break: break-word;
-}
-.er-diag.warn { border-color: rgba(245,182,105,0.22); }
-.er-diag.warn .v { color: var(--warm); }
-.er-diag.danger { border-color: rgba(248,113,113,0.22); }
-.er-diag.danger .v { color: var(--danger); }
-
-/* TIMELINE */
-.er-timeline-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.er-time-pill {
-  font-size: 10.5px; padding: 4px 10px; border-radius: 999px;
-  background: var(--surface-2); color: var(--text-muted);
-  border: 1px solid var(--border);
-  letter-spacing: 0.02em;
-}
-
-/* METER */
-.er-meter {
-  height: 4px; border-radius: 999px; overflow: hidden;
-  background: rgba(255,255,255,0.06);
-  margin-top: 10px;
-}
-.er-meter > div { height: 100%; background: var(--accent); transition: width 320ms ease; }
-
-/* IG TOKENS */
-.er-ig-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-.er-ig {
-  font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
-  background: rgba(248,113,113,0.10);
-  color: var(--danger);
-  border: 1px solid rgba(248,113,113,0.22);
-}
-
-/* HIDE GRADIO CRUFT */
-.gradio-container footer { display: none !important; }
-.gradio-container .progress-text { color: var(--text-dim) !important; }
-.gradio-container .icon-button-wrapper { background: transparent !important; }
-
-/* SCROLLBAR */
-.gradio-container ::-webkit-scrollbar { width: 8px; height: 8px; }
-.gradio-container ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.06); border-radius: 999px;
-}
-.gradio-container ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.12);
-}
-.gradio-container ::-webkit-scrollbar-track { background: transparent; }
-
-/* RESPONSIVE */
-/* TYPING INDICATOR (3 dots) */
+/* TYPING DOTS */
 .er-typing {
   display: inline-flex;
   gap: 5px;
@@ -618,131 +479,488 @@ body::before {
   40% { opacity: 1; transform: scale(1); background: var(--accent); }
 }
 
-/* HERO GRADIENT TEXT */
-.er-hero h1 {
-  background: linear-gradient(180deg, #f3f7fc 0%, #b6c2d2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+/* COMPOSER */
+/* BOTTOM DOCK: divider · chips · composer · footnote.
+   Sits below the scrollable chatbot, anchored to the bottom of the chat
+   column. Provides clear visual separation from chat history above. */
+.gradio-container .er-dock {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 14px 0 0 !important;
+  margin-top: 6px !important;
+}
+.er-dock-divider {
+  height: 1px;
+  width: 100%;
+  background: var(--border);
+  margin: 0;
 }
 
-/* MESSAGE ENTRANCE FADE */
-.gradio-container .er-chat .message {
-  animation: er-msg-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-@keyframes er-msg-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* DRAWER SLIDE-IN (replace plain fade) */
-.er-inspect {
-  animation: er-slide-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
-}
-@keyframes er-slide-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.995); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* BRAND-DOT RIPPLE */
-.er-brand-dot {
+/* COMPOSER. Flat surface, single muted border, no shadows / gradients. */
+.er-composer-wrap {
+  background: #1a1f2e !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 11px !important;
+  padding: 0 !important;
   position: relative;
+  transition: border-color 160ms ease;
 }
-.er-brand-dot::after {
+.er-composer-wrap:focus-within {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 2px rgba(94,234,212,0.10);
+}
+.gradio-container .er-composer-wrap textarea {
+  background: transparent !important;
+  border: none !important;
+  resize: none !important;
+  color: var(--text) !important;
+  font-size: 14.5px !important;
+  line-height: 1.5 !important;
+  padding: 12px 56px 12px 14px !important;
+  min-height: 44px !important;
+  max-height: 132px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+  width: 100% !important;
+}
+.gradio-container .er-composer-wrap textarea::placeholder { color: var(--text-dim) !important; }
+
+/* SEND BUTTON. Muted icon by default, teal on hover only. */
+.gradio-container .er-send-btn {
+  position: absolute !important;
+  right: 6px !important;
+  bottom: 6px !important;
+  min-width: 0 !important;
+  z-index: 6;
+}
+.gradio-container .er-send-btn button {
+  background: transparent !important;
+  color: var(--text-dim) !important;
+  border: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 8px !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 160ms ease, background 160ms ease;
+  box-shadow: none !important;
+}
+.gradio-container .er-send-btn button:hover {
+  color: #5eead4 !important;
+  background: rgba(94,234,212,0.08) !important;
+}
+.gradio-container .er-send-btn button:active { color: #2dd4bf !important; }
+
+/* FOOTNOTE */
+.er-footnote {
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+/* =============================================
+   LIVE CONTEXT PANEL (right column)
+   ============================================= */
+.er-context {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  /* overflow MUST be visible so the column's scroll can show all content.
+     Earlier `overflow: hidden` was clipping the resources/things-to-try
+     list inside the card while the column thought everything fit. */
+  overflow: visible;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+/* Top gradient line via inset border-image trick so we don't need
+   overflow:hidden to clip a ::before pseudo-element. */
+.er-context {
+  border-top: 1px solid transparent;
+  background-clip: padding-box;
+}
+.er-context::before {
   content: "";
   position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 1px solid var(--accent);
-  opacity: 0;
-  animation: er-ripple 2.6s ease-out infinite;
-}
-@keyframes er-ripple {
-  0%   { transform: scale(0.85); opacity: 0.55; }
-  100% { transform: scale(2.4);  opacity: 0; }
+  top: -1px; left: 18px; right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-aurora), transparent);
+  opacity: 0.6;
+  pointer-events: none;
 }
 
-/* USER PILL DEPTH */
-.gradio-container .er-chat .message.user,
-.gradio-container .er-chat .user {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.10) !important;
-  border-radius: 16px 16px 4px 16px !important;
+.er-ctx-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
 }
-
-/* SEND BUTTON GRADIENT + KICK */
-.gradio-container .er-send-btn button {
-  background: linear-gradient(135deg, #5eead4 0%, #7ff0d9 100%) !important;
-}
-.gradio-container .er-send-btn button:active {
-  transform: scale(0.94);
-  filter: brightness(0.96);
-}
-
-/* SOURCE-TYPE GLYPH */
-.er-source-title::before {
-  content: "◇";
-  color: var(--accent);
-  margin-right: 8px;
-  font-size: 11px;
-  opacity: 0.7;
-}
-.er-source[data-kind="crisis"] .er-source-title::before { content: "✦"; color: var(--danger); opacity: 0.8; }
-.er-source[data-kind="university"] .er-source-title::before { content: "◆"; }
-
-/* CHIP HOVER LIFT (already partial; smooth) */
-.gradio-container .er-chip-btn button {
-  transition: border-color 200ms ease, background 200ms ease, color 200ms ease, transform 200ms ease, box-shadow 200ms ease !important;
-}
-.gradio-container .er-chip-btn button:hover {
-  box-shadow: 0 6px 20px rgba(94,234,212,0.10) !important;
-}
-
-/* COMPOSER FOCUS GLOW (animated border) */
-.er-composer-wrap {
-  transition: border-color 240ms ease, box-shadow 240ms ease !important;
-}
-
-/* HERO PARAGRAPH SUBTLE EMPHASIS */
-.er-hero p {
-  font-style: normal;
-}
-.er-hero p::first-letter {
+.er-ctx-title {
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--text);
+  letter-spacing: 0.01em;
 }
-.er-hero-meta {
-  margin-top: 22px;
-  color: var(--text-dim);
-  font-size: 11.5px;
-  letter-spacing: 0.04em;
+.er-ctx-status {
+  font-size: 11px;
   text-transform: uppercase;
-}
-
-/* International concern soft tag (used in body if needed) */
-.er-intl-tag {
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+}
+.er-ctx-status::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-faint);
+}
+.er-ctx-status.active::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.er-ctx-mode {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(245,182,105,0.10);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.er-ctx-mode.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.er-ctx-mode.warm {
   color: var(--warm);
-  border: 1px solid rgba(245,182,105,0.22);
-  letter-spacing: 0.02em;
+  background: var(--warm-soft);
+  border-color: var(--warm-line);
+}
+.er-ctx-status.warm::before { background: var(--warm); box-shadow: 0 0 8px rgba(245,182,105,0.36); }
+.er-ctx-status.danger::before { background: var(--danger); box-shadow: 0 0 8px rgba(248,113,113,0.36); }
+
+/* Conversation arc */
+.er-arc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.er-arc-text {
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.55;
+  font-weight: 500;
+}
+.er-arc-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.er-arc-meter {
+  height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.er-arc-meter > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 480ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
-/* Tighten chip text wrap on smaller widths */
-.gradio-container .er-chip-btn button { white-space: nowrap; }
+/* Signal pills. Wrap freely, never push container width. Long labels
+   (e.g. "F-1 / international context") allowed to break to next line. */
+.er-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+.er-signal {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+.er-signal.route { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+.er-signal.stage { background: var(--indigo-soft); color: var(--indigo); border-color: var(--indigo-line); }
+.er-signal.tier-warm { background: var(--warm-soft); color: var(--warm); border-color: var(--warm-line); }
+.er-signal.tier-danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-line); }
+.er-signal.intl {
+  background: var(--warm-soft);
+  color: var(--warm);
+  border-color: var(--warm-line);
+  animation: er-signal-in 360ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.er-signal.intl::before { content: "✦"; font-size: 9px; }
+@keyframes er-signal-in {
+  from { opacity: 0; transform: translateY(-3px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
+/* Section heading */
+.er-ctx-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.er-ctx-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.er-section-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0;
+}
+.er-count-pill {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-feature-settings: "tnum";
+}
+
+/* Resource cards. Uniform min-height, column flex so the "Open ↗" link
+   bottom-aligns regardless of how long the title or reason is. */
+.er-resources { display: flex; flex-direction: column; gap: 10px; }
+.er-rsrc {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 84px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  transition: border-color 180ms ease, background 180ms ease;
+  animation: er-rsrc-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes er-rsrc-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.er-rsrc:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-3);
+}
+.er-rsrc.featured {
+  border-color: var(--warm-line);
+  background: linear-gradient(135deg, var(--warm-soft), transparent 60%), var(--surface-2);
+}
+.er-rsrc.featured:hover { background: linear-gradient(135deg, var(--warm-soft), transparent 50%), var(--surface-3); }
+.er-rsrc-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.4;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  word-break: break-word;
+}
+.er-rsrc-title::before {
+  content: "◇";
+  color: var(--accent);
+  font-size: 9px;
+  opacity: 0.7;
+  flex: 0 0 auto;
+}
+.er-rsrc.featured .er-rsrc-title::before { content: "✦"; color: var(--warm); opacity: 0.9; }
+.er-rsrc.crisis .er-rsrc-title::before { content: "✦"; color: var(--danger); opacity: 0.9; }
+.er-rsrc-why {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+.er-rsrc a {
+  color: var(--accent);
+  font-size: 11.5px;
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-line);
+  transition: border-color 180ms ease, color 180ms ease;
+  align-self: flex-start;
+  margin-top: auto;  /* push link to bottom of card */
+}
+.er-rsrc a:hover { border-bottom-color: var(--accent); }
+
+/* Things-to-try chips */
+.er-actions { display: flex; flex-direction: column; gap: 8px; }
+.er-action {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.5;
+  position: relative;
+  animation: er-rsrc-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.er-action::before {
+  content: "→";
+  color: var(--accent);
+  margin-right: 8px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+/* Empty section state */
+.er-empty {
+  color: var(--text-faint);
+  font-size: 12px;
+  padding: 14px;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font-style: italic;
+}
+
+/* Diagnostics expander (Accordion) */
+.gradio-container .er-diag-acc {
+  margin-top: 16px;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--surface) !important;
+  overflow: hidden;
+}
+.gradio-container .er-diag-acc .label-wrap {
+  padding: 12px 16px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+  color: var(--text-dim) !important;
+  background: transparent !important;
+}
+.gradio-container .er-diag-acc .label-wrap:hover { color: var(--text-muted) !important; }
+.gradio-container .er-diag-acc > .wrap > .open { padding: 0 16px 16px !important; }
+
+/* Diag grid (inside accordion) */
+.er-diag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.er-diag {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.er-diag .k {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.er-diag .v {
+  font-size: 12.5px;
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-word;
+  font-feature-settings: "tnum";
+}
+.er-diag.warn { border-color: var(--warm-line); }
+.er-diag.warn .v { color: var(--warm); }
+.er-diag.danger { border-color: var(--danger-line); }
+.er-diag.danger .v { color: var(--danger); }
+.er-diag.accent { border-color: var(--accent-line); }
+.er-diag.accent .v { color: var(--accent); }
+
+/* IG tokens (in diagnostics) */
+.er-ig-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.er-ig {
+  font-size: 10.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger-line);
+}
+
+/* HIDE GRADIO CRUFT */
+.gradio-container footer { display: none !important; }
+.gradio-container .progress-text { color: var(--text-dim) !important; }
+.gradio-container .icon-button-wrapper { background: transparent !important; }
+
+/* SCROLLBAR */
+.gradio-container ::-webkit-scrollbar { width: 8px; height: 8px; }
+.gradio-container ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06); border-radius: 999px;
+}
+.gradio-container ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+.gradio-container ::-webkit-scrollbar-track { background: transparent; }
+
+/* RESPONSIVE — collapse to single column on narrow viewports. */
+@media (max-width: 1100px) {
+  .gradio-container { padding: 0 24px 40px !important; }
+  .gradio-container .er-studio {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+  .gradio-container .er-context-col {
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border) !important;
+    padding: 18px 0 0 !important;
+  }
+}
 @media (max-width: 700px) {
   .gradio-container { padding: 0 16px 32px !important; }
   .er-topbar { flex-wrap: wrap !important; gap: 10px !important; }
   .er-topbar > .er-mode-wrap { order: 3; flex-basis: 100% !important; justify-content: center; }
-  .er-hero { padding: 56px 8px 18px; }
-  .er-hero h1 { font-size: 24px; }
+  .er-hero h1 { font-size: 26px; }
   .er-diag-grid { grid-template-columns: 1fr; }
-  .gradio-container .er-chat .message.user { max-width: 88% !important; }
+  .gradio-container .er-chat .message.user { max-width: 90% !important; }
 }
 """
 
@@ -1437,7 +1655,7 @@ def format_ig_panel(is_crisis, confidence, ig_tokens, loading, explanation_reaso
 
 
 def format_decision_trace(result=None) -> str:
-    """Support card — what kind of support, what's next, which resources."""
+    """Support card. What kind of support, what's next, which resources."""
     if not result:
         return (
             "<div class='er-card'><div class='er-mini-title'>Support card</div>"
@@ -1494,7 +1712,7 @@ def format_decision_trace(result=None) -> str:
 
 
 def format_retrieval_panel(result=None) -> str:
-    """Diagnostics — pipeline internals for class & eval review."""
+    """Diagnostics. Pipeline internals for class & eval review."""
     if not result:
         return (
             "<div class='er-card'><div class='er-mini-title'>Diagnostics</div>"
@@ -1557,6 +1775,272 @@ def format_retrieval_panel(result=None) -> str:
     return html
 
 
+def _stage_arc_text(stage: str, has_message: bool) -> tuple[str, str, int]:
+    """Return (headline, sub, percent) for the conversation arc panel."""
+    if not has_message:
+        return (
+            "Waiting for your first message",
+            "Tell me what's on your mind. I'll listen first.",
+            0,
+        )
+    if stage == "listen":
+        return (
+            "Listening to what's coming up",
+            "Sitting with this before suggesting anything. You stay in charge of when to pivot.",
+            28,
+        )
+    if stage == "permission":
+        return (
+            "Reflecting and quietly offering options",
+            "I have a couple of places that could help, but only when you want them.",
+            58,
+        )
+    if stage == "offer":
+        return (
+            "Working through this together",
+            "Naming concrete next steps, with grounded UMD resources alongside.",
+            88,
+        )
+    return ("Ready", "—", 0)
+
+
+def _action_items_for(result: dict | None) -> list[str]:
+    """Extract concrete \"things to try\" from the planner output."""
+    if not result:
+        return []
+    items: list[str] = []
+    rec = (result.get("recommended_action") or "").strip()
+    if rec:
+        items.append(rec)
+    # Crisis path adds an emergency reminder
+    if result.get("crisis"):
+        items.append("Call or text 988 now. If immediate danger, call emergency services.")
+    return items
+
+
+def format_live_context(result: dict | None = None, turn_index: int = 0) -> str:
+    """Right-panel: arc + signals + resources + things-to-try (one HTML string)."""
+    has_msg = bool(result)
+    stage = (result or {}).get("conversation_stage", "")
+    arc_head, arc_sub, arc_pct = _stage_arc_text(stage, has_msg)
+
+    # Status pill in panel header
+    if not has_msg:
+        status_text = "ready"
+        status_cls = ""
+    elif result.get("crisis"):
+        status_text = "safety intercept"
+        status_cls = "danger"
+    elif result.get("international_concern"):
+        status_text = "intl context"
+        status_cls = "warm"
+    else:
+        status_text = "active"
+        status_cls = "active"
+
+    # Active generation mode badge — visible without opening Diagnostics so
+    # the user always knows which mode answered.
+    rephraser_provider = (result or {}).get("rephraser_provider", "")
+    used_llm = bool((result or {}).get("rephraser_used_llm"))
+    if rephraser_provider:
+        if used_llm:
+            mode_label = rephraser_provider.split(":")[0]  # 'groq' / 'anthropic'
+            mode_text = f"via {mode_label}"
+            mode_cls = "active"
+        elif rephraser_provider == "deterministic_fallback":
+            mode_text = "deterministic (fallback)"
+            mode_cls = "warm"
+        else:
+            mode_text = "deterministic"
+            mode_cls = ""
+    else:
+        mode_text = ""
+        mode_cls = ""
+
+    parts: list[str] = []
+    parts.append("<div class='er-context'>")
+    parts.append(
+        "<div class='er-ctx-head'>"
+        "<div class='er-ctx-title'>Live thread</div>"
+        + (
+            f"<div class='er-ctx-mode {mode_cls}'>{escape(mode_text)}</div>"
+            if mode_text else ""
+        )
+        + f"<div class='er-ctx-status {status_cls}'>{escape(status_text)}</div>"
+        "</div>"
+    )
+
+    # Arc
+    parts.append(
+        "<div class='er-arc'>"
+        f"<div class='er-arc-text'>{escape(arc_head)}</div>"
+        f"<div class='er-arc-sub'>{escape(arc_sub)}</div>"
+        f"<div class='er-arc-meter'><div style='width:{arc_pct}%'></div></div>"
+        "</div>"
+    )
+
+    # Signals
+    signals: list[str] = []
+    if has_msg:
+        route = result.get("route_label", "")
+        tier = result.get("safety_tier", "")
+        if route and route != "general_student_support":
+            signals.append(f"<span class='er-signal route'>{escape(_pretty_route(route))}</span>")
+        if stage:
+            signals.append(f"<span class='er-signal stage'>{escape(stage.title())}</span>")
+        if tier in {"high_distress", "imminent_safety"}:
+            tier_cls = "tier-danger" if tier == "imminent_safety" else "tier-warm"
+            signals.append(f"<span class='er-signal {tier_cls}'>{escape(_pretty_tier(tier))}</span>")
+        if result.get("international_concern"):
+            signals.append("<span class='er-signal intl'>F-1 / international context</span>")
+    if signals:
+        parts.append("<div class='er-signals'>" + "".join(signals) + "</div>")
+
+    # Resources
+    sources = (result or {}).get("retrieved_sources", []) or []
+    parts.append("<div class='er-ctx-section'>")
+    parts.append(
+        "<div class='er-ctx-section-head'>"
+        "<h4 class='er-section-title'>Resources building</h4>"
+        f"<span class='er-count-pill'>{len(sources)} found</span>"
+        "</div>"
+    )
+    if sources:
+        parts.append("<div class='er-resources'>")
+        for i, src in enumerate(sources[:5]):
+            title = escape(str(src.get("source_name") or src.get("title") or "Resource"))
+            why = escape(_pretty_reason(str(src.get("why_retrieved") or "matched the prompt")))
+            url = escape(str(src.get("url") or ""))
+            risk = str(src.get("risk_level") or "")
+            cls = "er-rsrc"
+            if "international" in title.lower() or "isss" in title.lower():
+                cls += " featured"
+            elif "crisis" in risk:
+                cls += " crisis"
+            inner = (
+                f"<div class='{cls}'>"
+                f"<div class='er-rsrc-title'>{title}</div>"
+                f"<div class='er-rsrc-why'>{why}</div>"
+            )
+            if url:
+                inner += f"<a href='{url}' target='_blank' rel='noopener'>Open ↗</a>"
+            inner += "</div>"
+            parts.append(inner)
+        parts.append("</div>")
+    else:
+        if has_msg and stage == "listen":
+            parts.append("<div class='er-empty'>Resources stay quiet while we're still listening.</div>")
+        elif has_msg:
+            parts.append("<div class='er-empty'>No external resource needed for this turn.</div>")
+        else:
+            parts.append("<div class='er-empty'>Resources will appear here as we talk.</div>")
+    parts.append("</div>")
+
+    # Things to try
+    actions = _action_items_for(result)
+    parts.append("<div class='er-ctx-section'>")
+    parts.append("<h4 class='er-section-title'>Things to try</h4>")
+    if actions:
+        parts.append("<div class='er-actions'>")
+        for action in actions[:3]:
+            parts.append(f"<div class='er-action'>{escape(action)}</div>")
+        parts.append("</div>")
+    elif has_msg and stage == "listen":
+        parts.append("<div class='er-empty'>Suggestions will appear when you're ready.</div>")
+    else:
+        parts.append("<div class='er-empty'>None yet.</div>")
+    parts.append("</div>")
+
+    parts.append("</div>")  # close er-context
+    return "".join(parts)
+
+
+def format_studio_diagnostics(result: dict | None = None) -> str:
+    """Diagnostics accordion content for the grad-NLP audience."""
+    if not result:
+        return (
+            "<div class='er-empty'>Pipeline metadata appears here once a turn runs.</div>"
+        )
+
+    safety_tier = _pretty_tier(str(result.get("safety_tier", "unknown")))
+    safety_reason = _pretty_reason(str(result.get("safety_reason", "")))
+    corpus = str(result.get("retrieval_corpus", "unknown"))
+    output_guard = result.get("output_guard", {}) or {}
+    output_guard_reason = _pretty_reason(str(output_guard.get("reason", "not_checked")))
+    guard_flags = output_guard.get("flags", []) or []
+    safety_precheck = result.get("safety_precheck", {}) or {}
+    precheck_level = _pretty_precheck(
+        str(safety_precheck.get("level", "unknown")),
+        bool(result.get("crisis")),
+    )
+    classifier = result.get("classifier_confidence", {}) or {}
+    route_conf = float(classifier.get("route", 0.0) or 0.0)
+    tier_conf = float(classifier.get("tier", 0.0) or 0.0)
+    classifier_label = "learned" if classifier.get("used_ml") else "fallback"
+    retrieval_mode = _pretty_retrieval_mode(str(result.get("retrieval_mode", "")))
+    latency = result.get("latency_ms", {}) or {}
+    total_latency = float(latency.get("total_ms", 0.0) or 0.0)
+    intl = "yes" if result.get("international_concern") else "no"
+    intl_cls = "warn" if result.get("international_concern") else ""
+    stage = str(result.get("conversation_stage") or "—")
+    turn_idx = int(result.get("turn_index") or 0)
+    safety_cls = "danger" if result.get("crisis") else ""
+    guard_cls = "warn" if guard_flags else ""
+
+    rephraser_provider = str(result.get("rephraser_provider") or "deterministic")
+    rephraser_used_llm = bool(result.get("rephraser_used_llm"))
+    rephraser_latency = float(result.get("rephraser_latency_ms") or 0.0)
+    rephraser_cls = "accent" if rephraser_used_llm else ""
+
+    rows = [
+        f"<div class='er-diag {safety_cls}'><div class='k'>Safety check</div><div class='v'>{escape(precheck_level)}</div></div>",
+        f"<div class='er-diag'><div class='k'>Tier</div><div class='v'>{escape(safety_tier)}</div></div>",
+        f"<div class='er-diag accent'><div class='k'>Stage · turn</div><div class='v'>{escape(stage)} · t{turn_idx}</div></div>",
+        f"<div class='er-diag {intl_cls}'><div class='k'>F-1 / intl signal</div><div class='v'>{escape(intl)}</div></div>",
+        f"<div class='er-diag {rephraser_cls}'><div class='k'>Rephraser</div><div class='v'>{escape(rephraser_provider)}</div></div>",
+        f"<div class='er-diag'><div class='k'>Rephrase latency</div><div class='v'>{rephraser_latency:.0f} ms</div></div>",
+        f"<div class='er-diag'><div class='k'>Classifier</div><div class='v'>{classifier_label} · r {route_conf:.2f} / t {tier_conf:.2f}</div></div>",
+        f"<div class='er-diag'><div class='k'>Retrieval</div><div class='v'>{escape(retrieval_mode or '—')}</div></div>",
+        f"<div class='er-diag {guard_cls}'><div class='k'>Output guard</div><div class='v'>{escape(output_guard_reason)}</div></div>",
+        f"<div class='er-diag'><div class='k'>Total latency</div><div class='v'>{total_latency:.0f} ms</div></div>",
+        f"<div class='er-diag'><div class='k'>Corpus</div><div class='v'>{escape(corpus)}</div></div>",
+        f"<div class='er-diag'><div class='k'>Safety reason</div><div class='v'>{escape(safety_reason or '—')}</div></div>",
+    ]
+
+    html = "<div class='er-diag-grid'>" + "".join(rows) + "</div>"
+
+    # IG tokens if available
+    safety_explanation = result.get("safety_explanation", {}) or {}
+    ig_tokens = safety_explanation.get("ig_tokens") or []
+    if result.get("crisis") and ig_tokens:
+        valid = [(t, s) for t, s in ig_tokens if t.strip()][:10]
+        if valid:
+            html += "<div style='margin-top:14px;'><div class='k' style='font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);font-weight:500;margin-bottom:6px;'>Top crisis signals (Integrated Gradients)</div>"
+            html += "<div class='er-ig-row'>"
+            for tok, _score in valid:
+                html += f"<span class='er-ig'>{escape(tok)}</span>"
+            html += "</div></div>"
+
+    # Notes
+    notes = []
+    rephraser_error = str(result.get("rephraser_last_error") or "").strip()
+    if rephraser_error:
+        notes.append(f"Rephraser error: {escape(rephraser_error[:240])}")
+    if guard_flags:
+        flag_text = ", ".join(escape(str(f)) for f in guard_flags)
+        notes.append(f"Guard flags: {flag_text}")
+    escalation_reason = str(result.get("escalation_reason", ""))
+    if escalation_reason:
+        notes.append(f"Escalation: {escape(escalation_reason)}")
+    if notes:
+        html += (
+            "<div style='margin-top:14px;font-size:11.5px;color:var(--text-dim);line-height:1.7;'>"
+            + "<br>".join(notes) + "</div>"
+        )
+
+    return html
+
+
 TYPING_HTML = "<span class='er-typing'><span></span><span></span><span></span></span>"
 STREAM_ENABLED = os.getenv("EMPATHRAG_STREAM", "1") != "0"
 STREAM_WORDS_PER_CHUNK = int(os.getenv("EMPATHRAG_STREAM_WORDS", "2"))
@@ -1565,7 +2049,6 @@ TYPING_DELAY_MS = int(os.getenv("EMPATHRAG_TYPING_DELAY_MS", "650"))
 
 
 def _stream_chunks(full_text: str):
-    """Yield growing partial strings to simulate streaming."""
     if not STREAM_ENABLED or not full_text:
         yield full_text
         return
@@ -1582,35 +2065,44 @@ def _stream_chunks(full_text: str):
     yield full_text
 
 
-def respond(message, chat_history, session_state, audience_mode):
+def respond(message, chat_history, session_state, audience_mode, rephrase_mode="deterministic"):
+    """Yield (chatbot, context_html, diag_html, session_id, session_state)."""
     if not session_state:
         session_state = new_session_state()
 
+    # Per-turn override of the rephraser. The UI toggle picks "deterministic"
+    # or "llm"; we set the env var the rephraser reads. Done before pipeline.run.
+    os.environ["EMPATHRAG_REPHRASER_ENABLED"] = "1" if rephrase_mode == "llm" else "0"
+
     emotion_history = session_state["emotion_history"]
     session_id = session_state["session_id"]
+    turn_count = len(chat_history)
 
     if not message.strip():
         yield (
             chat_history,
-            format_decision_trace(),
-            format_emotion_timeline(emotion_history, "stable"),
-            "stable",
-            format_ig_panel(False, 0.0, [], False),
-            format_retrieval_panel(),
+            format_live_context(None, turn_count),
+            format_studio_diagnostics(None),
             session_id,
             session_state,
         )
         return
 
-    # Show user message + typing indicator immediately for liveness.
+    # Show user msg + typing dots immediately, with provisional "thinking" arc.
     chat_history = list(chat_history) + [(message, TYPING_HTML)]
+    provisional = {
+        "conversation_stage": "listen",
+        "route_label": "",
+        "safety_tier": "",
+        "international_concern": False,
+        "retrieved_sources": [],
+        "recommended_action": "",
+        "crisis": False,
+    }
     yield (
         chat_history,
-        format_decision_trace(),
-        format_emotion_timeline(emotion_history, "stable"),
-        "stable",
-        format_ig_panel(False, 0.0, [], False),
-        format_retrieval_panel(),
+        format_live_context(provisional, turn_count + 1),
+        format_studio_diagnostics(None),
         session_id,
         session_state,
     )
@@ -1626,12 +2118,9 @@ def respond(message, chat_history, session_state, audience_mode):
             for label in session_state.get("tracker_history", []):
                 active_pipeline.tracker.update(label, token_count=5)
             active_pipeline.conv_history = list(session_state.get("conv_history", []))
-
             original_check = active_pipeline.guardrail.check
-
             def fast_check(text, threshold=0.5, skip_ig=False):
                 return original_check(text, threshold=threshold, skip_ig=True)
-
             active_pipeline.guardrail.check = fast_check
             result = active_pipeline.run(message)
             active_pipeline.guardrail.check = original_check
@@ -1651,38 +2140,24 @@ def respond(message, chat_history, session_state, audience_mode):
         }
     )
     log_turn(session_id, len(emotion_history), message, result)
-    timeline_html = format_emotion_timeline(emotion_history, result["trajectory"])
-    decision_html = format_decision_trace(result)
-    retrieval_html = format_retrieval_panel(result)
 
-    # Stream the response into the last chat slot.
-    is_crisis = bool(result.get("crisis"))
-    safety_explanation = result.get("safety_explanation", {}) or {}
-    ig_tokens = safety_explanation.get("ig_tokens") or []
-    explanation_reason = safety_explanation.get("reason", "")
-    explanation_available = bool(safety_explanation.get("available"))
-    ig_panel_html = format_ig_panel(
-        is_crisis,
-        result.get("crisis_confidence", 0.0),
-        ig_tokens,
-        loading=is_crisis and hasattr(get_pipeline(), "guardrail") and not explanation_available,
-        explanation_reason=explanation_reason,
-    )
+    context_html = format_live_context(result, turn_count + 1)
+    diag_html = format_studio_diagnostics(result)
 
     for partial in _stream_chunks(full_response):
         chat_history[-1] = (message, partial)
         yield (
             chat_history,
-            decision_html,
-            timeline_html,
-            result["trajectory"],
-            ig_panel_html,
-            retrieval_html,
+            context_html,
+            diag_html,
             session_id,
             session_state,
         )
 
-    # Crisis: optionally compute IG attributions after the message lands.
+    # Optional crisis IG re-yield
+    is_crisis = bool(result.get("crisis"))
+    safety_explanation = result.get("safety_explanation", {}) or {}
+    explanation_available = bool(safety_explanation.get("available"))
     if is_crisis and hasattr(get_pipeline(), "guardrail") and not explanation_available:
         with pipeline_lock:
             active_pipeline = get_pipeline()
@@ -1690,15 +2165,14 @@ def respond(message, chat_history, session_state, audience_mode):
                 _, confidence, ig_tokens = active_pipeline.guardrail.check(
                     message, threshold=0.5, skip_ig=False
                 )
-            else:
-                confidence, ig_tokens = result["crisis_confidence"], []
+                if "safety_explanation" not in result:
+                    result["safety_explanation"] = {}
+                result["safety_explanation"]["ig_tokens"] = ig_tokens
+                result["crisis_confidence"] = confidence
         yield (
             chat_history,
-            decision_html,
-            timeline_html,
-            result["trajectory"],
-            format_ig_panel(True, confidence, ig_tokens, loading=False),
-            retrieval_html,
+            format_live_context(result, turn_count + 1),
+            format_studio_diagnostics(result),
             session_id,
             session_state,
         )
@@ -1708,11 +2182,8 @@ def reset_session_handler():
     session_state = new_session_state()
     return (
         [],
-        format_decision_trace(),
-        format_emotion_timeline([], "stable"),
-        "stable",
-        format_ig_panel(False, 0.0, [], False),
-        format_retrieval_panel(),
+        format_live_context(None, 0),
+        format_studio_diagnostics(None),
         session_state["session_id"],
         session_state,
     )
@@ -1818,19 +2289,18 @@ theme = gr.themes.Base(
 )
 
 
-with gr.Blocks(theme=theme, title="EmpathRAG", css=APP_CSS) as demo:
+with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
     initial_state = new_session_state()
     session_state = gr.State(value=initial_state)
-    inspect_open = gr.State(value=False)
 
-    # ---- Top bar ----
+    # ---- Top bar (sticky) ----
     with gr.Row(elem_classes=["er-topbar"]):
         gr.HTML(
             """
             <div class="er-brand">
               <span class="er-brand-dot"></span>
               EmpathRAG
-              <span class="er-brand-meta">· support navigator</span>
+              <span class="er-brand-meta">Studio</span>
             </div>
             """
         )
@@ -1841,127 +2311,136 @@ with gr.Blocks(theme=theme, title="EmpathRAG", css=APP_CSS) as demo:
             container=False,
             elem_classes=["er-mode-wrap"],
         )
-        inspect_btn = gr.Button("Inspect", elem_classes=["er-inspect-btn"])
+        reset_btn = gr.Button("↺  New conversation", elem_classes=["er-reset-btn"])
 
-    # ---- Hero (empty state) ----
-    hero_block = gr.HTML(
-        """
-        <div class="er-hero">
-          <h1>How are you doing today?</h1>
-          <p>I'm here to listen first — about academic stress, mental health, advisor pressure, or anything weighing on you. When you're ready, I can also help you find specific UMD resources, including ones for international and F-1 students.</p>
-          <div class="er-hero-meta">Conversations are not logged. Not therapy or emergency care.</div>
-        </div>
-        """,
-        visible=True,
-    )
-
-    with gr.Row(elem_classes=["er-chips"], visible=True) as chip_row:
-        chip_counseling = gr.Button("I'm thinking about counseling", elem_classes=["er-chip-btn"])
-        chip_ads = gr.Button("ADS accommodations", elem_classes=["er-chip-btn"])
-        chip_advisor = gr.Button("Advisor conflict", elem_classes=["er-chip-btn"])
-        chip_intl = gr.Button("F-1 visa & academic worry", elem_classes=["er-chip-btn"])
-        chip_grounding = gr.Button("Pre-exam grounding", elem_classes=["er-chip-btn"])
-
-    # ---- Chat ----
-    chatbot = gr.Chatbot(
-        elem_classes=["er-chat"],
-        show_label=False,
-        height=520,
-        bubble_full_width=False,
-        avatar_images=None,
-        show_share_button=False,
-        show_copy_button=True,
-        sanitize_html=False,
-    )
-
-    # ---- Composer ----
-    with gr.Group(elem_classes=["er-composer-wrap"]):
-        msg_box = gr.Textbox(
-            placeholder="Tell me what's on your mind…",
+    # ---- Mode bar: ablation toggle for the demo ----
+    with gr.Row(elem_classes=["er-modebar"]):
+        gr.HTML(
+            '<div class="er-modebar-label">'
+            '<span class="er-modebar-title">Generation</span>'
+            '<span class="er-modebar-help">Flip to compare. Diagnostics tracks which provider answered.</span>'
+            '</div>'
+        )
+        rephraser_mode_box = gr.Radio(
+            choices=[
+                ("Deterministic templates", "deterministic"),
+                ("LLM-rephrased (Groq)", "llm"),
+            ],
+            value="llm" if os.getenv("EMPATHRAG_REPHRASER_ENABLED", "0") != "0" else "deterministic",
             show_label=False,
             container=False,
-            lines=1,
-            max_lines=8,
-            autofocus=True,
+            elem_classes=["er-mode-wrap", "er-rephrase-toggle"],
         )
-        send_btn = gr.Button("→", elem_classes=["er-send-btn"], variant="primary")
 
-    with gr.Row(elem_classes=["er-toolrow"]):
-        gr.HTML(
-            "<div class='er-footnote'>Conversations are not logged by default. If you are in immediate danger, call or text 988.</div>"
-        )
-        reset_btn = gr.Button("Clear conversation", elem_classes=["er-reset-btn"])
+    # ---- Studio: strict CSS grid (chat 1fr · context 360px) ----
+    with gr.Row(elem_classes=["er-studio"], equal_height=True):
+        with gr.Column(elem_classes=["er-chat-col"]):
+            hero_block = gr.HTML(
+                """
+                <div class="er-hero">
+                  <h1>How are you doing today?</h1>
+                  <p>I listen first. About academic stress, mental health, advisor pressure, F-1 / visa worry, or anything weighing on you. When you're ready, I'll point you toward specific UMD resources. Not before.</p>
+                  <div class="er-hero-meta">Conversations are not logged · Not therapy or emergency care</div>
+                </div>
+                """,
+                visible=True,
+            )
+
+            chatbot = gr.Chatbot(
+                elem_classes=["er-chat"],
+                show_label=False,
+                bubble_full_width=False,
+                avatar_images=None,
+                show_share_button=False,
+                show_copy_button=True,
+                sanitize_html=False,
+                # Pixel height — Gradio's native sizing parameter. The chatbot
+                # scrolls internally past this height. Composer/dock flow
+                # naturally below in the document.
+                height=520,
+            )
+
+            # ---- Bottom dock: divider · chips · input ----
+            with gr.Column(elem_classes=["er-dock"]):
+                gr.HTML("<div class='er-dock-divider'></div>")
+
+                with gr.Row(elem_classes=["er-chips"], visible=True) as chip_row:
+                    chip_counseling = gr.Button("Thinking about counseling", elem_classes=["er-chip-btn"])
+                    chip_ads = gr.Button("ADS accommodations", elem_classes=["er-chip-btn"])
+                    chip_advisor = gr.Button("Advisor conflict", elem_classes=["er-chip-btn"])
+                    chip_intl = gr.Button("F-1 visa & academic worry", elem_classes=["er-chip-btn"])
+                    chip_grounding = gr.Button("Pre-exam grounding", elem_classes=["er-chip-btn"])
+
+                with gr.Group(elem_classes=["er-composer-wrap"]):
+                    msg_box = gr.Textbox(
+                        placeholder="Tell me what's on your mind...",
+                        show_label=False,
+                        container=False,
+                        lines=1,
+                        max_lines=4,
+                        autofocus=True,
+                    )
+                    send_btn = gr.Button("→", elem_classes=["er-send-btn"], variant="primary")
+
+                gr.HTML(
+                    "<div class='er-footnote'>If you are in immediate danger, call or text 988.</div>"
+                )
+
+        with gr.Column(elem_classes=["er-context-col"]):
+            context_block = gr.HTML(value=format_live_context(None, 0))
+            with gr.Accordion(
+                "Diagnostics · NLP signals",
+                open=False,
+                elem_classes=["er-diag-acc"],
+            ):
+                diag_block = gr.HTML(value=format_studio_diagnostics(None))
 
     # Hidden state surfaces (kept to preserve respond() output contract)
     session_id_box = gr.Textbox(value=initial_state["session_id"], visible=False)
-    trajectory_out = gr.Textbox(value="stable", visible=False)
-
-    # ---- Inspect drawer ----
-    with gr.Column(visible=False, elem_classes=["er-inspect"]) as inspect_drawer:
-        gr.HTML(
-            "<div class='er-inspect-head'>"
-            "<div class='er-inspect-title'>Behind the answer</div>"
-            "<div class='er-inspect-sub'>Pipeline view · class & eval</div>"
-            "</div>"
-        )
-        with gr.Tabs(elem_classes=["er-tabs"]):
-            with gr.Tab("Support card"):
-                decision_out = gr.HTML(value=format_decision_trace())
-            with gr.Tab("Diagnostics"):
-                retrieval_out = gr.HTML(value=format_retrieval_panel())
-                timeline_out = gr.HTML(value=format_emotion_timeline([], "stable"))
-                crisis_out = gr.HTML(value=format_ig_panel(False, 0.0, [], False))
 
     # ---- Wiring ----
+    # Only the hero (welcome state) is hidden after the first message.
+    # Chips remain available throughout the conversation as quick prompts.
     submit_outputs = [
         chatbot,
-        decision_out,
-        timeline_out,
-        trajectory_out,
-        crisis_out,
-        retrieval_out,
+        context_block,
+        diag_block,
         session_id_box,
         session_state,
         hero_block,
-        chip_row,
     ]
 
-    def respond_with_chrome(message, chat_history, session_state, audience_mode):
-        hide = bool(message and message.strip())
-        chrome = (gr.update(visible=not hide), gr.update(visible=not hide))
-        for tup in respond(message, chat_history, session_state, audience_mode):
-            yield tup + chrome
+    def respond_with_chrome(message, chat_history, session_state, audience_mode, rephrase_mode):
+        hide_hero = bool(message and message.strip())
+        hero_chrome = (gr.update(visible=not hide_hero),)
+        for tup in respond(message, chat_history, session_state, audience_mode, rephrase_mode):
+            yield tup + hero_chrome
+
+    # gr.update(value="") explicitly preserves the placeholder attribute on
+    # the underlying textarea, which a bare lambda: "" can lose between turns.
+    def _clear_input():
+        return gr.update(value="", placeholder="Tell me what's on your mind...")
 
     msg_box.submit(
         respond_with_chrome,
-        inputs=[msg_box, chatbot, session_state, audience_mode_box],
+        inputs=[msg_box, chatbot, session_state, audience_mode_box, rephraser_mode_box],
         outputs=submit_outputs,
-    ).then(lambda: "", outputs=msg_box)
+    ).then(_clear_input, outputs=msg_box)
 
     send_btn.click(
         respond_with_chrome,
-        inputs=[msg_box, chatbot, session_state, audience_mode_box],
+        inputs=[msg_box, chatbot, session_state, audience_mode_box, rephraser_mode_box],
         outputs=submit_outputs,
-    ).then(lambda: "", outputs=msg_box)
+    ).then(_clear_input, outputs=msg_box)
 
     def reset_with_chrome():
         base = reset_session_handler()
-        return base + (gr.update(visible=True), gr.update(visible=True))
+        return base + (gr.update(visible=True),)
 
     reset_btn.click(reset_with_chrome, outputs=submit_outputs)
 
-    def toggle_inspect(open_state):
-        new_state = not open_state
-        return new_state, gr.update(visible=new_state)
-
-    inspect_btn.click(
-        toggle_inspect,
-        inputs=[inspect_open],
-        outputs=[inspect_open, inspect_drawer],
-    )
-
     chip_counseling.click(
-        lambda: set_prompt("I think I need counseling at UMD, but I do not know how to start."),
+        lambda: set_prompt("I think I need counseling at UMD, but I don't know how to start."),
         outputs=msg_box,
     )
     chip_ads.click(
@@ -1988,4 +2467,14 @@ with gr.Blocks(theme=theme, title="EmpathRAG", css=APP_CSS) as demo:
 
 if __name__ == "__main__":
     os.makedirs("eval", exist_ok=True)
+    # Print provider availability so it's obvious whether GROQ_API_KEY /
+    # ANTHROPIC_API_KEY actually loaded.
+    try:
+        from pipeline.rephraser import ResponseRephraser as _RR
+        _r = _RR()
+        print("[rephraser] provider availability:")
+        for _p in _r.providers:
+            print(f"  - {_p.name}: {'available' if _p.available() else 'unavailable'}")
+    except Exception as _e:
+        print(f"[rephraser] probe failed: {_e}")
     demo.launch(share=SHARE_DEMO)

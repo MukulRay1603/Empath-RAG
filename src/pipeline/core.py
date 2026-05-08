@@ -17,10 +17,13 @@ from .output_guard import validate_output
 from .response_planner import (
     INTERNATIONAL_SOURCE_HINT,
     build_response_plan,
+    classify_intl_topic,
     decide_stage,
     has_international_concern,
     render_crisis_response,
+    render_intl_factual_offer,
 )
+from .rephraser import ResponseRephraser
 from .safety_policy import SafetyLevel, SafetyTriagePolicy
 from .service_graph import match_services
 from .v2_schema import SafetyTier, SupportRoute, classify_route, map_safety_level
@@ -55,6 +58,11 @@ class EmpathRAGResult:
     international_concern: bool = False
     conversation_stage: str = "offer"
     turn_index: int = 1
+    intl_topic: str = ""
+    rephraser_provider: str = "deterministic"
+    rephraser_used_llm: bool = False
+    rephraser_latency_ms: float = 0.0
+    rephraser_last_error: str = ""
 
     def to_dict(self) -> dict:
         row = asdict(self)
@@ -85,6 +93,7 @@ class EmpathRAGCore:
         self.use_model_guardrail = _env_flag("EMPATHRAG_CORE_USE_GUARDRAIL") if use_model_guardrail is None else use_model_guardrail
         self.compute_ig_on_intercept = _env_flag("EMPATHRAG_CORE_COMPUTE_IG") if compute_ig_on_intercept is None else compute_ig_on_intercept
         self.guardrail_threshold = guardrail_threshold
+        self.rephraser = ResponseRephraser()
         self._guardrail = None
         self._guardrail_error = ""
         self.tier_history: dict[str, list[str]] = {}
@@ -194,6 +203,8 @@ class EmpathRAGCore:
         # `intl_concern` exposed downstream uses the session-sticky value so
         # diagnostics & support card stay consistent across the conversation.
         intl_concern = intl_session
+        intl_topic = ""
+        rephrase_result = None
         if should_intercept:
             response = render_crisis_response(route_label, audience_mode=audience_mode)
             output_guard = {"allowed": True, "reason": "crisis_template", "flags": []}
@@ -209,8 +220,29 @@ class EmpathRAGCore:
                 international_concern_override=intl_session,
             )
             stage = decide_stage(message, route_label, safety_tier.value, turn_index)
-            response = plan.render(stage)
+            # F-1 sub-topic detection: when an international student asks a
+            # specific factual question (work after graduation, visa status,
+            # academic standing rules, deportation mechanics) we override the
+            # generic emotional-acknowledgment template with a topic-specific
+            # factual orientation that engages with what was actually asked.
+            # ISSS is always positioned as the authoritative voice.
+            intl_topic = classify_intl_topic(message) if intl_session else ""
+            if intl_topic and stage == "offer":
+                template_response = render_intl_factual_offer(intl_topic, message)
+            else:
+                template_response = plan.render(stage)
             recommended_action = plan.recommended_action
+
+            # Plan-and-rephrase: deterministic planner has authored the
+            # response; the LLM (if enabled) only paraphrases. Falls back to
+            # the template on any failure or safety-check rejection.
+            rephrase_result = self.rephraser.rephrase(
+                user_message=message,
+                template_response=template_response,
+                retrieved_sources=retrieved,
+                recommended_action=recommended_action,
+            )
+            response = rephrase_result.response
             # Output guard catches dead-end validation responses, but LISTEN and
             # PERMISSION stages are intentionally reflective ("sit with this"
             # then invite). Applying the missing-action check there would
@@ -262,6 +294,11 @@ class EmpathRAGCore:
             international_concern=intl_concern,
             conversation_stage=stage,
             turn_index=turn_index,
+            intl_topic=intl_topic,
+            rephraser_provider=(rephrase_result.provider_name if rephrase_result else "deterministic"),
+            rephraser_used_llm=(rephrase_result.used_llm if rephrase_result else False),
+            rephraser_latency_ms=(rephrase_result.latency_ms if rephrase_result else 0.0),
+            rephraser_last_error=(rephrase_result.last_error if rephrase_result else ""),
         )
 
     def _run_optional_guardrail(self, message: str, skip_ig: bool) -> dict:

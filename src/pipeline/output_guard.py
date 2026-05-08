@@ -51,6 +51,12 @@ NEXT_ACTION_MARKERS = (
     "involve ",
     "try ",
     "keep it",
+    "talk ",
+    "talk to",
+    "schedule ",
+    "review ",
+    "bring ",
+    "file ",
 )
 
 DEPENDENCY_PATTERNS = (

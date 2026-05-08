@@ -52,13 +52,74 @@ ALWAYS_DIRECT_ROUTES = frozenset({
 })
 
 EXPLICIT_ASK_PATTERNS = (
+    # Direct asks
     "what should i", "what do i do", "how do i", "where do i",
     "what can i do", "how can i", "who do i", "where can i",
     "any advice", "any tips", "can you help", "help me",
     "options", "resources", "what are the", "tell me how",
     "should i", "i need to", "i want to", "i'm ready",
     "next step", "what now",
+    # Yes/no factual questions ("is it legal", "will I get deported", "can I work")
+    "is it ", "is this ", "is that ", "is there ",
+    "will i ", "will it ", "will they ", "will that ",
+    "can i ", "could i ", "could it ", "may i ",
+    "do i need", "do they ", "does it ", "does this ",
+    "am i allowed", "am i able",
+    # Factual question stems often used by international students
+    "is it legal", "is it allowed", "is it ok", "is it fine", "is it safe",
+    "is it true", "is it possible", "is it fair",
+    "what are the rules", "what's the rule", "what's the policy",
 )
+
+
+# Sub-topic detection for international/F-1 students.  When we hit any of these
+# the OFFER stage uses a topic-specific factual template instead of the generic
+# academic-stress one - so a question like "can I work on campus after
+# graduation?" gets a real factual answer routed through ISSS instead of a
+# generic "that sounds heavy" reflection.
+INTL_TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "work_authorization": (
+        "work on campus", "work off campus", "on-campus work", "off-campus work",
+        "after graduation", "post-graduation", "post graduation",
+        "opt", "cpt", "stem extension", "stem opt",
+        "employment authorization", "work authorization",
+        "ead card", "i-765", "h-1b", "h1b", "h1-b",
+        "internship", "job offer", "paid work", "legally work",
+    ),
+    "academic_standing": (
+        "academic standing", "academic probation",
+        "fail my class", "fail my course", "fail a class", "fail a course",
+        "fail one of", "failing my class", "failing my course",
+        "failing a class", "failing one of",
+        "withdraw", "withdrawal", "drop a class", "drop the class",
+        "drop a course", "course load", "credit load",
+        "full-time enrollment", "minimum credits", "full time",
+        "f-1 status", "f1 status", "affect my status", "affect my f-1",
+        "affect my visa", "affect my i-20",
+    ),
+    "visa_status": (
+        "visa renewal", "visa expir", "visa stamp", "visa appointment",
+        "consulate", "embassy", "visa interview",
+        "i-20 expir", "extension of stay", "change of status",
+    ),
+    "deportation_fear": (
+        "deport", "sent home", "lose my status", "lose status",
+        "out of status", "fall out of status",
+        "back to my country", "go back home", "have to leave",
+    ),
+}
+
+
+def classify_intl_topic(message: str) -> str:
+    """Return the most specific international sub-topic, or '' if none."""
+    text = (message or "").lower()
+    # Order matters: more specific topics win. Work authorization first because
+    # it's the most common and most factual.
+    for topic in ("work_authorization", "visa_status", "academic_standing", "deportation_fear"):
+        for kw in INTL_TOPIC_KEYWORDS[topic]:
+            if kw in text:
+                return topic
+    return ""
 
 # Cues that the student is talking about visa / international-status pressure.
 # F-1 students carry a different weight on academic outcomes (status tied to
@@ -145,15 +206,16 @@ class ResponsePlan:
         intl_ack = ""
         if self.international_concern:
             intl_ack = (
-                "And I noticed visa or status worry is in this too — that's a different "
+                "And I noticed visa or status worry is in this too. That's a different "
                 "layer of fear, not just \"academic\" stress. It changes who's actually "
                 "the right person to talk to."
             )
 
         invite = self.listen_invite or "I'm here. Want to tell me more about what's coming up for you?"
         options = (
-            "If it'd help: I can keep listening, sit with what's underneath, or — when you're "
-            "ready — point you toward a specific place to start. Whichever you want."
+            "If it would help, I can keep listening, sit with what's underneath, "
+            "or point you toward a place to start when you're ready. "
+            "Whichever you want."
         )
 
         parts = [opener]
@@ -172,13 +234,13 @@ class ResponsePlan:
         if phrase:
             hint = (
                 f"When you want to widen this out: {phrase} are usually the most useful "
-                "starting points for what you've described. Or we can keep talking — "
+                "starting points for what you've described. Or we can keep talking. "
                 "no pressure either way."
             )
         else:
             hint = (
                 "When you want to widen this out, I can point you toward a couple of "
-                "specific places that fit. Or we can keep talking — no pressure either way."
+                "specific places that fit. Or we can keep talking. No pressure either way."
             )
 
         intl_line = ""
@@ -186,7 +248,7 @@ class ResponsePlan:
             intl_line = (
                 "If the visa or academic-standing piece is part of why this feels so big, "
                 "UMD's International Student & Scholar Services (ISSS) has advisors who "
-                "specifically handle that — that's a different conversation from regular "
+                "specifically handle that. That's a different conversation from regular "
                 "counseling, and it's a good one to have early."
             )
 
@@ -201,7 +263,7 @@ class ResponsePlan:
         if self.recommended_action:
             parts.append(self.recommended_action)
 
-        # Soft, named resource mention — only for routes where it adds value.
+        # Soft, named resource mention. Only for routes where it adds value.
         if self.route not in ("crisis_immediate", "out_of_scope", "peer_helper"):
             names = self._resource_names(2)
             phrase = self._phrase_resources(names)
@@ -216,7 +278,7 @@ class ResponsePlan:
                 "Because visa or international-status worry is part of this: UMD's "
                 "International Student & Scholar Services (ISSS) has academic-difficulty "
                 "advising specifically for F-1 students. They can clarify what your "
-                "academic standing actually means for SEVIS and your status — that's a "
+                "academic standing actually means for SEVIS and your status. That's a "
                 "different conversation from regular counseling, and worth having early "
                 "rather than late."
             )
@@ -243,6 +305,12 @@ def decide_stage(message: str, route: str, safety_tier: str, turn_index: int) ->
     if route in ALWAYS_DIRECT_ROUTES:
         return OFFER
     if _has_explicit_ask(message):
+        return OFFER
+    # If the user asked a factual question (question mark) about a specific
+    # F-1 / international sub-topic, that deserves a real answer. Not a
+    # generic LISTEN reflection. Catches phrasings like "Will get deported?"
+    # or "Is this OK?" that don't match the regular ask patterns.
+    if "?" in (message or "") and classify_intl_topic(message):
         return OFFER
     if turn_index >= 3:
         return OFFER
@@ -295,18 +363,18 @@ def build_response_plan(
             safety_tier,
             "That sounds like a really painful moment.",
             "Failing something you cared about can land hard, especially when the brain immediately starts treating it as proof of something bigger.",
-            "When you're ready, a small grounded step is a short office-hours note to your professor or TA — just to understand what went wrong and what to do differently next time.",
+            "When you're ready, a small grounded step is a short office-hours note to your professor or TA. Just to understand what went wrong and what to do differently next time.",
             f"Use {source_label} if the stress is affecting sleep, panic, or your ability to function.",
             "If the situation starts feeling unsafe, switch from academic planning to crisis or human support immediately.",
             "Do you want me to share an email script you could adapt, or would you rather just talk it through more first?",
             listen_reflection=(
                 "That sounds really heavy. Failing something you cared about can land "
-                "hard — and the part of your mind that's catastrophizing right now isn't "
+                "hard. And the part of your mind that's catastrophizing right now isn't "
                 "lying, it's just turned up too loud."
             ),
             listen_invite="Want to tell me more about what it's been bringing up for you?",
             permission_opener=(
-                "I hear you. The piece about everything stacking at once is real — when "
+                "I hear you. The piece about everything stacking at once is real. When "
                 "one thing tips, the rest start feeling fragile too."
             ),
             **common,
@@ -317,7 +385,7 @@ def build_response_plan(
             route,
             safety_tier,
             "That kind of pre-test heaviness makes a lot of sense.",
-            "When the test is this close, the mind tends to grab every worst-case scenario at once — that doesn't mean any of them are true, it just means the stakes feel real.",
+            "When the test is this close, the mind tends to grab every worst-case scenario at once. That doesn't mean any of them are true, it just means the stakes feel real.",
             "If a small grounded step would help: a 10-minute reset, then picking two high-yield topics and a tiny study plan for tonight is usually more useful than trying to fix everything.",
             f"Use {source_label} if the stress is affecting sleep, panic, or your ability to function.",
             "If this shifts into not feeling safe or being unable to stay with yourself, use crisis or emergency support instead of continuing study planning.",
@@ -370,7 +438,7 @@ def build_response_plan(
             "A grounded next move: contact a campus student-support office and say plainly what you need help with today.",
             f"Use {source_label}; rely on the source card for verified contact, hours, and eligibility details.",
             "If your safety or shelter is immediately at risk, use emergency or crisis support instead of waiting.",
-            "What's the most urgent piece right now — food, housing, money, or finding the right campus contact?",
+            "What's the most urgent piece right now. Food, housing, money, or finding the right campus contact?",
             **common,
         )
 
@@ -394,7 +462,7 @@ def build_response_plan(
                 safety_tier,
                 "That kind of nervousness before meeting someone you like is very normal.",
                 "It does not mean something is wrong; it usually means the moment matters to you and your brain is trying to predict every possible outcome.",
-                "If it would help: keep it simple — one easy opener, one genuine question you could ask, and one graceful exit if either of you feels awkward.",
+                "If it would help: keep it simple. One easy opener, one genuine question you could ask, and one graceful exit if either of you feels awkward.",
                 "You probably do not need a formal campus resource for ordinary date nerves; if anxiety starts disrupting sleep, eating, or daily functioning, the source cards can point you toward support.",
                 "If this shifts into panic, feeling unsafe, or being unable to function, use a human support option rather than trying to push through alone.",
                 "Want to brainstorm a relaxed opening line, a few questions to ask, or how to calm down beforehand?",
@@ -406,7 +474,7 @@ def build_response_plan(
                 listen_invite="Want to tell me a bit more about what you're hoping for or worried about?",
                 permission_opener=(
                     "I hear you. Pre-date jitters can balloon when you've been thinking "
-                    "about it for a while — they don't always shrink with more thinking."
+                    "about it for a while. They don't always shrink with more thinking."
                 ),
                 **common,
             )
@@ -414,7 +482,7 @@ def build_response_plan(
             route,
             safety_tier,
             "That sounds like anxiety is taking up a lot of space right now.",
-            "Anxiety like this can feel huge in the body even when nothing visible has changed yet — that's exhausting to ride out alone.",
+            "Anxiety like this can feel huge in the body even when nothing visible has changed yet. That's exhausting to ride out alone.",
             "If a grounded step would help: one short grounding reset, and then we can decide whether finding a campus support path is the next move.",
             f"Use {source_label} for anxiety, grounding, or counseling support.",
             "If the anxiety shifts into not feeling safe, use crisis support instead of continuing here.",
@@ -422,12 +490,12 @@ def build_response_plan(
             listen_reflection=(
                 "That sounds like anxiety is taking up a lot of room right now. "
                 "Even when nothing visible has changed, the body can feel like it's "
-                "in the middle of something — and that's exhausting."
+                "in the middle of something. And that's exhausting."
             ),
             listen_invite="Want to tell me a bit more about what's been going on?",
             permission_opener=(
                 "Thanks for sharing more. Anxiety this loud is a real thing to be sitting "
-                "with — it's not a small ask of yourself."
+                "with. It's not a small ask of yourself."
             ),
             **common,
         )
@@ -437,18 +505,18 @@ def build_response_plan(
             route,
             safety_tier,
             "That sounds heavy.",
-            "Low mood has a way of making everything quieter and farther away — including the parts of life that usually help.",
+            "Low mood has a way of making everything quieter and farther away. Including the parts of life that usually help.",
             "If a small step would feel doable: telling one trusted person what's been going on, and looking at a counseling starting point. We don't have to do both today.",
             f"Use {source_label} as a grounded starting point.",
             "If this turns into not feeling safe, use 988 or emergency support immediately.",
-            "What's been the hardest part lately — motivation, isolation, sleep, or asking for help?",
+            "What's been the hardest part lately. Motivation, isolation, sleep, or asking for help?",
             listen_reflection=(
                 "That sounds heavy. Low mood has a way of pulling everything that "
                 "usually helps a little farther out of reach."
             ),
-            listen_invite="Take your time — what's been on your mind most?",
+            listen_invite="Take your time. What's been on your mind most?",
             permission_opener=(
-                "I hear you. The way it's been pulling everything farther away — "
+                "I hear you. The way it's been pulling everything farther away. "
                 "that's a real thing, not weakness."
             ),
             **common,
@@ -459,7 +527,7 @@ def build_response_plan(
             route,
             safety_tier,
             "That sounds really lonely.",
-            "Isolation can quietly become its own thing — it's not weakness, and it doesn't mean you haven't tried.",
+            "Isolation can quietly become its own thing. It's not weakness, and it doesn't mean you haven't tried.",
             "If a small step would help: reaching out to one person you used to feel close to, even with a tiny message, is often more useful than trying to rebuild a whole social life at once.",
             f"Use {source_label} for connection and support.",
             "If isolation starts feeling unsafe or hopeless, use a counseling or crisis support path.",
@@ -508,7 +576,7 @@ def build_response_plan(
         safety_tier,
         "That sounds like a lot to carry.",
         "You shouldn't have to sort through this from scratch on your own.",
-        "When you're ready, a useful first move is naming the kind of support that fits — whether that's someone to talk to, a campus office, or a small concrete next step.",
+        "When you're ready, a useful first move is naming the kind of support that fits. Whether that's someone to talk to, a campus office, or a small concrete next step.",
         f"Use {source_label} as the starting point.",
         "If this becomes urgent or safety-related, switch to crisis or emergency support.",
         "What would help most first: a next-step checklist, who to contact, or just talking it through more?",
@@ -518,11 +586,74 @@ def build_response_plan(
         ),
         listen_invite="What's been weighing on you most lately?",
         permission_opener=(
-            "I hear you. The way it's all collapsing at once is exhausting — that "
+            "I hear you. The way it's all collapsing at once is exhausting. That "
             "kind of overload usually has more than one thing pulling on it."
         ),
         **common,
     )
+
+
+def render_intl_factual_offer(topic: str, message: str = "") -> str:
+    """Topic-specific factual orientation for F-1 / international students.
+
+    These responses *engage with what was actually asked* (work rules, visa
+    timing, academic standing, deportation fear) instead of giving the generic
+    academic-stress reflection. The format is:
+
+    1. Acknowledge the actual question (not the emotion).
+    2. General factual orientation (always with the ISSS-is-authoritative
+       disclaimer).
+    3. The specific next move with ISSS by name.
+    4. One clarifying question to understand their case.
+    """
+    if topic == "work_authorization":
+        return (
+            "That fear isn't unfounded. But the rule is more specific than "
+            "\"you'll get deported.\" On-campus work doesn't continue after "
+            "graduation; you'd need OPT (Optional Practical Training) authorized "
+            "first, or you'd fall out of status. Good news: it's avoidable with "
+            "the right timing.\n\n"
+            "Talk to UMD ISSS now, before graduation rather than after. They'll tell "
+            "you what's authorized for your case. What's your graduation timing?"
+        )
+    if topic == "visa_status":
+        return (
+            "Visa questions are case-specific, so I'll keep this general and "
+            "point you to ISSS for the real answer. F-1 needs three things "
+            "aligned: an unexpired I-20, valid status (full-time enrollment + "
+            "SEVIS), and (only for re-entering the US) an unexpired visa "
+            "stamp. The stamp can expire while you're still in valid status; "
+            "that's fine as long as you don't leave.\n\n"
+            "Schedule time with UMD ISSS to review your I-20 and any travel "
+            "plans. Is this about the visa stamp, the I-20, a travel plan, or "
+            "something else?"
+        )
+    if topic == "academic_standing":
+        return (
+            "Academic standing as F-1 isn't only academic. Your enrollment is "
+            "what keeps your status valid. But: failing one course doesn't "
+            "auto-end status. What can end it is dropping below full-time "
+            "enrollment without ISSS-authorized RCL (reduced course load). The "
+            "key phrase is *prior authorization*.\n\n"
+            "Contact ISSS *before* any drop or withdrawal posts. They can "
+            "usually authorize an RCL for medical, academic, or final-term "
+            "reasons. Is this about a failed grade, a class you're thinking of "
+            "dropping, or your overall load?"
+        )
+    if topic == "deportation_fear":
+        return (
+            "That fear is real, but the actual mechanism is more specific than "
+            "\"one bad grade and you're sent home.\" Deportation as F-1 usually "
+            "follows from *falling out of status*. Unauthorized work, dropping "
+            "below full-time without RCL, or an expired I-20. A single failed "
+            "course typically doesn't end status, and there's a grace period "
+            "plus reinstatement path.\n\n"
+            "Talk to ISSS now about what specifically worries you. They can "
+            "almost always tell you whether the worst case is real for your "
+            "situation. What's the specific worry. A grade, course load, work, "
+            "or an I-20 date?"
+        )
+    return ""
 
 
 def render_crisis_response(route: str, audience_mode: str = "student") -> str:
@@ -530,7 +661,7 @@ def render_crisis_response(route: str, audience_mode: str = "student") -> str:
         return (
             "I'm really glad you told me about this. This sounds like an immediate safety "
             "situation for your friend, and you should not handle it alone. Please contact "
-            "emergency or crisis support now — and involve a trusted nearby person, RA, "
+            "emergency or crisis support now, and involve a trusted nearby person, RA, "
             "supervisor, or campus support while you try to reach them."
         )
     return (
