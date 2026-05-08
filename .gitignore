@@ -70,7 +70,7 @@ data/curated/raw_pages/
 data/curated/indexes/
 eval/ragas_results.json
 eval/curated_retrieval_audit.json
-eval/multiturn_results.json
+eval/multiturn_results*.json
 eval/karthik_eval_results.json
 eval/empathrag_core_supervised.csv
 eval/router_eval_results.json
@@ -82,8 +82,15 @@ eval/core_dataset_v2_ingest_report.sample.json
 eval/core_dataset_v2_ingest_report.sample.md
 eval/empathrag_core_supervised.sample.csv
 eval/multiturn_scenarios.sample.jsonl
-eval/eval_b_multiturn_summary.md
+# Eval B summaries — single-file and per-variant outputs.
+eval/eval_b*.md
+# Drift / F-1 / fairness sweep reports are timestamped per run — regeneratable
+# from eval/sweep_*.py, so we don't track the markdown.
+eval/sweep_*_20*.md
 pytest-cache-files-*/
+
+# Stray screenshot at repo root (paste artifact).
+/image.png
 
 # Session artifacts
 CHANGES_APPLIED.md

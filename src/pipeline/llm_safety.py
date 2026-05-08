@@ -36,13 +36,21 @@ SCOPE_DRIFT_PATTERNS = (
 # Language patterns that re-introduce V1 problems the V2 thesis explicitly
 # moved away from.
 V1_REGRESSION_PATTERNS = (
-    "i am always here", "i will never leave",
+    # Promises of unbounded availability that undermine other support relationships.
+    "i am always here", "i'm always here", "i will never leave",
     "you can always talk to me", "i understand you better than anyone",
     "you only need me",
-    "everything will be okay",  # toxic positivity
+    # Toxic positivity / silver-lining
+    "everything will be okay",
     "everything happens for a reason",
-    "at least you",  # silver-lining
+    "at least you",
     "look on the bright side",
+    # Soft minimization that pre-empts the planner's direct factual contradiction.
+    "don't worry",
+    "do not worry",
+    "try not to worry",
+    "try not to stress",
+    "it's not that bad",
 )
 
 # Phone-number heuristic: any 10-digit US number that isn't 988.

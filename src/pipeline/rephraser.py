@@ -24,6 +24,7 @@ import json
 import os
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from .llm_safety import verify_rephrased_safety
@@ -38,17 +39,21 @@ A deterministic safety planner has already chosen the response. Your only job is
 You MUST:
 - Keep the same meaning, structure, and recommendations as the input.
 - Keep all named resources exactly as written (UMD Counseling Center, ISSS, ADS, etc.).
-- Keep the response short (2-4 short paragraphs maximum).
+- Match the input's length closely. If the input is 80 words, output 70-100 words, not 200. Never balloon a tight 3-paragraph input into a 5-paragraph one.
 - Mirror specific phrases from the user's message when they fit naturally.
+- When the user names specific events ("I bombed my midterm", "my advisor moved the goalposts"), specific fears ("lose my standing", "get deported"), specific people ("my advisor", "my roommate"), or specific time anchors ("two days", "this morning", "for weeks"), reflect those specific words rather than abstracting them to "something this big" or "the situation". Specificity reads as listening; abstraction reads as a flowchart.
 - Use plain, conversational language. No clinical labels.
+- Start the response with the planner's first idea, not a filler preamble. Do NOT begin with "It can be really tough when...", "It sounds like...", "I can imagine that...", or any restatement of the user's situation as a frame. Get into it.
 
 You MUST NOT:
 - Add new advice, resources, phone numbers, or claims that aren't in the input.
+- Introduce a UMD resource by name (ISSS, ADS, Counseling Center, Ombuds, CARE, Help Center, Dean of Students, etc.) if the input does NOT already name it. If the input is generic ("a place to start", "someone to talk to"), keep it generic. The deterministic planner decides which stage of the conversation we are in; if it stayed generic, you must too.
 - Reframe the user's emotion ("you're catastrophizing", "you have anxiety").
 - Use AI-tells like em-dashes, "I understand", "let me reframe", or "as your therapist".
 - Promise availability ("I'm always here") or undermine boundaries.
 - Diagnose, prescribe, or position yourself as a clinician.
 - Add toxic-positivity ("everything happens for a reason", "look on the bright side").
+- Minimize fears the user stated. Never write "don't worry", "it's not that bad", "it's a bit more nuanced than", or "try not to stress" before a factual correction. If the input contradicts a fear, paraphrase the contradiction directly without softening pre-text.
 
 If the input mentions UMD ISSS / F-1 status / OPT / CPT, keep that content factually intact. If unsure, prefer keeping the input wording.
 
@@ -67,6 +72,17 @@ class Provider(ABC):
     @abstractmethod
     def complete(self, user_message: str, template_response: str, timeout_s: float = 4.0) -> str | None:
         """Return rephrased text or None on failure."""
+
+    def complete_streaming(
+        self, user_message: str, template_response: str, timeout_s: float = 10.0
+    ) -> Iterator[str]:
+        """Yield text chunks as they arrive. Default impl falls back to one-shot
+        complete() and yields the result as a single chunk; subclasses with real
+        SSE support override this. Sets ``self.last_error`` on failure (no yield)."""
+        full = self.complete(user_message, template_response, timeout_s)
+        if full is None:
+            return
+        yield full
 
 
 class DeterministicProvider(Provider):
@@ -94,6 +110,15 @@ class MockProvider(Provider):
         # Tiny semantic-preserving variation; useful for testing the
         # safety check / fallback wiring without touching a real API.
         return template_response.replace("That sounds", "That really does sound")
+
+    def complete_streaming(
+        self, user_message: str, template_response: str, timeout_s: float = 10.0
+    ) -> Iterator[str]:
+        full = self.complete(user_message, template_response, timeout_s)
+        if full is None:
+            return
+        for word in full.split(" "):
+            yield word + " "
 
 
 class GroqProvider(Provider):
@@ -187,6 +212,82 @@ class GroqProvider(Provider):
             self.last_error = "unexpected_response_shape"
             return None
 
+    def complete_streaming(
+        self, user_message: str, template_response: str, timeout_s: float = 10.0
+    ) -> Iterator[str]:
+        """Stream tokens from Groq's OpenAI-compatible chat completions SSE."""
+        self.last_error = ""
+        if not self.api_key:
+            self.last_error = "no_api_key"
+            return
+        import urllib.request
+        import urllib.error
+
+        user_payload = (
+            f"User message:\n{user_message}\n\n"
+            f"Planner-authored response (rephrase this, do not extend):\n{template_response}"
+        )
+        body = json.dumps({
+            "model": self.model,
+            "temperature": 0.4,
+            "max_tokens": 360,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_payload},
+            ],
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            self.base_url,
+            data=body,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "EmpathRAG/0.3 (+https://github.com/MukulRay1603/Empath-RAG)",
+                "Accept": "text/event-stream",
+            },
+        )
+        try:
+            resp = urllib.request.urlopen(req, timeout=timeout_s)
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = e.read().decode("utf-8", errors="replace")[:240]
+            except Exception:
+                err_body = ""
+            self.last_error = f"http_{e.code}:{err_body}"
+            return
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            self.last_error = f"network:{type(e).__name__}"
+            return
+
+        try:
+            for raw in resp:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    payload = json.loads(data)
+                    choices = payload.get("choices") or []
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta") or {}
+                    content = delta.get("content")
+                    if content:
+                        yield content
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    continue
+        except (TimeoutError, OSError) as e:
+            self.last_error = f"stream_interrupted:{type(e).__name__}"
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
 
 class AnthropicProvider(Provider):
     """Anthropic Claude fallback. Disabled unless API key is set."""
@@ -263,6 +364,81 @@ class AnthropicProvider(Provider):
         except (KeyError, IndexError, TypeError):
             self.last_error = "unexpected_response_shape"
             return None
+
+    def complete_streaming(
+        self, user_message: str, template_response: str, timeout_s: float = 10.0
+    ) -> Iterator[str]:
+        """Stream tokens from Anthropic's /v1/messages SSE."""
+        self.last_error = ""
+        if not self.api_key:
+            self.last_error = "no_api_key"
+            return
+        import urllib.request
+        import urllib.error
+
+        user_payload = (
+            f"User message:\n{user_message}\n\n"
+            f"Planner-authored response (rephrase this, do not extend):\n{template_response}"
+        )
+        body = json.dumps({
+            "model": self.model,
+            "max_tokens": 400,
+            "temperature": 0.4,
+            "system": SYSTEM_PROMPT,
+            "stream": True,
+            "messages": [{"role": "user", "content": user_payload}],
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            self.base_url,
+            data=body,
+            method="POST",
+            headers={
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+                "User-Agent": "EmpathRAG/0.3 (+https://github.com/MukulRay1603/Empath-RAG)",
+                "Accept": "text/event-stream",
+            },
+        )
+        try:
+            resp = urllib.request.urlopen(req, timeout=timeout_s)
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = e.read().decode("utf-8", errors="replace")[:240]
+            except Exception:
+                err_body = ""
+            self.last_error = f"http_{e.code}:{err_body}"
+            return
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            self.last_error = f"network:{type(e).__name__}"
+            return
+
+        try:
+            for raw in resp:
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                try:
+                    payload = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                event_type = payload.get("type")
+                if event_type == "content_block_delta":
+                    delta = payload.get("delta") or {}
+                    if delta.get("type") == "text_delta":
+                        text = delta.get("text", "")
+                        if text:
+                            yield text
+                elif event_type == "message_stop":
+                    break
+        except (TimeoutError, OSError) as e:
+            self.last_error = f"stream_interrupted:{type(e).__name__}"
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -358,3 +534,112 @@ class ResponseRephraser:
             latency_ms=total_latency_ms,
             last_error=last_error or "no_providers_available",
         )
+
+    def rephrase_streaming(
+        self,
+        user_message: str,
+        template_response: str,
+        retrieved_sources: list[dict],
+        recommended_action: str = "",
+        force_deterministic: bool = False,
+    ) -> Iterator[tuple]:
+        """Streaming variant. Yields events:
+
+        * ``("chunk", accumulated_text, provider_name)`` for each token chunk
+        * ``("final", RephraseResult)`` exactly once at the end
+
+        On stream-time provider failure, falls through to the next provider
+        without notifying the consumer; the next ``"chunk"`` event will carry
+        a fresh provider_name and the consumer can swap the visible text.
+        On post-stream safety rejection, the streamed text was already shown;
+        the orchestrator advances to the next provider, and the consumer
+        should treat each new provider_name as a hard text replacement.
+        If every provider fails, the final ``RephraseResult`` carries the
+        deterministic template — the consumer should swap to it.
+        """
+        if force_deterministic or not self.enabled:
+            yield ("final", RephraseResult(
+                response=template_response,
+                provider_name="deterministic",
+                used_llm=False,
+                safety_flags=[],
+                latency_ms=0.0,
+            ))
+            return
+
+        last_error = ""
+        last_safety_flags: list[str] = []
+        total_latency_ms = 0.0
+
+        for provider in self.providers:
+            if not provider.available():
+                continue
+
+            t0 = time.perf_counter()
+            accumulated = ""
+            since_yield = ""
+            stream_failed = False
+            # Token batching: SSE providers emit 1-3 char chunks ~80 times per
+            # response. Yielding every chunk floods Gradio's WebSocket with
+            # near-identical state updates. Batch to ~12-char boundaries
+            # (whichever lands first), which ends up around 20-30 yields per
+            # response — smoother visually, less wire chatter.
+            _STREAM_BATCH_CHARS = 12
+            try:
+                for chunk in provider.complete_streaming(user_message, template_response):
+                    if not chunk:
+                        continue
+                    accumulated += chunk
+                    since_yield += chunk
+                    # Flush when we've accumulated enough chars AND we're at a
+                    # whitespace boundary, OR when a punctuation mark closes a
+                    # phrase. Reads more naturally than mid-word flushes.
+                    last = since_yield[-1]
+                    if (len(since_yield) >= _STREAM_BATCH_CHARS and last in " \n\t") or last in ".,;:!?\n":
+                        yield ("chunk", accumulated, provider.name)
+                        since_yield = ""
+                # Always emit the final state even if it didn't end on a boundary.
+                if since_yield:
+                    yield ("chunk", accumulated, provider.name)
+            except Exception as exc:
+                stream_failed = True
+                err = getattr(provider, "last_error", "") or f"stream_exception:{type(exc).__name__}"
+                last_error = f"{provider.name}:{err}"
+            elapsed = (time.perf_counter() - t0) * 1000.0
+            total_latency_ms += elapsed
+
+            if stream_failed or not accumulated.strip():
+                # Provider failed before producing usable output. Try next.
+                if not stream_failed:
+                    err = getattr(provider, "last_error", "") or "empty_stream"
+                    last_error = f"{provider.name}:{err}"
+                continue
+
+            candidate = accumulated.strip()
+            check = verify_rephrased_safety(
+                template_response, candidate, retrieved_sources, recommended_action
+            )
+            if check.allowed:
+                yield ("final", RephraseResult(
+                    response=candidate,
+                    provider_name=provider.name,
+                    used_llm=provider.name not in ("deterministic",),
+                    safety_flags=[],
+                    latency_ms=elapsed,
+                    last_error="",
+                ))
+                return
+
+            last_safety_flags = check.flags
+            last_error = f"{provider.name}:safety_rejected:{','.join(check.flags)[:120]}"
+            # Streamed text was visible but rejected. Fall through; next
+            # provider's first chunk will replace the bubble contents.
+
+        yield ("final", RephraseResult(
+            response=template_response,
+            provider_name="deterministic_fallback",
+            used_llm=False,
+            safety_flags=last_safety_flags or ["all_providers_failed"],
+            latency_ms=total_latency_ms,
+            last_error=last_error or "no_providers_available",
+        ))

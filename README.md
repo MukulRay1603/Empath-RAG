@@ -2,232 +2,267 @@
 
 <div align="center">
 
-**Emotion-Aware Retrieval-Augmented Generation with Safety Guardrails for Student Mental Health**
+**A guarded conversational RAG support navigator for UMD students**
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.5.1+cu121-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)]()
 [![University](https://img.shields.io/badge/UMD-MSML641-E03A3E?style=flat-square)](https://umd.edu)
 
-*MSML641 · Applied Machine Learning · University of Maryland · Spring 2025*
+*MSML641 · Applied Machine Learning · University of Maryland*
 
 </div>
 
 ---
 
-Standard RAG systems treat every message identically as a neutral information request. A student in crisis and a student asking for study tips go through the same retrieval pipeline, with no emotional awareness and no safety gate.
+EmpathRAG is a **support-navigation prototype** that helps a UMD student name what kind of support they need, retrieves grounded campus resources, gives one practical next step, and escalates safety risk to human support.
 
-**EmpathRAG fixes this.** It is a 5-stage NLP pipeline that classifies a student's emotional state *before* retrieval, rewrites queries based on that state, and intercepts crisis-level messages with a trained NLI classifier before the language model is ever invoked.
+It is **not** therapy, diagnosis, counseling, an emergency service, or a clinical product. It does not replace the UMD Counseling Center, ISSS, ADS, the Graduate School Ombuds, or any clinical care.
+
+> EmpathRAG started as emotion-aware open RAG (V1). Evaluation exposed the structural risks of open empathetic generation: missed escalation, sycophantic validation, dependency reinforcement, ungrounded advice, and weak distinction between ordinary stress and safety risk. **EmpathRAG Core (V2.5) is the guarded redesign**; V4 adds a controlled-paraphrasing layer that gives the system natural warmth without surrendering the safety floor.
 
 ---
 
-## Pipeline
+## What the system does
+
+1. **Listens first.** Reflects what the student said back, in their own words, before suggesting any resource.
+2. **Surfaces specific UMD resources only when the conversation calls for them** — never in the first message of a low-risk talk.
+3. **Routes 14 student-support topics** (academic setback, exam stress, advisor conflict, accessibility/ADS, basic needs, peer-helper, F-1 visa worry, counseling navigation, anxiety, low mood, loneliness, CARE/violence, general support, out-of-scope) to a small registry of verified UMD and national resources.
+4. **For F-1 students**, separates emotional support from immigration questions and routes the latter to ISSS — preserving F-1 mechanics (RCL, SEVIS, OPT, CPT, I-20, reinstatement) verbatim from authoritative templates.
+5. **For crisis prompts**, intercepts before generation and redirects to 988 / UMD Counseling Center / emergency support. Crisis prompts never flow through the language model.
+
+## What the system does not do
+
+- It does not diagnose anxiety, depression, PTSD, or any condition.
+- It does not prescribe medication or treatment.
+- It does not provide clinical judgment.
+- It does not promise unconditional availability ("I'm always here") or undermine the student's existing support relationships.
+- It does not store conversations server-side beyond what the student explicitly downloads in the Support Plan export.
+
+---
+
+## Architecture
 
 ```
-Student Message
-      │
-      ├──▶ [1] Emotion Classifier     RoBERTa + LoRA  (CPU)
-      │         distress · anxiety · frustration · neutral · hopeful
-      │
-      ├──▶ [2] Safety Guardrail       DeBERTa-v3 NLI  (CPU)
-      │         ⚠ If crisis → return 988 lifeline · STOP · generator never runs
-      │
-      ├──▶ [3] Query Router           Deterministic templates + session tracker
-      │         Rewrites query with emotion context · tracks 6 trajectory states
-      │
-      ├──▶ [4] FAISS Retrieval        all-mpnet-base-v2 · 1,674,369 vectors
-      │         Emotion-match re-ranking · SQLite metadata sidecar
-      │
-      └──▶ [5] Mistral 7B Generator   Q4_K_M GGUF · 28/33 GPU layers
-                Sliding 3-turn memory · 2-paragraph empathetic response
+Student message
+     │
+     ├──▶ [1] Stage-1 lexical safety precheck       safety_policy.py
+     │         crisis / wellbeing / pass · always runs first
+     │
+     ├──▶ [2] Optional model guardrail (DeBERTa NLI + IG)   guardrail_ig.py
+     │         off by default in the live demo for latency
+     │
+     ├──▶ [3] Hybrid route + tier classifier        ml_router.py + v2_schema.py
+     │         Rule baseline + TF-IDF / logistic ML
+     │
+     ├──▶ [4] Resource registry filter              service_graph.py
+     │         Verified UMD/national service objects
+     │         Filtered by route × safety tier × usage_mode
+     │
+     ├──▶ [5] Stage-aware response planner          response_planner.py
+     │         LISTEN → PERMISSION → OFFER
+     │         F-1 sub-topic engine + session memory
+     │
+     ├──▶ [6] Plan-and-rephrase                     rephraser.py + llm_safety.py
+     │         Groq Llama 3.3 70B → Anthropic Claude Haiku → fallback
+     │         Deterministic planner authors WHAT to say;
+     │         the LLM only paraphrases under a strict contract.
+     │         Post-rephrase verification (scope drift, V1 regression,
+     │         ungrounded phones, fabricated resources).
+     │
+     └──▶ [7] Output guard                          output_guard.py
+               Catches missing-action / pure-validation /
+               dependency / harmful agreement at OFFER stage.
 ```
 
----
+Crisis prompts bypass step 6 entirely — the deterministic crisis template is rendered, then served. The LLM never sees a crisis-tier message.
 
-## Results
+### Plan-and-rephrase: controlled paraphrasing
 
-| Metric | Value | Target | |
-|---|---|---|---|
-| RoBERTa Emotion F1 (weighted) | **0.7127** | > 0.55 | ✅ |
-| DeBERTa Crisis Recall (held-out NLI test set, 23K samples) | **0.9629** | > 0.80 | ✅ |
-| DeBERTa Crisis Recall (30 adversarial probes, 6 categories) | **0.75** | — | ✅ |
-| DeBERTa Crisis Precision | **0.7951** | > 0.65 | ✅ |
-| BERTScore F1 | **0.8266** | > 0.72 | ✅ |
-| Wilcoxon p-value (Full vs BM25) | **3.62e-08** | < 0.05 | ✅ |
-| Euphemistic recall — NLI vs keyword | **100% vs 20%** | — | 🔑 |
+The deterministic planner is the trust boundary. The LLM only paraphrases planner-authored text under a strict system prompt contract:
 
-### Ablation — Emotion Alignment Score (3-condition)
+- Match the input's length closely.
+- Mirror specific user phrases (events, fears, named people, time anchors) over abstractions.
+- Never introduce a UMD resource by name unless the input already names it.
+- Never reframe the user's emotion or use clinical labels.
+- Never promise unbounded availability or use AI-tells.
+- Never minimize stated fears with pre-text like "don't worry" before a contradiction.
 
-| Condition | Retrieval | Emotion Conditioning | Score |
-|---|---|---|---|
-| A — BM25 baseline | Sparse | None | 0.30 |
-| C — Dense RAG | FAISS semantic | None | 0.50 |
-| D — **Full EmpathRAG** | FAISS + emotion | Query rewrite + re-rank | **0.88** |
+After paraphrasing, `verify_rephrased_safety` checks scope drift, V1 regression, ungrounded phone numbers, fabricated resource names, and length sanity. Failures fall through to the next provider, then to the deterministic template — never silently to a degraded path.
 
-> Emotion conditioning contributes **+0.38** over pure dense retrieval (C→D). Wilcoxon signed-rank: p = 3.62e-08.
-
-> **Note:** Condition B (DPR two-tower baseline) was descoped — deprioritised to increase adversarial probe depth. A ColBERT-scale index would be required for DPR to offer meaningful gains over FAISS flat-L2 at 1.67M vectors.
+See [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md) (Phase 8: Controlled Paraphrasing) for the full architectural argument.
 
 ---
 
-## Key Finding
+## Evaluation
 
-The NLI-framed safety guardrail outperforms a keyword filter across every adversarial probe category that matters:
+| Eval | Scenarios | Metric | Result |
+|---|---|---|---|
+| **Eval A** — single-turn ablation | 360 prompts × 14 routes × 4 tiers | Hybrid rule + ML route accuracy | **0.86** |
+| | | Intercept accuracy | **0.99** |
+| | | Source organization hit rate | **1.00** |
+| **Eval B** — multi-turn safety | 74 scenarios (50 Karthik + 24 supplement), 28 escalation | Missed escalation rate | **0/28** |
+| | | Unsafe generation count | **0** |
+| | | Ungrounded action count | **0** |
+| | | (rephraser ON, hard gate) | identical to deterministic baseline |
+| **Drift sweep** | 29 cells × 14 routes × 3 stages, rephraser ON | Cells with drift flags | **0** |
+| | | Mean rephrased-to-template length ratio | 0.97 |
+| **F-1 stage × ISSS contract** | 12 cells × 4 sub-topics × 3 stages | Contract violations | **0/12** |
+| | | ISSS at LISTEN | never named |
+| | | F-1 mechanics at LISTEN/PERMISSION | not introduced |
+| **Fairness spot-check** | 18 paired prompts × 8 demographic axes | Routing divergences | **0** |
 
-| Probe Category | EmpathRAG (NLI) | Keyword Filter |
-|---|---|---|
-| Direct crisis language | 100% | 80% |
-| Euphemistic / indirect | **100%** | 20% |
-| Negation bypass | **100%** | 60% |
-| Bait-and-switch | 40% | 20% |
+> These numbers are on synthetic development data. They are useful for the prototype framing — not clinical or deployment claims. A real fairness audit needs orders of magnitude more data and domain-expert test generation.
 
-Keyword filters miss indirect phrasing. NLI understands semantic entailment. This is the core research finding.
+Reproduce locally:
+
+```powershell
+$env:PYTHONIOENCODING='utf-8'
+.\venv\Scripts\python.exe eval\run_empathrag_core_eval.py        # Eval A
+.\venv\Scripts\python.exe eval\run_multiturn_eval.py             # Eval B
+.\venv\Scripts\python.exe eval\sweep_rephraser_drift.py          # 29-cell drift sweep
+.\venv\Scripts\python.exe eval\sweep_f1_stage_isss.py            # F-1 contract
+.\venv\Scripts\python.exe eval\sweep_fairness_spot_check.py      # demographic perturbation
+```
+
+The sweep scripts emit timestamped Markdown reports under `eval/` (gitignored).
 
 ---
 
 ## Demo
 
-> 🔄 **Demo recording in progress** — Loom walkthrough coming soon.
+Local demo (Gradio):
 
-The Gradio demo shows:
-- Real-time emotion timeline with trajectory detection across turns
-- Safety guardrail panel with Integrated Gradients token attribution highlights
-- Multi-turn conversation memory (sliding 3-turn window)
-- Session ID for human evaluation correlation
-
-To run locally (requires models — see [Setup](#setup)):
-```bash
-python demo/app.py
+```powershell
+$env:EMPATHRAG_DEMO_BACKEND='fast'
+$env:EMPATHRAG_RETRIEVAL_CORPUS='curated_support'
+$env:EMPATHRAG_TOP_K='5'
+$env:EMPATHRAG_REPHRASER_ENABLED='1'      # set to '0' for deterministic-only
+$env:PYTHONIOENCODING='utf-8'
+.\venv\Scripts\python.exe -u demo\app.py
 ```
 
+Open **http://127.0.0.1:7860/**. The demo includes:
+
+- Chat surface with stage-aware planner + LLM streaming
+- Inspect drawer (Support card · Diagnostics)
+- Mode bar to flip between deterministic templates and LLM-rephrased Groq generation (live A/B for inspection)
+- Provisional voice input (Groq Whisper turbo) — toggle reveals an inline recorder; transcript drops into the composer for review before send
+- Support Plan / clinician-handoff export — Markdown download summarizing the conversation with route, recommended action, and resources mentioned
+
+API keys (place in `.env` at repo root):
+
+```
+GROQ_API_KEY=gsk_...
+ANTHROPIC_API_KEY=sk-ant-api03-...     # optional fallback
+```
+
+Without keys the system runs in deterministic-template mode (no rephrasing, no voice).
+
 ---
 
-## VRAM Budget (RTX 3060, 6 GB)
-
-| Component | Device | VRAM |
-|---|---|---|
-| RoBERTa + DeBERTa | CPU | 0 MB |
-| Sentence Transformer | GPU (encode only) | 440 MB |
-| Mistral 7B Q4_K_M | GPU resident | 3,870 MB |
-| KV cache + compute | GPU | ~630 MB |
-| **Total peak** | | **~4,940 MB** ✅ |
-
----
-
-## Repo Structure
+## Repo structure
 
 ```
 Empath-RAG/
-├── src/
-│   ├── pipeline/
-│   │   ├── pipeline.py          # 5-stage orchestrator · conversation memory
-│   │   ├── query_router.py      # Emotion-conditioned query rewriting
-│   │   └── session_tracker.py   # Trajectory detection (6 states)
-│   ├── models/
-│   │   ├── guardrail_ig.py      # DeBERTa NLI + Integrated Gradients
-│   │   └── annotate_corpus.py   # Corpus emotion annotation (Colab A100)
-│   └── data/
-│       ├── preprocess.py        # GoEmotions 27→5 label collapse
-│       ├── build_faiss_index.py # FAISS IVFFlat builder
-│       └── build_nli_pairs.py   # NLI training pair construction
+├── src/pipeline/
+│   ├── core.py                # EmpathRAGCore.run_turn / run_turn_streaming
+│   ├── rephraser.py           # Plan-and-rephrase orchestrator + Groq/Anthropic providers
+│   ├── llm_safety.py          # Post-rephrase verification (trust boundary)
+│   ├── response_planner.py    # Stage-aware planner (LISTEN/PERMISSION/OFFER) + F-1 logic
+│   ├── safety_policy.py       # Stage-1 lexical safety precheck
+│   ├── output_guard.py        # OFFER-stage groundedness + anti-sycophancy
+│   ├── ml_router.py           # TF-IDF + logistic route/tier classifier
+│   ├── service_graph.py       # Resource registry loader + matcher
+│   ├── support_plan.py        # Markdown clinician-handoff export
+│   ├── voice.py               # Groq Whisper turbo transcription
+│   └── v2_schema.py           # 14 routes × 4 safety tiers
 ├── demo/
-│   └── app.py                   # Gradio demo · emotion timeline · crisis panel
+│   └── app.py                 # Gradio UI · streaming · voice toggle · support plan
 ├── eval/
-│   ├── run_ablation.py          # Conditions A / C / D
-│   ├── run_bertscore.py         # BERTScore F1
-│   ├── run_wilcoxon.py          # Wilcoxon signed-rank test
-│   ├── run_adversarial.py       # NLI vs keyword filter · 30 probes
-│   ├── test_prompts.json        # 50 prompts · 10 per emotion class
-│   └── adversarial_probes.json  # 30 probes · 6 categories × 5
-├── notebooks/
-│   ├── colab_emotion_classifier.ipynb   # RoBERTa + LoRA · A100
-│   └── colab_deberta_guardrail.ipynb    # DeBERTa NLI · A100 · bf16
-└── data/
-    └── MANIFEST.md              # Dataset download instructions
+│   ├── run_empathrag_core_eval.py     # Eval A (single-turn)
+│   ├── run_multiturn_eval.py          # Eval B (multi-turn safety)
+│   ├── sweep_rephraser_drift.py       # 14-route × 3-stage drift audit
+│   ├── sweep_f1_stage_isss.py         # F-1 stage × ISSS contract
+│   ├── sweep_fairness_spot_check.py   # Demographic perturbation
+│   ├── multiturn_scenarios.jsonl      # Karthik dataset (tracked)
+│   └── multiturn_safety_supplement.jsonl
+├── data/curated/
+│   └── service_graph.jsonl            # 32 verified UMD/national service objects
+├── docs/
+│   ├── architecture/EMPATHRAG_CORE_ARCHITECTURE.md
+│   ├── research/PAPER_FRAMING.md      # Includes Phase 8: Controlled Paraphrasing
+│   ├── planning/MASTER_CHECKLIST.md
+│   ├── audits/                        # OPUS_FULL_PROJECT_AUDIT, MVP_USABILITY_AUDIT, etc.
+│   ├── demo/                          # MSML class demo script
+│   └── team/                          # Karthik handoffs · ISSS document vetting
+└── tests/
+    └── test_v25_support_navigator.py  # 21 regression tests
 ```
 
 ---
 
 ## Setup
 
-**Requirements:** Python 3.12 · CUDA 12.1 · 6 GB VRAM · 16 GB RAM · ~15 GB disk
+**Requirements:** Python 3.12 · Windows or Linux · ~5 GB disk for venv + curated index
 
-> ⚠️ Install order is critical — do not skip steps.
-
-```bash
+```powershell
 # 1. Clone
 git clone https://github.com/MukulRay1603/Empath-RAG.git
 cd Empath-RAG
+
+# 2. Virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
+.\venv\Scripts\activate      # Windows
+# source venv/bin/activate    # Linux/macOS
 
-# 2. PyTorch with CUDA — install FIRST
-pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
-
-# 3. llama-cpp-python CUDA wheel — install SECOND
-pip install "llama_cpp_python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
-
-# 4. Everything else
+# 3. Dependencies
 pip install -r requirements.txt
 
-# 5. Force correct numpy (faiss requires < 2.0)
-pip install "numpy==1.26.4" --force-reinstall
+# 4. .env file at repo root (see Demo section)
 ```
 
-**Model downloads** — see [`data/MANIFEST.md`](data/MANIFEST.md) for dataset download instructions.
-
-Mistral 7B GGUF → download `mistral-7b-instruct-v0.2.Q4_K_M.gguf` from [TheBloke/Mistral-7B-Instruct-v0.2-GGUF](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) → place at `models/generator/mistral-7b-instruct-v0.2.Q4_K_M.gguf`
+Curated corpus + ML router artifacts are intentionally untracked; the system gracefully falls back when they are missing. To rebuild from a Karthik V2 delivery, see [`docs/team/karthik/CORPUS_INTEGRATION_STEPS.md`](docs/team/karthik/CORPUS_INTEGRATION_STEPS.md).
 
 ---
 
-## Datasets
+## What is missing for an actual deployment
 
-| Dataset | Role | License |
-|---|---|---|
-| [GoEmotions](https://huggingface.co/datasets/google-research-datasets/go_emotions) | Emotion classifier training | Apache 2.0 |
-| [Reddit Mental Health](https://zenodo.org/records/3941387) | FAISS retrieval corpus | CC BY 4.0 |
-| [Suicide Detection](https://www.kaggle.com/datasets/nikhileswarkomati/suicide-watch) | Guardrail NLI training | Public |
-| [Empathetic Dialogues](https://huggingface.co/datasets/facebook/empathetic_dialogues) | BERTScore gold references | CC BY-NC 4.0 |
+This is a research and class-demo prototype. To pilot at UMD, the open work is:
 
----
-
-## Evaluation Status
-
-| Task | Status |
-|---|---|
-| Emotion Classifier (RoBERTa F1 = 0.7127) | ✅ Complete |
-| Safety Guardrail (DeBERTa recall = 0.9629) | ✅ Complete |
-| BERTScore Evaluation (F1 = 0.8266) | ✅ Complete |
-| Wilcoxon Test (p = 3.62e-08) | ✅ Complete |
-| Adversarial Probe Evaluation (30 probes) | ✅ Complete |
-| Human Evaluation (8–10 raters) | 🔄 In Progress |
-| Loom Demo Recording | 🔄 In Progress |
+- **Clinician sanity check.** A walkthrough with a UMD CAPS clinician + 1-page rubric review.
+- **Resource freshness pipeline.** Automated weekly URL + contact validator with `last_verified` badges.
+- **Closed pilot.** ~10–20 UMD students with anonymous per-turn feedback.
+- **Privacy-by-default surface.** Opt-in logging only, visible data-handling page.
+- **Accessibility audit.** WCAG / screen reader / keyboard.
+- **Multilingual reflection** for F-1 students (Hindi / Mandarin / Spanish / Korean openers).
+- **Anonymous research telemetry** so iteration is data-driven, not anecdotal.
+- **6 ISSS document URLs** to vet — see [`docs/team/ISSS_DOCUMENT_VETTING.md`](docs/team/ISSS_DOCUMENT_VETTING.md).
 
 ---
 
-## Known Limitations
+## Documentation
 
-- **Bait-and-switch probes:** Positive openers cause the guardrail to misclassify follow-up crisis content (40% recall). Most dangerous documented failure mode.
-- **Domain transfer false positives:** Academic hyperbole ("this thesis is killing me") fires the guardrail at high confidence — trained on r/SuicideWatch, never saw graduate student language.
-- **Generator quality:** Mistral 7B Q4_K_M produces adequate but not optimal empathetic responses. Architecture supports drop-in model replacement.
-- **Faithfulness gap:** No automated faithfulness metric deployed — RAGAS and DeepEval both produced degenerate scores with a small model judge. BERTScore reported instead.
+- [`docs/README.md`](docs/README.md) — index
+- [`docs/architecture/EMPATHRAG_CORE_ARCHITECTURE.md`](docs/architecture/EMPATHRAG_CORE_ARCHITECTURE.md) — runtime design
+- [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md) — research story, claims, baselines, Phase 8 (Controlled Paraphrasing)
+- [`docs/planning/MASTER_CHECKLIST.md`](docs/planning/MASTER_CHECKLIST.md) — sprint state
+- [`docs/audits/OPUS_FULL_PROJECT_AUDIT_2026_05_06.md`](docs/audits/OPUS_FULL_PROJECT_AUDIT_2026_05_06.md) — full project handoff
 
 ---
 
-## v2 Safety Direction
+## Contributors
 
-EmpathRAG Core is being hardened as a guarded conversational RAG research system,
-not a production counseling replacement. The Core plan prioritizes fail-closed
-safety loading, multi-level triage, private-by-default demo behavior, curated
-resource retrieval, and stronger safety evaluation. Start with
-[`docs/README.md`](docs/README.md) and
-[`docs/planning/MASTER_CHECKLIST.md`](docs/planning/MASTER_CHECKLIST.md).
+- **Mukul Rayana** — UMD MSML, project lead.
+- **Karthik** — UMD MSML, dataset and curated-corpus delivery.
+
+This prototype is built openly for academic use. It is not a UMD product or service.
+
+If you are a UMD CAPS clinician, ISSS advisor, or ADS coordinator and would like to give feedback or suggest scope changes, please open a GitHub issue.
 
 ---
 
 ## License
 
-MIT License — see [`LICENSE`](LICENSE) for details.
+MIT — see [`LICENSE`](LICENSE).
 
-Dataset licenses vary — see Datasets table above. Mistral 7B: Apache 2.0.
+Dataset licenses vary by source; see corpus notes under `docs/team/karthik/`.

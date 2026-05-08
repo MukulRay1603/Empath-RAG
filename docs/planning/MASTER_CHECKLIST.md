@@ -235,4 +235,42 @@ Fallback if dataset slips:
 - [x] Add Karthik dataset intake pipeline and smoke fixture.
 - [x] Add first verified UMD resource registry expansion.
 - [x] Add Karthik dataset integration and Eval B safety supplement.
-- [ ] Keep demo polished and deterministic for the class presentation.
+- [x] Keep demo polished and deterministic for the class presentation.
+
+## Phase 8: Controlled Paraphrasing (V4, 2026-05-07/08)
+
+Plan-and-rephrase architecture: deterministic planner authors the response, an LLM only paraphrases it under a strict system-prompt contract with runtime safety verification.
+
+- [x] `ResponseRephraser` orchestrator with provider chain (Groq → Anthropic → fallback).
+- [x] Hardened `SYSTEM_PROMPT` covering length budget, no filler preamble, no minimization, no unauthorized resource introduction, specificity over abstraction.
+- [x] `verify_rephrased_safety` post-rephrase trust boundary (scope drift, V1 regression, ungrounded phones, fabricated resources).
+- [x] Real Groq + Anthropic SSE token streaming via `run_turn_streaming`.
+- [x] Stage-aware contract (LISTEN / PERMISSION / OFFER) verified in 12-cell F-1 sweep.
+- [x] 14-route × 3-stage drift sweep — 29/29 cells clean post-tightening.
+- [x] Eval B with rephraser ON — 0 missed escalations, 0 unsafe, 0 ungrounded.
+
+## Phase 9: Day-of-demo polish (V4 final, 2026-05-08)
+
+- [x] Token-streaming chunk batching (~60% fewer Gradio yields per response).
+- [x] Drop pre-LLM typing-dot delay in streaming mode (-650ms first-token visibility).
+- [x] **Support Plan / clinician-handoff export** — Markdown download with What I'm working on / What I've tried / Resources mentioned. Topbar button.
+- [x] **Voice input via Groq Whisper turbo** — accent-friendly, multilingual, drops transcript into composer for review.
+- [x] **ISSS document side-panel infrastructure** — schema + render layer for `documents` field on service nodes. Iframe preview when embeddable, link-out otherwise. URL vetting list at `docs/team/ISSS_DOCUMENT_VETTING.md`.
+- [x] **About this prototype** — collapsible CC-clinician-facing section with scope, safety architecture, evaluation, missing-for-deployment list, provenance.
+- [x] PAPER_FRAMING Phase 8 (Controlled Paraphrasing) section.
+- [ ] Demo run-throughs + screenshots (visual; user task).
+- [ ] Vet 6 ISSS document URLs by hand and paste into `service_graph.jsonl` (user task).
+
+## Open / post-demo backlog
+
+- [ ] CAPS clinician walkthrough + 1-page rubric review.
+- [ ] Resource freshness pipeline (URL + contact validator, weekly).
+- [ ] Closed pilot loop with 10–20 UMD students, anonymous thumbs feedback.
+- [ ] Privacy-by-default surface + opt-in logging + data-handling page.
+- [ ] Accessibility audit (WCAG, screen reader, keyboard).
+- [ ] Corpus expansion to ~80 verified service-graph entries.
+- [ ] Multilingual reflection layer for F-1 (Hindi / Mandarin / Spanish / Korean openers).
+- [ ] Anonymous research telemetry (route / tier / latency / output-guard, no text).
+- [ ] RoBERTa route classifier (last open Phase 2 / Eval A item).
+- [ ] Fairness spot-check set (~30 prompts across gender / race / sexuality / F-1 / grad).
+- [ ] Review + merge Karthik's 11 `resource_profile_additions`.

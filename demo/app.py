@@ -302,6 +302,129 @@ body::before {
   color: var(--accent) !important;
   background: var(--surface-2) !important;
 }
+/* Export button mirrors the reset button styling — sibling secondary action. */
+.gradio-container .er-export-btn { flex: 0 0 auto !important; min-width: 0 !important; }
+.gradio-container .er-export-btn button {
+  background: var(--surface) !important;
+  border: 1px solid var(--border-mid) !important;
+  color: var(--text) !important;
+  padding: 7px 16px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border-radius: 999px !important;
+  min-width: 0 !important;
+  transition: all 180ms ease;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+}
+.gradio-container .er-export-btn button:hover {
+  border-color: var(--accent-line) !important;
+  color: var(--accent) !important;
+  background: var(--surface-2) !important;
+}
+.gradio-container .er-topbar-actions { flex: 0 0 auto !important; padding: 0 !important; gap: 8px; }
+.gradio-container .er-support-plan-file { margin-top: 8px; }
+/* Voice toggle — small low-weight link-button under the composer. Hidden
+   the voice row by default; clickers expand it on demand. */
+.gradio-container .er-voice-toggle {
+  margin-top: 6px !important;
+}
+.gradio-container .er-voice-toggle button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-dim) !important;
+  font-size: 12px !important;
+  padding: 4px 6px !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  width: auto !important;
+  min-width: 0 !important;
+  box-shadow: none !important;
+}
+.gradio-container .er-voice-toggle button:hover {
+  color: var(--accent) !important;
+  background: transparent !important;
+}
+
+/* Voice row sits below the composer. Compact, secondary affordance. We let
+   Gradio render its native audio component (record button → waveform/timer
+   while recording → auto-transcribe on stop) and just contain the size. */
+.gradio-container .er-voice-row {
+  margin-top: 8px;
+  gap: 12px !important;
+  align-items: center !important;
+}
+.gradio-container .er-mic {
+  flex: 0 0 auto !important;
+  max-width: 280px !important;
+}
+.gradio-container .er-mic .audio-container {
+  background: var(--surface) !important;
+  border: 1px solid var(--border-mid) !important;
+  border-radius: 10px !important;
+  padding: 4px 8px !important;
+}
+.er-voice-status-wrap { flex: 1 1 auto; min-width: 0; }
+.er-voice-status {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  padding: 0 4px;
+}
+.er-voice-status.er-voice-ok { color: var(--accent); }
+.er-voice-status.er-voice-error { color: #ef4444; }
+
+/* Document section per source card — F-1 / ISSS official documents the
+   student is encouraged to read directly. Compact list + optional iframe. */
+.er-source-docs {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-mid);
+}
+.er-source-docs-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.er-doc {
+  font-size: 12.5px;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+.er-doc-type {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+.er-doc-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.er-doc-embed { margin-top: 4px; }
+.er-doc-embed summary {
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--accent);
+}
+.er-doc-embed iframe {
+  width: 100%;
+  height: 360px;
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  margin-top: 6px;
+  background: white;
+}
+
 .er-topbar > * { flex-shrink: 0 !important; }
 .er-topbar { overflow: visible !important; flex: 0 0 auto !important; }
 .gradio-container .er-modebar { flex: 0 0 auto !important; }
@@ -654,6 +777,16 @@ body::before {
   background: var(--warm-soft);
   border-color: var(--warm-line);
 }
+.er-ctx-mode.fallback-warn {
+  /* Distinct from intentional warm: subtle pulse so the user notices the
+     swap from a working LLM to deterministic-fallback. */
+  cursor: help;
+  animation: er-fallback-pulse 2.4s ease-in-out infinite;
+}
+@keyframes er-fallback-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.18); }
+}
 .er-ctx-status.warm::before { background: var(--warm); box-shadow: 0 0 8px rgba(245,182,105,0.36); }
 .er-ctx-status.danger::before { background: var(--danger); box-shadow: 0 0 8px rgba(248,113,113,0.36); }
 
@@ -991,6 +1124,29 @@ class FastDemoPipeline:
             resource_profile="umd",
             backend_mode="hybrid_ml",
         ).to_dict()
+        return self._enrich_result(core_result)
+
+    def run_streaming(self, user_message: str, audience_mode: str = "student"):
+        """Generator wrapping ``EmpathRAGCore.run_turn_streaming``.
+
+        Yields ``("token", text)`` for each streamed chunk and ``("done",
+        enriched_result_dict)`` exactly once at the end.
+        """
+        for event in self.core.run_turn_streaming(
+            message=user_message,
+            session_id="demo",
+            audience_mode=audience_mode,
+            resource_profile="umd",
+            backend_mode="hybrid_ml",
+        ):
+            kind = event[0]
+            if kind == "token":
+                yield ("token", event[1])
+            elif kind == "done":
+                core_result = event[1].to_dict()
+                yield ("done", self._enrich_result(core_result))
+
+    def _enrich_result(self, core_result: dict) -> dict:
         emotion_name = core_result.get("emotion_name", "neutral")
         emotion_label = ["distress", "anxiety", "frustration", "neutral", "hopeful"].index(
             emotion_name if emotion_name in {"distress", "anxiety", "frustration", "neutral", "hopeful"} else "neutral"
@@ -1572,6 +1728,8 @@ def new_session_state() -> dict:
         "emotion_history": [],
         "tracker_history": [],
         "conv_history": [],
+        "turn_log": [],
+        "started_at": datetime.datetime.utcnow().isoformat(),
     }
 
 
@@ -1702,6 +1860,32 @@ def format_decision_trace(result=None) -> str:
             html += f"<div class='er-source-why'>{escape(_pretty_reason(why))}</div>"
             if url:
                 html += f"<div style='margin-top:8px;'><a href='{url}' target='_blank' rel='noopener'>Open ↗</a></div>"
+            documents = src.get("documents") or []
+            if documents:
+                html += "<div class='er-source-docs'>"
+                html += "<div class='er-source-docs-label'>Read directly</div>"
+                for doc in documents:
+                    d_title = escape(str(doc.get("title") or "Document"))
+                    d_url = escape(str(doc.get("url") or ""))
+                    d_type = escape(str(doc.get("document_type") or "guide"))
+                    if not d_url:
+                        continue
+                    embeddable = bool(doc.get("embeddable")) and not bool(doc.get("requires_login"))
+                    html += f"<div class='er-doc'><span class='er-doc-type'>{d_type}</span> "
+                    html += f"<a href='{d_url}' target='_blank' rel='noopener'>{d_title} ↗</a>"
+                    if embeddable:
+                        # Inline iframe behind a <details> so the card stays compact
+                        # by default but the doc is one click away.
+                        html += (
+                            f"<details class='er-doc-embed'><summary>Preview inline</summary>"
+                            f"<iframe src='{d_url}' loading='lazy' "
+                            f"sandbox='allow-same-origin allow-scripts allow-popups' "
+                            f"title='{d_title}'></iframe></details>"
+                        )
+                    if doc.get("requires_login"):
+                        html += " <span class='er-doc-meta'>(terpconnect login)</span>"
+                    html += "</div>"
+                html += "</div>"
             html += "</div>"
         html += "</div>"
     else:
@@ -1842,14 +2026,23 @@ def format_live_context(result: dict | None = None, turn_index: int = 0) -> str:
     # the user always knows which mode answered.
     rephraser_provider = (result or {}).get("rephraser_provider", "")
     used_llm = bool((result or {}).get("rephraser_used_llm"))
+    rephraser_err = str((result or {}).get("rephraser_last_error", "")).strip()
+    mode_title = ""
     if rephraser_provider:
         if used_llm:
             mode_label = rephraser_provider.split(":")[0]  # 'groq' / 'anthropic'
             mode_text = f"via {mode_label}"
             mode_cls = "active"
         elif rephraser_provider == "deterministic_fallback":
-            mode_text = "deterministic (fallback)"
-            mode_cls = "warm"
+            # Make the fallback condition clearly visible: warning glyph + a
+            # tooltip carrying the actual provider error so the user can tell
+            # whether this is intentional (deterministic mode) or a failure.
+            mode_text = "deterministic (fallback) ⚠"
+            mode_cls = "warm fallback-warn"
+            mode_title = (
+                f"Live LLM rephrasing was unavailable for this turn — falling back to the deterministic template. "
+                f"Last provider error: {rephraser_err or 'unknown'}"
+            )
         else:
             mode_text = "deterministic"
             mode_cls = ""
@@ -1863,8 +2056,10 @@ def format_live_context(result: dict | None = None, turn_index: int = 0) -> str:
         "<div class='er-ctx-head'>"
         "<div class='er-ctx-title'>Live thread</div>"
         + (
-            f"<div class='er-ctx-mode {mode_cls}'>{escape(mode_text)}</div>"
-            if mode_text else ""
+            (
+                f"<div class='er-ctx-mode {mode_cls}' title='{escape(mode_title)}'>{escape(mode_text)}</div>"
+                if mode_text else ""
+            )
         )
         + f"<div class='er-ctx-status {status_cls}'>{escape(status_text)}</div>"
         "</div>"
@@ -2107,9 +2302,27 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
         session_state,
     )
 
-    if STREAM_ENABLED and TYPING_DELAY_MS > 0:
+    # When LLM rephrasing is enabled and the active pipeline supports real
+    # token streaming, we consume the streaming generator and update the chat
+    # bubble per arrived token. Otherwise we fall back to the synchronous
+    # path with the legacy fake word-chunk reveal.
+    use_real_streaming = (
+        rephrase_mode == "llm"
+        and STREAM_ENABLED
+        and hasattr(get_pipeline(), "run_streaming")
+        and not hasattr(get_pipeline(), "tracker")
+    )
+
+    # Typing-dot delay is purely cosmetic. In deterministic mode the compute
+    # is instantaneous so the dots have to stand in as "thinking" time. In
+    # real-streaming mode the LLM's own first-token latency (~300-500ms) is
+    # the thinking time — adding 650ms more before the stream starts just
+    # delays first-token visibility for no UX gain.
+    if STREAM_ENABLED and TYPING_DELAY_MS > 0 and not use_real_streaming:
         import time as _t
         _t.sleep(TYPING_DELAY_MS / 1000.0)
+
+    provisional_context = format_live_context(provisional, turn_count + 1)
 
     with pipeline_lock:
         active_pipeline = get_pipeline()
@@ -2126,6 +2339,22 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
             active_pipeline.guardrail.check = original_check
             session_state["tracker_history"] = active_pipeline.tracker.history()
             session_state["conv_history"] = list(active_pipeline.conv_history)
+        elif use_real_streaming:
+            result = None
+            for ev in active_pipeline.run_streaming(message, audience_mode=audience_mode or "student"):
+                if ev[0] == "token":
+                    chat_history[-1] = (message, ev[1])
+                    yield (
+                        chat_history,
+                        provisional_context,
+                        format_studio_diagnostics(None),
+                        session_id,
+                        session_state,
+                    )
+                elif ev[0] == "done":
+                    result = ev[1]
+            session_state["tracker_history"] = session_state.get("tracker_history", []) + [result["emotion"]]
+            session_state["conv_history"] = session_state.get("conv_history", [])
         else:
             result = active_pipeline.run(message, audience_mode=audience_mode or "student")
             session_state["tracker_history"] = session_state.get("tracker_history", []) + [result["emotion"]]
@@ -2141,11 +2370,31 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
     )
     log_turn(session_id, len(emotion_history), message, result)
 
+    # Per-turn record for the Support Plan export. Stored only in the user's
+    # browser-side gr.State; never persisted server-side.
+    session_state.setdefault("turn_log", []).append(
+        {
+            "turn_index": len(emotion_history),
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "user_message": message,
+            "route_label": result.get("route_label", ""),
+            "safety_tier": result.get("safety_tier", ""),
+            "conversation_stage": result.get("conversation_stage", ""),
+            "recommended_action": result.get("recommended_action", ""),
+            "international_concern": bool(result.get("international_concern")),
+            "intl_topic": result.get("intl_topic", ""),
+            "retrieved_sources": result.get("retrieved_sources", []) or [],
+        }
+    )
+
     context_html = format_live_context(result, turn_count + 1)
     diag_html = format_studio_diagnostics(result)
 
-    for partial in _stream_chunks(full_response):
-        chat_history[-1] = (message, partial)
+    if use_real_streaming:
+        # Tokens were already streamed into the bubble. Yield once more with
+        # the final body (in case the output guard corrected it post-stream)
+        # plus the now-populated context + diagnostics.
+        chat_history[-1] = (message, full_response)
         yield (
             chat_history,
             context_html,
@@ -2153,6 +2402,16 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
             session_id,
             session_state,
         )
+    else:
+        for partial in _stream_chunks(full_response):
+            chat_history[-1] = (message, partial)
+            yield (
+                chat_history,
+                context_html,
+                diag_html,
+                session_id,
+                session_state,
+            )
 
     # Optional crisis IG re-yield
     is_crisis = bool(result.get("crisis"))
@@ -2176,6 +2435,65 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
             session_id,
             session_state,
         )
+
+
+def transcribe_voice(audio_path, current_msg):
+    """Transcribe a recorded clip via Groq Whisper, drop into the composer.
+
+    Returns updates for (msg_box, voice_status). The clip is NOT auto-sent —
+    the user reviews the transcript and clicks send themselves. If the
+    composer already has text, the transcript is appended on a new line so a
+    user mixing typing and dictation doesn't lose what they had.
+    """
+    from pipeline.voice import GroqWhisperTranscriber
+
+    if not audio_path:
+        return gr.update(), gr.update(value=(
+            "<div class='er-voice-status'>No audio recorded. Tap the mic to try again.</div>"
+        ))
+    transcriber = GroqWhisperTranscriber()
+    if not transcriber.available():
+        return gr.update(), gr.update(value=(
+            "<div class='er-voice-status er-voice-error'>Voice transcription unavailable: GROQ_API_KEY is not set.</div>"
+        ))
+    result = transcriber.transcribe(audio_path)
+    if not result.ok():
+        return gr.update(), gr.update(value=(
+            f"<div class='er-voice-status er-voice-error'>Transcription failed ({result.error}). Try again or type instead.</div>"
+        ))
+    new_text = result.text
+    if current_msg and current_msg.strip():
+        new_text = current_msg.rstrip() + "\n" + new_text
+    return (
+        gr.update(value=new_text),
+        gr.update(value=(
+            f"<div class='er-voice-status er-voice-ok'>Transcribed in {int(result.latency_ms)}ms via Groq Whisper. Review and send when ready.</div>"
+        )),
+    )
+
+
+def export_support_plan(session_state):
+    """Build a Markdown support plan from the session's turn log and return
+    a downloadable file path. Plan is the user's record — generated client-side
+    state only, never persisted server-side beyond the temp file."""
+    from pipeline.support_plan import build_support_plan_markdown
+    import datetime as _dt
+    import tempfile
+
+    turn_log = (session_state or {}).get("turn_log", [])
+    started_iso = (session_state or {}).get("started_at")
+    try:
+        started_at = _dt.datetime.fromisoformat(started_iso) if started_iso else None
+    except (TypeError, ValueError):
+        started_at = None
+    md = build_support_plan_markdown(turn_log, started_at=started_at)
+
+    sid_short = (session_state or {}).get("session_id", "session")[:8]
+    stamp = _dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    fd, path = tempfile.mkstemp(prefix=f"empathrag_support_plan_{sid_short}_{stamp}_", suffix=".md")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(md)
+    return gr.update(value=path, visible=True)
 
 
 def reset_session_handler():
@@ -2311,7 +2629,18 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
             container=False,
             elem_classes=["er-mode-wrap"],
         )
-        reset_btn = gr.Button("↺  New conversation", elem_classes=["er-reset-btn"])
+        with gr.Column(elem_classes=["er-topbar-actions"], min_width=0):
+            with gr.Row():
+                export_btn = gr.Button("⬇  Save support plan", elem_classes=["er-export-btn"])
+                reset_btn = gr.Button("↺  New conversation", elem_classes=["er-reset-btn"])
+
+    # File component for the generated support plan; appears after Save click.
+    support_plan_file = gr.File(
+        label="Your support plan",
+        visible=False,
+        interactive=False,
+        elem_classes=["er-support-plan-file"],
+    )
 
     # ---- Mode bar: ablation toggle for the demo ----
     with gr.Row(elem_classes=["er-modebar"]):
@@ -2382,6 +2711,26 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
                     )
                     send_btn = gr.Button("→", elem_classes=["er-send-btn"], variant="primary")
 
+                # Voice input is provisional — typers don't see it; clickers
+                # toggle it open. Default hidden so the composer stays clean.
+                voice_toggle_btn = gr.Button(
+                    "🎤  Use voice instead",
+                    elem_classes=["er-voice-toggle"],
+                )
+                with gr.Row(elem_classes=["er-voice-row"], visible=False) as voice_row:
+                    voice_input = gr.Audio(
+                        sources=["microphone"],
+                        type="filepath",
+                        show_label=False,
+                        container=False,
+                        elem_classes=["er-mic"],
+                        format="wav",
+                    )
+                    voice_status = gr.HTML(
+                        "<div class='er-voice-status'>Tap the mic, record, then stop. Transcript lands in the composer.</div>",
+                        elem_classes=["er-voice-status-wrap"],
+                    )
+
                 gr.HTML(
                     "<div class='er-footnote'>If you are in immediate danger, call or text 988.</div>"
                 )
@@ -2438,6 +2787,33 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
         return base + (gr.update(visible=True),)
 
     reset_btn.click(reset_with_chrome, outputs=submit_outputs)
+
+    export_btn.click(export_support_plan, inputs=[session_state], outputs=[support_plan_file])
+
+    # Voice input is provisional. Toggle reveals/hides the recorder row.
+    voice_toggle_state = gr.State(value=False)
+
+    def toggle_voice(currently_visible: bool):
+        new_visible = not currently_visible
+        return (
+            gr.update(visible=new_visible),
+            gr.update(value="🎤  Hide voice input" if new_visible else "🎤  Use voice instead"),
+            new_visible,
+        )
+
+    voice_toggle_btn.click(
+        toggle_voice,
+        inputs=[voice_toggle_state],
+        outputs=[voice_row, voice_toggle_btn, voice_toggle_state],
+    )
+
+    # When the user finishes recording, auto-transcribe and drop the text into
+    # the composer (not auto-sent — user reviews).
+    voice_input.stop_recording(
+        transcribe_voice,
+        inputs=[voice_input, msg_box],
+        outputs=[msg_box, voice_status],
+    )
 
     chip_counseling.click(
         lambda: set_prompt("I think I need counseling at UMD, but I don't know how to start."),

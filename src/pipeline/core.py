@@ -23,7 +23,7 @@ from .response_planner import (
     render_crisis_response,
     render_intl_factual_offer,
 )
-from .rephraser import ResponseRephraser
+from .rephraser import RephraseResult, ResponseRephraser
 from .safety_policy import SafetyLevel, SafetyTriagePolicy
 from .service_graph import match_services
 from .v2_schema import SafetyTier, SupportRoute, classify_route, map_safety_level
@@ -71,6 +71,39 @@ class EmpathRAGResult:
         row["route"] = row["route_label"]
         row["latency_ms"] = self.latency_ms
         return row
+
+
+@dataclass
+class _TurnPlan:
+    """Everything ``_plan_turn`` decides before the rephrase step.
+
+    Shared between sync ``run_turn`` and ``run_turn_streaming`` so the
+    pre-rephrase planning logic isn't duplicated across the two paths.
+    """
+    message: str
+    session_id: str
+    audience_mode: str
+    backend_mode: str
+    turn_index: int
+    template_response: str
+    retrieved: list[dict]
+    recommended_action: str
+    route_label: str
+    safety_tier: SafetyTier
+    safety_reason: str
+    stage: str
+    intl_concern: bool
+    intl_topic: str
+    should_intercept: bool
+    retrieval_mode: str
+    latency: dict
+    t_total: float
+    stage1_level: str
+    stage1_reason: str
+    stage1_should_intercept: bool
+    ml_prediction: object
+    guardrail_info: dict
+    escalation_reason: str
 
 
 class EmpathRAGCore:
@@ -125,6 +158,96 @@ class EmpathRAGCore:
         backend_mode: BackendMode = "hybrid_ml",
         turn_index: int | None = None,
     ) -> EmpathRAGResult:
+        plan = self._plan_turn(message, session_id, audience_mode, backend_mode, turn_index)
+        if plan.should_intercept:
+            return self._finalize_turn(plan, plan.template_response, None)
+        rephrase_result = self.rephraser.rephrase(
+            user_message=message,
+            template_response=plan.template_response,
+            retrieved_sources=plan.retrieved,
+            recommended_action=plan.recommended_action,
+        )
+        return self._finalize_turn(plan, rephrase_result.response, rephrase_result)
+
+    def run_turn_streaming(
+        self,
+        message: str,
+        session_id: str,
+        audience_mode: AudienceMode = "student",
+        resource_profile: str = "umd",
+        backend_mode: BackendMode = "hybrid_ml",
+        turn_index: int | None = None,
+    ):
+        """Generator variant of :meth:`run_turn`.
+
+        Yields:
+
+        * ``("token", accumulated_text)`` for each streamed chunk
+        * ``("done", EmpathRAGResult)`` exactly once at the end
+
+        Crisis interception, deterministic mode, and safety-rejected rephrases
+        all collapse to a single deterministic ``("token", final_text)`` plus
+        a ``("done", ...)``. Real Groq/Anthropic streaming only kicks in when
+        ``EMPATHRAG_REPHRASER_ENABLED=1`` and the route is non-crisis.
+        """
+        plan = self._plan_turn(message, session_id, audience_mode, backend_mode, turn_index)
+
+        if plan.should_intercept:
+            result = self._finalize_turn(plan, plan.template_response, None)
+            yield ("token", result.response)
+            yield ("done", result)
+            return
+
+        if not self.rephraser.enabled:
+            # Deterministic mode: no LLM, no real streaming. Hand the template
+            # through and let the demo's word-chunk reveal layer fake-stream it
+            # the way it always has.
+            rephrase_result = self.rephraser.rephrase(
+                user_message=message,
+                template_response=plan.template_response,
+                retrieved_sources=plan.retrieved,
+                recommended_action=plan.recommended_action,
+            )
+            result = self._finalize_turn(plan, rephrase_result.response, rephrase_result)
+            yield ("token", result.response)
+            yield ("done", result)
+            return
+
+        accumulated = ""
+        rephrase_result: RephraseResult | None = None
+        for event in self.rephraser.rephrase_streaming(
+            user_message=message,
+            template_response=plan.template_response,
+            retrieved_sources=plan.retrieved,
+            recommended_action=plan.recommended_action,
+        ):
+            if event[0] == "chunk":
+                _, accumulated, _provider_name = event
+                yield ("token", accumulated)
+            elif event[0] == "final":
+                _, rephrase_result = event
+
+        # rephrase_streaming guarantees exactly one ("final", ...).
+        assert rephrase_result is not None
+        result = self._finalize_turn(plan, rephrase_result.response, rephrase_result)
+        # If the output guard corrected the response or the streamed text was
+        # safety-rejected and replaced with the deterministic fallback, the
+        # bubble currently shows stale text. Yield one more correction.
+        if result.response != accumulated:
+            yield ("token", result.response)
+        yield ("done", result)
+
+    # ------------------------------------------------------------------
+    # Internal: plan + finalize
+    # ------------------------------------------------------------------
+    def _plan_turn(
+        self,
+        message: str,
+        session_id: str,
+        audience_mode: AudienceMode,
+        backend_mode: BackendMode,
+        turn_index: int | None,
+    ) -> _TurnPlan:
         if turn_index is None:
             turn_index = len(self.tier_history.get(session_id, [])) + 1
         t_total = time.perf_counter()
@@ -183,9 +306,7 @@ class EmpathRAGCore:
 
         # Cross-cutting: when an F-1 / visa / international-status worry shows up
         # at any point in the session, keep the ISSS surface and the
-        # international-aware framing for subsequent turns. A student who
-        # mentioned deportation on turn 1 shouldn't have to repeat themselves
-        # on turn 3 to keep ISSS visible.
+        # international-aware framing for subsequent turns.
         intl_now = has_international_concern(message)
         if intl_now:
             self.session_intl_flag[session_id] = True
@@ -200,18 +321,13 @@ class EmpathRAGCore:
             if not already_has_isss:
                 retrieved = [INTERNATIONAL_SOURCE_HINT] + retrieved
 
-        # `intl_concern` exposed downstream uses the session-sticky value so
-        # diagnostics & support card stay consistent across the conversation.
-        intl_concern = intl_session
         intl_topic = ""
-        rephrase_result = None
         if should_intercept:
-            response = render_crisis_response(route_label, audience_mode=audience_mode)
-            output_guard = {"allowed": True, "reason": "crisis_template", "flags": []}
+            template_response = render_crisis_response(route_label, audience_mode=audience_mode)
             recommended_action = _recommended_action(route_label, safety_tier.value)
             stage = "offer"
         else:
-            plan = build_response_plan(
+            response_plan = build_response_plan(
                 message,
                 route_label,
                 safety_tier.value,
@@ -220,81 +336,101 @@ class EmpathRAGCore:
                 international_concern_override=intl_session,
             )
             stage = decide_stage(message, route_label, safety_tier.value, turn_index)
-            # F-1 sub-topic detection: when an international student asks a
-            # specific factual question (work after graduation, visa status,
-            # academic standing rules, deportation mechanics) we override the
-            # generic emotional-acknowledgment template with a topic-specific
-            # factual orientation that engages with what was actually asked.
-            # ISSS is always positioned as the authoritative voice.
             intl_topic = classify_intl_topic(message) if intl_session else ""
             if intl_topic and stage == "offer":
                 template_response = render_intl_factual_offer(intl_topic, message)
             else:
-                template_response = plan.render(stage)
-            recommended_action = plan.recommended_action
+                template_response = response_plan.render(stage)
+            recommended_action = response_plan.recommended_action
 
-            # Plan-and-rephrase: deterministic planner has authored the
-            # response; the LLM (if enabled) only paraphrases. Falls back to
-            # the template on any failure or safety-check rejection.
-            rephrase_result = self.rephraser.rephrase(
-                user_message=message,
-                template_response=template_response,
-                retrieved_sources=retrieved,
-                recommended_action=recommended_action,
+        return _TurnPlan(
+            message=message,
+            session_id=session_id,
+            audience_mode=audience_mode,
+            backend_mode=backend_mode,
+            turn_index=turn_index,
+            template_response=template_response,
+            retrieved=retrieved,
+            recommended_action=recommended_action,
+            route_label=route_label,
+            safety_tier=safety_tier,
+            safety_reason=safety_reason,
+            stage=stage,
+            intl_concern=intl_session,
+            intl_topic=intl_topic,
+            should_intercept=should_intercept,
+            retrieval_mode=retrieval_mode,
+            latency=latency,
+            t_total=t_total,
+            stage1_level=stage1_decision.level.value,
+            stage1_reason=stage1_decision.reason,
+            stage1_should_intercept=stage1_decision.should_intercept,
+            ml_prediction=ml_prediction,
+            guardrail_info=guardrail_info,
+            escalation_reason=escalation_reason,
+        )
+
+    def _finalize_turn(
+        self,
+        plan: _TurnPlan,
+        response: str,
+        rephrase_result: RephraseResult | None,
+    ) -> EmpathRAGResult:
+        if plan.should_intercept:
+            output_guard = {"allowed": True, "reason": "crisis_template", "flags": []}
+        elif plan.stage == "offer":
+            # Output guard runs after rephrase (or fall-through to template)
+            # only at OFFER stage. LISTEN/PERMISSION are intentionally
+            # reflective and would fail missing-action / pure-validation checks.
+            guard = validate_output(
+                response, plan.retrieved, plan.safety_tier.value, plan.route_label, []
             )
-            response = rephrase_result.response
-            # Output guard catches dead-end validation responses, but LISTEN and
-            # PERMISSION stages are intentionally reflective ("sit with this"
-            # then invite). Applying the missing-action check there would
-            # punish the very thing those stages are designed to do. Run the
-            # safety subset (dependency, harmful agreement, ungrounded contact)
-            # but skip the action/validation checks unless we're in OFFER.
-            if stage == "offer":
-                guard = validate_output(response, retrieved, safety_tier.value, route_label, [])
-                output_guard = {"allowed": guard.allowed, "reason": guard.reason, "flags": guard.flags}
-                if guard.fallback_required and guard.corrected_response:
-                    response = guard.corrected_response
-            else:
-                output_guard = {"allowed": True, "reason": f"listening_stage_{stage}", "flags": []}
+            output_guard = {"allowed": guard.allowed, "reason": guard.reason, "flags": guard.flags}
+            if guard.fallback_required and guard.corrected_response:
+                response = guard.corrected_response
+        else:
+            output_guard = {"allowed": True, "reason": f"listening_stage_{plan.stage}", "flags": []}
 
-        latency["total_ms"] = _elapsed_ms(t_total)
+        latency = dict(plan.latency)
+        latency["total_ms"] = _elapsed_ms(plan.t_total)
+
         return EmpathRAGResult(
             response=response,
-            route_label=route_label,
-            safety_tier=safety_tier.value,
-            should_intercept=should_intercept,
-            retrieved_sources=_source_summaries(retrieved),
-            recommended_action=recommended_action,
+            route_label=plan.route_label,
+            safety_tier=plan.safety_tier.value,
+            should_intercept=plan.should_intercept,
+            retrieved_sources=_source_summaries(plan.retrieved),
+            recommended_action=plan.recommended_action,
             output_guard=output_guard,
-            trajectory_state="locked" if session_id in self.locked_sessions else "active",
+            trajectory_state="locked" if plan.session_id in self.locked_sessions else "active",
             latency_ms=latency,
             classifier_confidence={
-                "route": ml_prediction.route_confidence,
-                "tier": ml_prediction.tier_confidence,
-                "model_available": ml_prediction.model_available,
-                "used_ml": ml_prediction.used_ml and backend_mode in {"hybrid_ml", "real_llm"},
-                "reason": ml_prediction.reason,
+                "route": plan.ml_prediction.route_confidence,
+                "tier": plan.ml_prediction.tier_confidence,
+                "model_available": plan.ml_prediction.model_available,
+                "used_ml": plan.ml_prediction.used_ml and plan.backend_mode in {"hybrid_ml", "real_llm"},
+                "reason": plan.ml_prediction.reason,
             },
-            retrieval_mode=retrieval_mode,
+            retrieval_mode=plan.retrieval_mode,
             safety_precheck={
                 "stage": "hard_lexical_precheck",
-                "level": stage1_decision.level.value,
-                "reason": stage1_decision.reason,
-                "should_intercept": stage1_decision.should_intercept,
+                "level": plan.stage1_level,
+                "reason": plan.stage1_reason,
+                "should_intercept": plan.stage1_should_intercept,
                 "ran_before_ml": True,
             },
-            safety_explanation=guardrail_info,
-            safety_reason=safety_reason,
-            escalation_reason=escalation_reason,
+            safety_explanation=plan.guardrail_info,
+            safety_reason=plan.safety_reason,
+            escalation_reason=plan.escalation_reason,
             retrieval_corpus=self.retrieval_corpus,
-            emotion_name=_emotion_name(message),
-            crisis=should_intercept,
-            crisis_confidence=float(guardrail_info.get("confidence") or (1.0 if should_intercept else 0.0)),
-            retrieved_chunks=[row.get("text", "") for row in retrieved],
-            international_concern=intl_concern,
-            conversation_stage=stage,
-            turn_index=turn_index,
-            intl_topic=intl_topic,
+            emotion_name=_emotion_name(plan.message),
+            crisis=plan.should_intercept,
+            crisis_confidence=float(plan.guardrail_info.get("confidence") or (1.0 if plan.should_intercept else 0.0)),
+            retrieved_chunks=[row.get("text", "") for row in plan.retrieved],
+            international_concern=plan.intl_concern,
+            conversation_stage=plan.stage,
+            turn_index=plan.turn_index,
+            intl_topic=plan.intl_topic,
             rephraser_provider=(rephrase_result.provider_name if rephrase_result else "deterministic"),
             rephraser_used_llm=(rephrase_result.used_llm if rephrase_result else False),
             rephraser_latency_ms=(rephrase_result.latency_ms if rephrase_result else 0.0),
@@ -543,6 +679,7 @@ def _source_summaries(rows: list[dict]) -> list[dict]:
             "usage_mode": row.get("usage_mode", ""),
             "source_type": row.get("source_type", ""),
             "why_retrieved": row.get("why_retrieved", ""),
+            "documents": row.get("documents", []) or [],
         }
         for row in rows
     ]

@@ -35,10 +35,20 @@ class ServiceNode:
     usage_modes: list[str]
     do_not_use_for: list[str]
     notes: str
+    # Optional list of authoritative documents the user is encouraged to read
+    # directly (CPT form, OPT guide, RCL/Academic Difficulty policy, etc.).
+    # Each entry: {title, url, document_type, embeddable, requires_login}.
+    # Defaults empty so existing rows without the field still load.
+    documents: list[dict] = ()
 
     @classmethod
     def from_dict(cls, row: dict) -> "ServiceNode":
-        return cls(**row)
+        # Drop unknown keys so a future schema addition doesn't break older
+        # callers, and supply default for `documents` if missing.
+        allowed = {f.name for f in cls.__dataclass_fields__.values()}
+        kwargs = {k: v for k, v in row.items() if k in allowed}
+        kwargs.setdefault("documents", [])
+        return cls(**kwargs)
 
     def as_source(self, why: str = "resource registry match") -> dict:
         usage_mode = self.usage_modes[0] if self.usage_modes else "retrieval"
@@ -52,6 +62,7 @@ class ServiceNode:
             "usage_mode": usage_mode,
             "source_type": self.source_authority,
             "why_retrieved": why,
+            "documents": list(self.documents) if self.documents else [],
         }
 
 
