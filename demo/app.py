@@ -2472,28 +2472,48 @@ def transcribe_voice(audio_path, current_msg):
     )
 
 
-def export_support_plan(session_state):
-    """Build a Markdown support plan from the session's turn log and return
-    a downloadable file path. Plan is the user's record — generated client-side
-    state only, never persisted server-side beyond the temp file."""
+def _support_plan_started_at(session_state):
+    import datetime as _dt
+    started_iso = (session_state or {}).get("started_at")
+    try:
+        return _dt.datetime.fromisoformat(started_iso) if started_iso else None
+    except (TypeError, ValueError):
+        return None
+
+
+def export_support_plan_md(session_state):
+    """Markdown support plan — for internal review / our dev use."""
     from pipeline.support_plan import build_support_plan_markdown
     import datetime as _dt
     import tempfile
 
     turn_log = (session_state or {}).get("turn_log", [])
-    started_iso = (session_state or {}).get("started_at")
-    try:
-        started_at = _dt.datetime.fromisoformat(started_iso) if started_iso else None
-    except (TypeError, ValueError):
-        started_at = None
-    md = build_support_plan_markdown(turn_log, started_at=started_at)
-
+    md = build_support_plan_markdown(turn_log, started_at=_support_plan_started_at(session_state))
     sid_short = (session_state or {}).get("session_id", "session")[:8]
     stamp = _dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     fd, path = tempfile.mkstemp(prefix=f"empathrag_support_plan_{sid_short}_{stamp}_", suffix=".md")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(md)
     return gr.update(value=path, visible=True)
+
+
+def export_support_plan_pdf(session_state):
+    """PDF support plan — counselor-friendly format. Falls through to the
+    Markdown export if fpdf2 isn't installed, so the path doesn't go dark."""
+    import datetime as _dt
+    import tempfile
+
+    turn_log = (session_state or {}).get("turn_log", [])
+    sid_short = (session_state or {}).get("session_id", "session")[:8]
+    stamp = _dt.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    try:
+        from pipeline.support_plan import build_support_plan_pdf
+        fd, path = tempfile.mkstemp(prefix=f"empathrag_support_plan_{sid_short}_{stamp}_", suffix=".pdf")
+        os.close(fd)
+        build_support_plan_pdf(turn_log, path, started_at=_support_plan_started_at(session_state))
+        return gr.update(value=path, visible=True)
+    except ImportError:
+        return export_support_plan_md(session_state)
 
 
 def reset_session_handler():
@@ -2607,7 +2627,35 @@ theme = gr.themes.Base(
 )
 
 
-with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
+# Force-scroll the chat surface to bottom whenever its content mutates.
+# Gradio's gr.Chatbot doesn't reliably auto-scroll during streaming updates
+# (especially with many small token yields); a MutationObserver makes the
+# behavior reliable across versions.
+_CHATBOT_AUTOSCROLL_JS = """
+() => {
+  const tryAttach = () => {
+    const containers = document.querySelectorAll('.er-chat .wrap, .er-chat .bubble-wrap, .er-chat > div, .er-chat');
+    let target = null;
+    for (const c of containers) {
+      if (c && c.scrollHeight > c.clientHeight) { target = c; break; }
+    }
+    if (!target) {
+      const chat = document.querySelector('.er-chat');
+      if (chat) {
+        target = chat.querySelector('[role="log"]') || chat;
+      }
+    }
+    if (!target) { setTimeout(tryAttach, 400); return; }
+    const scroll = () => { target.scrollTop = target.scrollHeight; };
+    const obs = new MutationObserver(() => { requestAnimationFrame(scroll); });
+    obs.observe(target, { childList: true, subtree: true, characterData: true });
+    scroll();
+  };
+  tryAttach();
+}
+"""
+
+with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS, js=_CHATBOT_AUTOSCROLL_JS) as demo:
     initial_state = new_session_state()
     session_state = gr.State(value=initial_state)
 
@@ -2629,10 +2677,9 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
             container=False,
             elem_classes=["er-mode-wrap"],
         )
-        with gr.Column(elem_classes=["er-topbar-actions"], min_width=0):
-            with gr.Row():
-                export_btn = gr.Button("⬇  Save support plan", elem_classes=["er-export-btn"])
-                reset_btn = gr.Button("↺  New conversation", elem_classes=["er-reset-btn"])
+        export_pdf_btn = gr.Button("⬇  PDF (for counselor)", elem_classes=["er-export-btn"])
+        export_md_btn = gr.Button("⬇  Markdown", elem_classes=["er-export-btn"])
+        reset_btn = gr.Button("↺  New conversation", elem_classes=["er-reset-btn"])
 
     # File component for the generated support plan; appears after Save click.
     support_plan_file = gr.File(
@@ -2788,7 +2835,8 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS) as demo:
 
     reset_btn.click(reset_with_chrome, outputs=submit_outputs)
 
-    export_btn.click(export_support_plan, inputs=[session_state], outputs=[support_plan_file])
+    export_pdf_btn.click(export_support_plan_pdf, inputs=[session_state], outputs=[support_plan_file])
+    export_md_btn.click(export_support_plan_md, inputs=[session_state], outputs=[support_plan_file])
 
     # Voice input is provisional. Toggle reveals/hides the recorder row.
     voice_toggle_state = gr.State(value=False)

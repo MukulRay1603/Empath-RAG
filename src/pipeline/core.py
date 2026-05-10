@@ -337,11 +337,21 @@ class EmpathRAGCore:
             )
             stage = decide_stage(message, route_label, safety_tier.value, turn_index)
             intl_topic = classify_intl_topic(message) if intl_session else ""
-            if intl_topic and stage == "offer":
+            # Minimal-affirmation handler. "yes" / "no" / "ok" with no other
+            # content has no new intent — re-rendering the OFFER template just
+            # repeats the previous turn. Instead, route to a clarifying-question
+            # response that asks the student which thread they want to pull.
+            minimal_kind = _minimal_response_kind(message)
+            if minimal_kind:
+                template_response = _render_minimal_followup(minimal_kind, intl_session)
+                stage = "clarify"
+                recommended_action = response_plan.recommended_action
+            elif intl_topic and stage == "offer":
                 template_response = render_intl_factual_offer(intl_topic, message)
+                recommended_action = response_plan.recommended_action
             else:
                 template_response = response_plan.render(stage)
-            recommended_action = response_plan.recommended_action
+                recommended_action = response_plan.recommended_action
 
         return _TurnPlan(
             message=message,
@@ -378,6 +388,11 @@ class EmpathRAGCore:
     ) -> EmpathRAGResult:
         if plan.should_intercept:
             output_guard = {"allowed": True, "reason": "crisis_template", "flags": []}
+        elif plan.stage == "clarify":
+            # Clarifying replies after minimal user input (yes/no/maybe) are
+            # intentionally short open-ended invitations. The OFFER-stage
+            # missing-action / pure-validation checks would punish them.
+            output_guard = {"allowed": True, "reason": "minimal_response_clarify", "flags": []}
         elif plan.stage == "offer":
             # Output guard runs after rephrase (or fall-through to template)
             # only at OFFER stage. LISTEN/PERMISSION are intentionally
@@ -704,6 +719,63 @@ def _recommended_action(route: str, safety_tier: str) -> str:
         return "Contact 988 or emergency services now, and move near another person if you can."
     plan = build_response_plan("", route, safety_tier, [], "student")
     return plan.recommended_action
+
+
+_MINIMAL_AFFIRM = frozenset({
+    "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "kk", "k",
+    "alright", "fine", "definitely", "absolutely",
+})
+_MINIMAL_NEGATE = frozenset({"no", "nope", "nah", "not really", "nuh"})
+_MINIMAL_UNSURE = frozenset({"maybe", "idk", "dunno", "unsure", "not sure", "perhaps"})
+
+
+def _minimal_response_kind(message: str) -> str:
+    """Return 'affirm' / 'negate' / 'unsure' / '' for very short reply-only turns.
+
+    Single-word affirmations are ambiguous — without context, re-rendering the
+    same OFFER template is the worst possible response. We catch them here and
+    redirect to a clarifying-question response instead.
+    """
+    text = (message or "").strip().lower()
+    if not text or len(text) > 24:
+        return ""
+    # Strip trailing punctuation; collapse internal whitespace.
+    clean = " ".join(text.replace(".", " ").replace("!", " ").replace("?", " ").replace(",", " ").split())
+    if clean in _MINIMAL_AFFIRM:
+        return "affirm"
+    if clean in _MINIMAL_NEGATE:
+        return "negate"
+    if clean in _MINIMAL_UNSURE:
+        return "unsure"
+    return ""
+
+
+def _render_minimal_followup(kind: str, intl_session: bool) -> str:
+    """Short clarifying response when the user's reply was just yes/no/maybe.
+
+    Deliberately doesn't re-name resources or push action — that would just be
+    the previous turn repeated. Keep the conversation open instead.
+    """
+    if kind == "affirm":
+        body = (
+            "Okay. Which part of what we just talked about feels most useful to "
+            "start with? You can name it in your own words, or pick one of the "
+            "directions I mentioned a moment ago."
+        )
+    elif kind == "negate":
+        body = (
+            "Got it. Want to keep talking it through, or try a different angle? "
+            "We can slow down or pick a different starting point."
+        )
+    else:
+        body = (
+            "That's okay. Want me to keep listening for a bit, or sit with what's "
+            "making it hard to know? Either is fine."
+        )
+    if intl_session:
+        # Hold the international-aware frame open without re-naming ISSS.
+        body += " I'll keep what you said about your status in mind."
+    return body
 
 
 def _wellbeing_request(message: str) -> bool:
