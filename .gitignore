@@ -87,6 +87,7 @@ eval/eval_b*.md
 # Drift / F-1 / fairness sweep reports are timestamped per run — regeneratable
 # from eval/sweep_*.py, so we don't track the markdown.
 eval/sweep_*_20*.md
+eval/audit_resource_urls_20*.md
 pytest-cache-files-*/
 
 # Stray screenshot at repo root (paste artifact).

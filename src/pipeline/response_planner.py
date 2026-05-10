@@ -147,7 +147,7 @@ INTERNATIONAL_SOURCE_HINT = {
     "risk_level": "safe",
     "usage_mode": "retrieval",
     "source_type": "university_resource",
-    "url": "https://globalmaryland.umd.edu/offices/international-students-scholars",
+    "url": "https://isss.umd.edu/",
     "why_retrieved": "international_concern_detected",
 }
 
