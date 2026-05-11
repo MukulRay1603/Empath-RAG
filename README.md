@@ -19,7 +19,7 @@ short_description: Guarded conversational RAG support navigator for UMD students
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![UMD MSML641](https://img.shields.io/badge/UMD-MSML641-E03A3E?style=flat-square)](https://umd.edu)
-[![Hugging Face Space](https://img.shields.io/badge/🤗-Live%20Demo-yellow?style=flat-square)](https://huggingface.co/spaces/MukulRay1603/EmpathRAG)
+[![Hugging Face Space](https://img.shields.io/badge/🤗-Live%20Demo-yellow?style=flat-square)](https://huggingface.co/spaces/MukulRay/EmpathRAG)
 
 </div>
 
@@ -378,14 +378,14 @@ Intentionally untracked: `data/curated/indexes/`, `models/`, internal dataset de
 
 ## Documentation
 
-| Document | Contents |
+| Document | What it covers |
 |---|---|
-| [`EMPATHRAG_CORE_ARCHITECTURE.md`](docs/architecture/EMPATHRAG_CORE_ARCHITECTURE.md) | Runtime design and the seven-layer pipeline |
-| [`PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md) | Research framing, baseline numbers, current-architecture evaluation |
-| [`REPRODUCIBILITY.md`](docs/research/REPRODUCIBILITY.md) | Commands and expected outputs for every reported number |
-| [`ERROR_ANALYSIS.md`](docs/research/ERROR_ANALYSIS.md) | Seven categories of observed failure modes |
-| [`PRIVACY_AND_DATA_FLOW.md`](docs/research/PRIVACY_AND_DATA_FLOW.md) | Data flow, retention, deletion |
-| [`HIPAA_FERPA_GAP_ANALYSIS.md`](docs/research/HIPAA_FERPA_GAP_ANALYSIS.md) | Compliance gaps for any future deployment |
+| 🏛 &nbsp; [`EMPATHRAG_CORE_ARCHITECTURE.md`](docs/architecture/EMPATHRAG_CORE_ARCHITECTURE.md) | Runtime design and the full seven-layer pipeline. |
+| 📄 &nbsp; [`PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md) | Research framing, baseline numbers, current-architecture evaluation. |
+| 🔁 &nbsp; [`REPRODUCIBILITY.md`](docs/research/REPRODUCIBILITY.md) | Commands and expected outputs for every reported number. |
+| 🔍 &nbsp; [`ERROR_ANALYSIS.md`](docs/research/ERROR_ANALYSIS.md) | Seven categories of observed failure modes and their mitigations. |
+| 🔐 &nbsp; [`PRIVACY_AND_DATA_FLOW.md`](docs/research/PRIVACY_AND_DATA_FLOW.md) | Student- and clinician-readable account of data flow, retention, and deletion. |
+| 🏥 &nbsp; [`HIPAA_FERPA_GAP_ANALYSIS.md`](docs/research/HIPAA_FERPA_GAP_ANALYSIS.md) | Explicit accounting of compliance gaps for any future deployment. |
 
 <br>
 
@@ -395,22 +395,38 @@ Intentionally untracked: `data/curated/indexes/`, `models/`, internal dataset de
 
 ## Scope and Limitations
 
-**What EmpathRAG does.** Listens first and reflects what the student said in their own words. Surfaces specific UMD resources only when the conversation calls for them. Routes to verified UMD and national resources with provenance (source URL, last-verified date, source authority). For F-1 students, separates emotional support from immigration questions and routes the latter to ISSS. For crisis content, intercepts before generation and redirects to 988 and UMD Counseling Center, or to 911 and UMD CARE for interpersonal danger.
+### Capabilities
 
-**What EmpathRAG does not do.** Diagnose anxiety, depression, PTSD, or any condition. Prescribe medication or treatment. Provide clinical judgment. Promise unconditional availability. Store conversations server-side beyond what the student explicitly downloads.
+- ✅ &nbsp; Listens first and reflects what the student said in their own words.
+- ✅ &nbsp; Surfaces specific UMD resources only when the conversation calls for them.
+- ✅ &nbsp; Routes to verified UMD and national resources with full provenance — source URL, last-verified date, source authority.
+- ✅ &nbsp; Separates emotional support from immigration questions for international students; routes the latter to ISSS.
+- ✅ &nbsp; Intercepts crisis content before generation; routes to **988 + UMD Counseling Center** for self-harm ideation and **911 + UMD CARE** for interpersonal danger.
 
 <br>
 
-Honest bounds on what this work claims:
+### Out of Scope
 
-- All evaluation uses synthetic curated data. Real student phrasing differs in ways the dataset does not capture. The numbers here are prototype evidence, not deployment claims.
-- The escalation benchmark has 28 scenarios. Confidence intervals are wide; stronger absolute claims need a larger sample.
-- The route classifier reaches 0.86 accuracy on the held-out test split. The remaining 14% degrade gracefully to `general_student_support` and do not fabricate.
-- The architecture is HIPAA- and FERPA-compatible by design, but the current deployment is not compliant: Groq does not sign Business Associate Agreements for commercial chat. A real deployment requires a BAA-signed provider.
-- F-1 students are the only first-class cross-cutting concern in the current planner. Queer, undocumented, parenting, Black, and first-generation students each warrant similar layered treatment.
-- No real student pilot has been conducted. The next milestone is a Counseling Center clinician walkthrough, not public release.
+- ❌ &nbsp; Does not diagnose anxiety, depression, PTSD, or any other condition.
+- ❌ &nbsp; Does not prescribe medication or treatment.
+- ❌ &nbsp; Does not provide clinical judgment.
+- ❌ &nbsp; Does not promise unconditional availability.
+- ❌ &nbsp; Does not store conversations server-side beyond what the student explicitly downloads.
 
-Detailed failure analysis is in [`docs/research/ERROR_ANALYSIS.md`](docs/research/ERROR_ANALYSIS.md).
+<br>
+
+### Honest Bounds on the Claims
+
+| Limitation | What it means |
+|---|---|
+| **Synthetic evaluation data** | All evaluation uses curated synthetic scenarios. Real student phrasing differs in ways the dataset does not capture. Numbers reported here are prototype evidence, not deployment claims. |
+| **Small-sample statistical power** | The escalation benchmark contains 28 scenarios. Confidence intervals are wide. Stronger absolute claims require a larger sample. |
+| **Route classifier ceiling** | The hybrid classifier reaches 0.86 accuracy on the held-out split. The remaining 14% degrade gracefully to `general_student_support` and do not fabricate resources. |
+| **Compliance posture** | The architecture is HIPAA- and FERPA-compatible by design, but the current deployment is not. Groq does not sign Business Associate Agreements for commercial chat. Any real deployment requires a BAA-signed provider. |
+| **Cross-cutting concerns coverage** | International students are the only first-class cross-cutting concern in the current planner. Queer, undocumented, parenting, Black, and first-generation students each warrant similar layered treatment. |
+| **No real-world pilot** | All evaluation is synthetic. The next validation milestone is a Counseling Center clinician walkthrough, not a public release. |
+
+> Detailed failure analysis is in [`docs/research/ERROR_ANALYSIS.md`](docs/research/ERROR_ANALYSIS.md).
 
 <br>
 
@@ -420,14 +436,26 @@ Detailed failure analysis is in [`docs/research/ERROR_ANALYSIS.md`](docs/researc
 
 ## Roadmap
 
-- **Adversarial Probe Dataset delivery** *(in progress)* — authority-misconduct scenarios, sycophancy probes, topic-shift cases, anonymized real turns. All evaluations re-run when received.
+### 🔄 In Progress
+
+- **Adversarial Probe Dataset delivery** — authority-misconduct scenarios, sycophancy probes, topic-shift cases, and anonymized real turns. All evaluations will be re-run when received.
+
+<br>
+
+### 🎯 Near Term
+
 - **Counseling Center clinician walkthrough** — highest-leverage next step for real-world validation.
-- **RoBERTa fine-tuned route classifier** on the new dataset, replacing the TF-IDF logistic model.
-- **First-class layered treatment** for additional cross-cutting concerns (queer, undocumented, parenting, Black, first-generation).
-- **Multilingual reflection openers** (Hindi, Mandarin, Spanish, Korean) for international students.
-- **Scheduled weekly URL audit** via GitHub Actions.
-- **Custom FastAPI and HTML/JS frontend** for any future deployment context.
-- **Server-side persistence and authentication**, contingent on a BAA-signed provider.
+- **Fine-tuned route classifier** on the expanded dataset, replacing the current TF-IDF logistic model.
+- **Scheduled weekly URL audit** via GitHub Actions to keep the resource registry fresh.
+
+<br>
+
+### 🌱 Longer Term
+
+- **Expanded cross-cutting coverage** — first-class layered treatment for queer, undocumented, parenting, Black, and first-generation students.
+- **Multilingual reflection openers** in Hindi, Mandarin, Spanish, and Korean for international students.
+- **Custom FastAPI + HTML/JS frontend** for any future deployment context beyond the demo interface.
+- **Server-side persistence and authentication**, contingent on a BAA-signed language-model provider.
 
 <br>
 
@@ -437,12 +465,15 @@ Detailed failure analysis is in [`docs/research/ERROR_ANALYSIS.md`](docs/researc
 
 ## Contributors and License
 
-**Mukul Rayana** — University of Maryland MSML. Project lead. Architecture, code, evaluation design, end-to-end system development across all design iterations.
+### Authorship
 
-Curated dataset and supporting corpus contributions by a teammate from the MSML cohort.
+- **Mukul Rayana** — University of Maryland, MSML. Project lead; architecture, code, evaluation design, and end-to-end system development across all design iterations.
+- Curated dataset and supporting corpus contributions by a teammate from the MSML cohort.
 
-<br>
+### Course and Use
 
 Class project for **MSML641 (Applied Machine Learning)**, University of Maryland. Published openly for academic use. Not a UMD product or service.
+
+### License
 
 Code released under the [MIT License](LICENSE). Dataset and third-party model licenses vary; full provenance in [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md).
