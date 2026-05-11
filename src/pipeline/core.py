@@ -136,6 +136,10 @@ class EmpathRAGCore:
         # re-derived from each message in isolation.
         self.session_intl_flag: dict[str, bool] = {}
         self.session_last_specific_route: dict[str, str] = {}
+        # Rolling per-session message log so the rephraser has continuity.
+        # Only the last few user-assistant pairs are passed to the LLM; full
+        # history is kept here for diagnostics. Each entry: {"role", "content"}.
+        self.session_message_history: dict[str, list[dict]] = {}
 
     def reset_session(self, session_id: str | None = None) -> None:
         if session_id:
@@ -143,11 +147,13 @@ class EmpathRAGCore:
             self.locked_sessions.pop(session_id, None)
             self.session_intl_flag.pop(session_id, None)
             self.session_last_specific_route.pop(session_id, None)
+            self.session_message_history.pop(session_id, None)
         else:
             self.tier_history.clear()
             self.locked_sessions.clear()
             self.session_intl_flag.clear()
             self.session_last_specific_route.clear()
+            self.session_message_history.clear()
 
     def run_turn(
         self,
@@ -166,6 +172,7 @@ class EmpathRAGCore:
             template_response=plan.template_response,
             retrieved_sources=plan.retrieved,
             recommended_action=plan.recommended_action,
+            history=self._recent_history(session_id),
         )
         return self._finalize_turn(plan, rephrase_result.response, rephrase_result)
 
@@ -198,6 +205,7 @@ class EmpathRAGCore:
             yield ("done", result)
             return
 
+        history = self._recent_history(session_id)
         if not self.rephraser.enabled:
             # Deterministic mode: no LLM, no real streaming. Hand the template
             # through and let the demo's word-chunk reveal layer fake-stream it
@@ -207,6 +215,7 @@ class EmpathRAGCore:
                 template_response=plan.template_response,
                 retrieved_sources=plan.retrieved,
                 recommended_action=plan.recommended_action,
+                history=history,
             )
             result = self._finalize_turn(plan, rephrase_result.response, rephrase_result)
             yield ("token", result.response)
@@ -220,6 +229,7 @@ class EmpathRAGCore:
             template_response=plan.template_response,
             retrieved_sources=plan.retrieved,
             recommended_action=plan.recommended_action,
+            history=history,
         ):
             if event[0] == "chunk":
                 _, accumulated, _provider_name = event
@@ -236,6 +246,13 @@ class EmpathRAGCore:
         if result.response != accumulated:
             yield ("token", result.response)
         yield ("done", result)
+
+    def _recent_history(self, session_id: str, max_messages: int = 4) -> list[dict]:
+        """Return the last ``max_messages`` entries from this session's
+        message history. Used to give the rephraser continuity across turns
+        without leaking older context the planner has already moved past."""
+        hist = self.session_message_history.get(session_id, [])
+        return hist[-max_messages:] if hist else []
 
     # ------------------------------------------------------------------
     # Internal: plan + finalize
@@ -408,6 +425,14 @@ class EmpathRAGCore:
 
         latency = dict(plan.latency)
         latency["total_ms"] = _elapsed_ms(plan.t_total)
+
+        # Append this turn to the per-session history so the next turn has
+        # context. Trimmed to last ~6 messages to bound memory + LLM payload.
+        hist = self.session_message_history.setdefault(plan.session_id, [])
+        hist.append({"role": "user", "content": plan.message})
+        hist.append({"role": "assistant", "content": response})
+        if len(hist) > 12:  # 6 user-assistant pairs
+            del hist[: len(hist) - 12]
 
         return EmpathRAGResult(
             response=response,
@@ -674,6 +699,10 @@ def _targets_for_route(route: str, message: str) -> tuple[set[str], set[str]]:
         SupportRoute.ADVISOR_CONFLICT.value: ({"advisor_conflict", "graduate_student_support"}, {"UMD Graduate School Ombuds", "UMD Graduate School"}),
         SupportRoute.BASIC_NEEDS.value: ({"help_seeking_script", "campus_navigation", "graduate_student_support"}, {"UMD Dean of Students", "UMD Graduate School"}),
         SupportRoute.ANXIETY_PANIC.value: ({"anxiety_stress", "grounding_exercise", "counseling_services"}, {"NIMH", "NAMI", "UMD Counseling Center"}),
+        SupportRoute.AUTHORITY_MISCONDUCT.value: (
+            {"authority_misconduct", "care_violence_confidential", "campus_navigation"},
+            {"UMD Office of Civil Rights & Sexual Misconduct (OCRSM)", "UMD Office of Student Conduct", "UMD Dean of Students", "UMD CARE to Stop Violence"},
+        ),
         SupportRoute.LOW_MOOD.value: ({"depression_support", "counseling_services"}, {"NIMH", "NAMI", "UMD Counseling Center"}),
         SupportRoute.COUNSELING_NAVIGATION.value: ({"counseling_services", "campus_navigation", "therapy_expectations"}, {"UMD Counseling Center"}),
         SupportRoute.ACADEMIC_SETBACK.value: ({"academic_burnout", "graduate_student_support", "counseling_services"}, {"UMD Counseling Center", "UMD Graduate School"}),

@@ -29,6 +29,7 @@ class SupportRoute(str, Enum):
     COUNSELING_NAVIGATION = "counseling_navigation"
     BASIC_NEEDS = "basic_needs"
     CARE_VIOLENCE_CONFIDENTIAL = "care_violence_confidential"
+    AUTHORITY_MISCONDUCT = "authority_misconduct"
     PEER_HELPER = "peer_helper"
     LONELINESS_ISOLATION = "loneliness_isolation"
     ANXIETY_PANIC = "anxiety_panic"
@@ -76,6 +77,13 @@ def classify_route(
 
     if _has_any(text, ("prescribe", "diagnose", "medication dosage", "hipaa complaint", "legal complaint", "lawsuit", "litigation", "dining hall rumor", "rumor about mold")):
         return RouteDecision(SupportRoute.OUT_OF_SCOPE, safety_tier, "out_of_scope_language", audience_mode)
+
+    # Authority-figure misconduct goes before advisor_conflict / care so that
+    # alleged ethics violations route to OCRSM / Student Conduct / Dean of
+    # Students channels rather than getting absorbed into academic_setback
+    # or generic care templates.
+    if _is_authority_misconduct(text):
+        return RouteDecision(SupportRoute.AUTHORITY_MISCONDUCT, safety_tier, "authority_misconduct_language", audience_mode)
 
     if _has_any(text, ("counseling center", "referral", "off-campus care", "after hours", "after-hours", "brief assessment", "group therapy", "individual counseling", "mental health crises", "number to call")):
         return RouteDecision(SupportRoute.COUNSELING_NAVIGATION, safety_tier, "counseling_navigation_language", audience_mode)
@@ -144,6 +152,45 @@ def action_ladder(tier: SafetyTier | str) -> dict[str, str]:
             "goal": "low-risk support and campus option",
         },
     }.get(value, {"mode": value, "generation": "guarded", "retrieval": "retrieval", "goal": "support navigation"})
+
+
+# Authority-figure misconduct: the user is REPORTING what a person in a
+# position of authority over them did or said. Distinct from advisor_conflict
+# (academic disputes like goalpost-moving without alleged ethics violations).
+# Detection is conservative: requires (authority noun) AND (problematic
+# content) in the same message.
+_AUTHORITY_NOUNS = (
+    "counsellor", "counselor", "advisor", "adviser", "professor", "prof",
+    "teacher", "ta ", " ta,", " ta.", " ta:", " ta ", "ra ", " ra,", "coach",
+    "dean", "director", "mentor", "instructor", "supervisor", "department chair",
+    "principal investigator", "my pi", " pi ", "boss",
+)
+_AUTHORITY_MISCONDUCT_CONTENT = (
+    # Direct harm or illegality suggested to the student
+    "rob", "steal", "to lie", "commit fraud", "fake the",
+    "kill yourself", "hurt yourself",
+    # Boundary violations / harassment
+    "inappropriate", "made me uncomfortable", "touched me", "came on to me",
+    "hit on me", "made a pass", "asked me out", "wanted to date me", "wants to date me",
+    "sexual comment", "sexual remark", "creepy",
+    # Discrimination
+    "racist", "sexist", "homophobic", "transphobic", "ableist", "xenophobic",
+    # Coercion / retaliation
+    "retaliated", "retaliating", "retaliation", "threatened me",
+    "threatened to fail", "threatened to expel", "blackmail",
+    "leveraged my", "weaponized",
+    # Confidentiality breach
+    "told my parents", "told everyone", "broke confidentiality",
+    "outed me", "betrayed my trust",
+    # Faux authority validation
+    "told me to give up", "told me to drop out",
+)
+
+
+def _is_authority_misconduct(text: str) -> bool:
+    has_authority = _has_any(text, _AUTHORITY_NOUNS)
+    has_content = _has_any(text, _AUTHORITY_MISCONDUCT_CONTENT)
+    return has_authority and has_content
 
 
 def _is_peer_helper(text: str, audience_mode: str) -> bool:

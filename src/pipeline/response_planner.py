@@ -49,6 +49,7 @@ ALWAYS_DIRECT_ROUTES = frozenset({
     SupportRoute.CRISIS_IMMEDIATE.value,
     SupportRoute.OUT_OF_SCOPE.value,
     SupportRoute.CARE_VIOLENCE_CONFIDENTIAL.value,
+    SupportRoute.AUTHORITY_MISCONDUCT.value,
 })
 
 EXPLICIT_ASK_PATTERNS = (
@@ -426,6 +427,25 @@ def build_response_plan(
             f"Use {source_label} as the campus support starting point.",
             "If the stress becomes unsafe or overwhelming, use counseling or crisis support before continuing the conflict process.",
             "Would it help to draft the timeline together, or would you rather talk through what's actually been happening first?",
+            **common,
+        )
+
+    if route == SupportRoute.AUTHORITY_MISCONDUCT.value:
+        # The user is reporting an authority figure (counselor, professor,
+        # advisor, RA, coach, etc.) did or said something problematic. The
+        # planner deliberately does NOT validate the authority's standing or
+        # treat the alleged conduct as ordinary advice. It reflects the
+        # report, names the institutional reporting channel, and avoids
+        # legal advice or judgment of the person.
+        return ResponsePlan(
+            route,
+            safety_tier,
+            "What you are describing isn't ordinary feedback. When someone in a position of authority over you says or does something that crosses a line, you deserve a separate channel to look at it.",
+            "You don't have to decide right now whether to file anything. Naming what happened to the right office is itself a step, and offices that handle this are required to walk you through options before any action is taken.",
+            "A grounded next move: contact UMD's Office of Civil Rights & Sexual Misconduct (OCRSM) or the Office of Student Conduct, depending on what occurred. Both will explain what reporting does and does not commit you to. The UMD Dean of Students Office is also a safe first contact if you're not sure which channel fits.",
+            f"Use {source_label} to start with a confidential conversation before you decide anything.",
+            "If you are in immediate danger or facing retaliation now, contact emergency services or use crisis support first; reporting can come after.",
+            "Would it help to talk through what happened first, or would you rather skip straight to which office probably fits best?",
             **common,
         )
 

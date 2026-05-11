@@ -57,7 +57,43 @@ You MUST NOT:
 
 If the input mentions UMD ISSS / F-1 status / OPT / CPT, keep that content factually intact. If unsure, prefer keeping the input wording.
 
+If a recent-conversation block is provided, do not echo or repeat content the assistant already said in earlier turns. Move the conversation forward.
+
 Output ONLY the rephrased response. No preamble, no quotes, no explanation."""
+
+
+def _format_user_payload(
+    user_message: str,
+    template_response: str,
+    history: list[dict] | None,
+) -> str:
+    """Shared payload builder for Groq + Anthropic provider calls.
+
+    Embeds an optional recent-conversation block as a plain-text prefix so
+    both OpenAI-compatible and Anthropic native APIs see the same context
+    shape. Last 4 messages (≈2 user-assistant pairs) cap the size.
+    """
+    parts: list[str] = []
+    if history:
+        recent = history[-4:]
+        lines = []
+        for entry in recent:
+            role = entry.get("role", "user")
+            label = "Student" if role == "user" else "Navigator"
+            content = (entry.get("content") or "").strip()
+            if not content:
+                continue
+            lines.append(f"{label}: {content}")
+        if lines:
+            parts.append("Recent conversation (do not repeat what the navigator already said):")
+            parts.append("\n".join(lines))
+            parts.append("")
+    parts.append("Current student message:")
+    parts.append(user_message)
+    parts.append("")
+    parts.append("Planner-authored response (rephrase this, do not extend):")
+    parts.append(template_response)
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -70,16 +106,31 @@ class Provider(ABC):
     def available(self) -> bool: ...
 
     @abstractmethod
-    def complete(self, user_message: str, template_response: str, timeout_s: float = 4.0) -> str | None:
-        """Return rephrased text or None on failure."""
+    def complete(
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 4.0,
+        history: list[dict] | None = None,
+    ) -> str | None:
+        """Return rephrased text or None on failure.
+
+        ``history`` is an optional list of {"role", "content"} dicts for the
+        last few user-assistant turns. Providers that support it weave it
+        into the payload; the base/Deterministic/Mock providers ignore it.
+        """
 
     def complete_streaming(
-        self, user_message: str, template_response: str, timeout_s: float = 10.0
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 10.0,
+        history: list[dict] | None = None,
     ) -> Iterator[str]:
         """Yield text chunks as they arrive. Default impl falls back to one-shot
         complete() and yields the result as a single chunk; subclasses with real
         SSE support override this. Sets ``self.last_error`` on failure (no yield)."""
-        full = self.complete(user_message, template_response, timeout_s)
+        full = self.complete(user_message, template_response, timeout_s, history=history)
         if full is None:
             return
         yield full
@@ -92,7 +143,13 @@ class DeterministicProvider(Provider):
     def available(self) -> bool:
         return True
 
-    def complete(self, user_message: str, template_response: str, timeout_s: float = 4.0) -> str | None:
+    def complete(
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 4.0,
+        history: list[dict] | None = None,
+    ) -> str | None:
         return template_response
 
 
@@ -106,15 +163,25 @@ class MockProvider(Provider):
     def available(self) -> bool:
         return self._enabled
 
-    def complete(self, user_message: str, template_response: str, timeout_s: float = 4.0) -> str | None:
+    def complete(
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 4.0,
+        history: list[dict] | None = None,
+    ) -> str | None:
         # Tiny semantic-preserving variation; useful for testing the
         # safety check / fallback wiring without touching a real API.
         return template_response.replace("That sounds", "That really does sound")
 
     def complete_streaming(
-        self, user_message: str, template_response: str, timeout_s: float = 10.0
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 10.0,
+        history: list[dict] | None = None,
     ) -> Iterator[str]:
-        full = self.complete(user_message, template_response, timeout_s)
+        full = self.complete(user_message, template_response, timeout_s, history=history)
         if full is None:
             return
         for word in full.split(" "):
@@ -156,7 +223,13 @@ class GroqProvider(Provider):
     def available(self) -> bool:
         return bool(self.api_key)
 
-    def complete(self, user_message: str, template_response: str, timeout_s: float = 4.0) -> str | None:
+    def complete(
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 4.0,
+        history: list[dict] | None = None,
+    ) -> str | None:
         self.last_error = ""
         if not self.api_key:
             self.last_error = "no_api_key"
@@ -164,10 +237,7 @@ class GroqProvider(Provider):
         import urllib.request
         import urllib.error
 
-        user_payload = (
-            f"User message:\n{user_message}\n\n"
-            f"Planner-authored response (rephrase this, do not extend):\n{template_response}"
-        )
+        user_payload = _format_user_payload(user_message, template_response, history)
         body = json.dumps({
             "model": self.model,
             "temperature": 0.4,
@@ -213,7 +283,11 @@ class GroqProvider(Provider):
             return None
 
     def complete_streaming(
-        self, user_message: str, template_response: str, timeout_s: float = 10.0
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 10.0,
+        history: list[dict] | None = None,
     ) -> Iterator[str]:
         """Stream tokens from Groq's OpenAI-compatible chat completions SSE."""
         self.last_error = ""
@@ -223,10 +297,7 @@ class GroqProvider(Provider):
         import urllib.request
         import urllib.error
 
-        user_payload = (
-            f"User message:\n{user_message}\n\n"
-            f"Planner-authored response (rephrase this, do not extend):\n{template_response}"
-        )
+        user_payload = _format_user_payload(user_message, template_response, history)
         body = json.dumps({
             "model": self.model,
             "temperature": 0.4,
@@ -313,17 +384,20 @@ class AnthropicProvider(Provider):
     def available(self) -> bool:
         return bool(self.api_key)
 
-    def complete(self, user_message: str, template_response: str, timeout_s: float = 4.0) -> str | None:
+    def complete(
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 4.0,
+        history: list[dict] | None = None,
+    ) -> str | None:
         self.last_error = ""
         if not self.api_key:
             self.last_error = "no_api_key"
             return None
         import urllib.request
         import urllib.error
-        user_payload = (
-            f"User message:\n{user_message}\n\n"
-            f"Planner-authored response (rephrase this, do not extend):\n{template_response}"
-        )
+        user_payload = _format_user_payload(user_message, template_response, history)
         body = json.dumps({
             "model": self.model,
             "max_tokens": 400,
@@ -366,7 +440,11 @@ class AnthropicProvider(Provider):
             return None
 
     def complete_streaming(
-        self, user_message: str, template_response: str, timeout_s: float = 10.0
+        self,
+        user_message: str,
+        template_response: str,
+        timeout_s: float = 10.0,
+        history: list[dict] | None = None,
     ) -> Iterator[str]:
         """Stream tokens from Anthropic's /v1/messages SSE."""
         self.last_error = ""
@@ -376,10 +454,7 @@ class AnthropicProvider(Provider):
         import urllib.request
         import urllib.error
 
-        user_payload = (
-            f"User message:\n{user_message}\n\n"
-            f"Planner-authored response (rephrase this, do not extend):\n{template_response}"
-        )
+        user_payload = _format_user_payload(user_message, template_response, history)
         body = json.dumps({
             "model": self.model,
             "max_tokens": 400,
@@ -482,6 +557,7 @@ class ResponseRephraser:
         retrieved_sources: list[dict],
         recommended_action: str = "",
         force_deterministic: bool = False,
+        history: list[dict] | None = None,
     ) -> RephraseResult:
         """Always returns a safe response. Falls back to template on any failure."""
         if force_deterministic or not self.enabled:
@@ -500,7 +576,7 @@ class ResponseRephraser:
             if not provider.available():
                 continue
             t0 = time.perf_counter()
-            candidate = provider.complete(user_message, template_response)
+            candidate = provider.complete(user_message, template_response, history=history)
             elapsed = (time.perf_counter() - t0) * 1000.0
             total_latency_ms += elapsed
             if candidate is None:
@@ -542,6 +618,7 @@ class ResponseRephraser:
         retrieved_sources: list[dict],
         recommended_action: str = "",
         force_deterministic: bool = False,
+        history: list[dict] | None = None,
     ) -> Iterator[tuple]:
         """Streaming variant. Yields events:
 
@@ -586,7 +663,7 @@ class ResponseRephraser:
             # response — smoother visually, less wire chatter.
             _STREAM_BATCH_CHARS = 12
             try:
-                for chunk in provider.complete_streaming(user_message, template_response):
+                for chunk in provider.complete_streaming(user_message, template_response, history=history):
                     if not chunk:
                         continue
                     accumulated += chunk
