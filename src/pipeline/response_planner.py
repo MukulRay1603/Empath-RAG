@@ -26,6 +26,8 @@ immediately. Crisis bypasses everything via render_crisis_response().
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 from typing import Tuple
 
@@ -681,24 +683,30 @@ def render_intl_factual_offer(topic: str, message: str = "") -> str:
     return ""
 
 
-# Phrases that indicate active interpersonal danger (intimate-partner
-# violence, stalking, assault threat). Distinct from self-harm ideation,
-# and the right redirect is 911 + safe location + UMD CARE, not 988.
-_INTERPERSONAL_DANGER_PATTERNS = (
-    "hitting me", "hit me", "beats me", "beating me", "beat me up",
-    "scared of him", "scared of her", "afraid of him", "afraid of her",
-    "abusing me", "is abusive", "abusive partner", "domestic violence",
-    "stalker", "stalking me", "won't leave me alone",
-    "threatening to kill me", "threatening me", "threatened me",
-    "not safe at home", "scared to go home",
-    "he's coming back", "she's coming back",
-    "forced me", "raped me", "assaulted me",
+# Regex patterns for active interpersonal danger (intimate-partner violence,
+# family abuse, stalking, assault threat). Distinct from self-harm ideation;
+# right redirect is 911 + safe location + UMD CARE, not 988. Use word
+# boundaries so "hits me" and "hit me" both match.
+_INTERPERSONAL_DANGER_REGEX = re.compile(
+    r"\b(hitting|hits|hit) me\b|"
+    r"\b(beats|beating|beat) me\b|"
+    r"\bscared (?:to go home|of him|of her|of them)\b|"
+    r"\bafraid (?:of him|of her|of them)\b|"
+    r"\babusive (?:partner|relationship|boyfriend|girlfriend|husband|wife|parent|dad|mom)\b|"
+    r"\b(?:my )?(?:dad|mom|father|mother|brother|sister) (?:hits|beats|hurts|abuses) me\b|"
+    r"\b(?:domestic violence|abuse|abusing me)\b|"
+    r"\b(stalker|stalking me)\b|"
+    r"\bwon'?t leave me alone\b|"
+    r"\b(?:threatening|threatened) (?:to kill|me)\b|"
+    r"\bnot safe (?:at home|in my)\b|"
+    r"\b(?:raped|assaulted|forced) me\b|"
+    r"\b(?:he|she)(?:'s)? coming (?:back|after me)\b",
+    re.IGNORECASE,
 )
 
 
 def _is_interpersonal_danger(message: str) -> bool:
-    text = (message or "").lower()
-    return any(p in text for p in _INTERPERSONAL_DANGER_PATTERNS)
+    return bool(_INTERPERSONAL_DANGER_REGEX.search(message or ""))
 
 
 def render_crisis_response(

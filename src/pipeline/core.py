@@ -883,11 +883,15 @@ _INCOMPLETE_TERMINAL_WORDS = frozenset({
     # Auxiliary fragments
     "should", "would", "could", "might", "may", "will", "can", "do",
     "does", "did",
-    # Fragment determiners
-    "my", "your", "his", "her", "their", "our", "this", "that",
+    # Fragment determiners (only ones that never legitimately close a sentence)
+    "my", "your", "their", "our",
     # Transitive verbs that almost always need an object
     "want", "need", "wish",
 })
+# Deliberately NOT in the terminal set: "this", "that", "these", "those",
+# "her", "his", "him". These DO legitimately close sentences ("I don't know
+# what to do with that.", "I told her."), and putting them in the terminal
+# set produces false positives on real emotional disclosure.
 
 # Words that close a sentence legitimately in longer messages ("It is what
 # it is") but signal incompleteness in very short ones ("the thing is").
