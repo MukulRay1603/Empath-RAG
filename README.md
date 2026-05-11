@@ -32,8 +32,6 @@ short_description: Guarded conversational RAG support navigator for UMD students
 
 ---
 
-<br>
-
 ## Contents
 
 | Section | Description |
@@ -46,7 +44,6 @@ short_description: Guarded conversational RAG support navigator for UMD students
 | [Models](#models) | Components and their roles |
 | [Results](#results) | Headline, ablation, sweeps |
 | [Quickstart](#quickstart) | Local install and run |
-| [Hugging Face Spaces](#hugging-face-spaces) | Deployment steps |
 | [Repository Structure](#repository-structure) | Where everything lives |
 | [Documentation](#documentation) | Index of supporting docs |
 | [Scope and Limitations](#scope-and-limitations) | Honest bounds on the claims |
@@ -56,8 +53,6 @@ short_description: Guarded conversational RAG support navigator for UMD students
 <br>
 
 ---
-
-<br>
 
 ## Problem
 
@@ -73,8 +68,6 @@ EmpathRAG addresses both by separating *what to say* from *how to say it*. Routi
 <br>
 
 ---
-
-<br>
 
 ## Architecture
 
@@ -120,8 +113,6 @@ The Gradio interface displays this pipeline as a row of status chips beneath eac
 
 ---
 
-<br>
-
 ## Approach
 
 The architectural pattern is **plan and rephrase**.
@@ -133,8 +124,6 @@ This separation is what gives the system its safety properties. The planner is a
 <br>
 
 ---
-
-<br>
 
 ## Design Iterations
 
@@ -182,8 +171,6 @@ Subsequent polish added: response streaming, support-plan export (Markdown and P
 
 ---
 
-<br>
-
 ## Datasets
 
 EmpathRAG combines public mental-health corpora used by the open-retrieval baseline with a custom UMD-specific dataset built for the guarded architecture.
@@ -205,8 +192,6 @@ Evaluation scenarios are tracked at [`eval/multiturn_scenarios.jsonl`](eval/mult
 
 ---
 
-<br>
-
 ## Models
 
 | Component | Model | Role |
@@ -225,8 +210,6 @@ Training notebooks are in [`notebooks/`](notebooks/). Trained artifacts (LoRA we
 <br>
 
 ---
-
-<br>
 
 ## Results
 
@@ -295,8 +278,6 @@ Full baseline evaluation context in [`docs/research/PAPER_FRAMING.md`](docs/rese
 
 ---
 
-<br>
-
 ## Quickstart
 
 ```powershell
@@ -328,31 +309,6 @@ $env:EMPATHRAG_REPHRASER_ENABLED='1'
 
 ---
 
-<br>
-
-## Hugging Face Spaces
-
-The Spaces YAML frontmatter is at the top of this file. To deploy:
-
-1. Create a new Space at <https://huggingface.co/new-space> with **SDK = Gradio**.
-2. Under *Settings → Variables and secrets*, add:
-
-   | Type | Name | Required |
-   |---|---|---|
-   | Secret | `GROQ_API_KEY` | Yes |
-   | Secret | `ANTHROPIC_API_KEY` | Optional fallback |
-
-3. Push this repository to the Space's git remote (or link the Space to the GitHub repo).
-4. The Space builds in roughly two minutes. Cold-start after sleep is roughly thirty seconds.
-
-The free CPU Basic tier (2 vCPU, 16 GB RAM) is sufficient because all language-model compute is offloaded to Groq or Anthropic.
-
-<br>
-
----
-
-<br>
-
 ## Repository Structure
 
 ```
@@ -368,13 +324,9 @@ docs/                 architecture/, research/
 app.py                Hugging Face Spaces entry shim
 ```
 
-Intentionally untracked: `data/curated/indexes/`, `models/`, internal dataset deliverables, `.env`, generated eval reports.
-
 <br>
 
 ---
-
-<br>
 
 ## Documentation
 
@@ -391,27 +343,25 @@ Intentionally untracked: `data/curated/indexes/`, `models/`, internal dataset de
 
 ---
 
-<br>
-
 ## Scope and Limitations
 
-### Capabilities
+### What EmpathRAG Will Do
 
-- ✅ &nbsp; Listens first and reflects what the student said in their own words.
-- ✅ &nbsp; Surfaces specific UMD resources only when the conversation calls for them.
-- ✅ &nbsp; Routes to verified UMD and national resources with full provenance — source URL, last-verified date, source authority.
-- ✅ &nbsp; Separates emotional support from immigration questions for international students; routes the latter to ISSS.
-- ✅ &nbsp; Intercepts crisis content before generation; routes to **988 + UMD Counseling Center** for self-harm ideation and **911 + UMD CARE** for interpersonal danger.
+✅ &nbsp; Listen first, and reflect what a student has shared back in their own words before suggesting any next step.<br><br>
+✅ &nbsp; Surface specific UMD resources only when the conversation calls for them, never as a default reflex.<br><br>
+✅ &nbsp; Route to verified UMD and national resources with full provenance attached — source URL, last-verified date, and source authority.<br><br>
+✅ &nbsp; Separate emotional support from immigration questions for international students, and route the latter to ISSS.<br><br>
+✅ &nbsp; Intercept crisis content before any generation step, routing to **988 and the UMD Counseling Center** for self-harm ideation, and to **911 and UMD CARE** for interpersonal danger.
 
 <br>
 
-### Out of Scope
+### What EmpathRAG Will Not Do
 
-- ❌ &nbsp; Does not diagnose anxiety, depression, PTSD, or any other condition.
-- ❌ &nbsp; Does not prescribe medication or treatment.
-- ❌ &nbsp; Does not provide clinical judgment.
-- ❌ &nbsp; Does not promise unconditional availability.
-- ❌ &nbsp; Does not store conversations server-side beyond what the student explicitly downloads.
+❌ &nbsp; It will not diagnose anxiety, depression, PTSD, or any other condition.<br><br>
+❌ &nbsp; It will not prescribe medication or treatment.<br><br>
+❌ &nbsp; It will not provide clinical judgment of any kind.<br><br>
+❌ &nbsp; It will not promise unconditional availability or replace a counselor.<br><br>
+❌ &nbsp; It will not store conversations server-side beyond what a student explicitly chooses to download.
 
 <br>
 
@@ -431,8 +381,6 @@ Intentionally untracked: `data/curated/indexes/`, `models/`, internal dataset de
 <br>
 
 ---
-
-<br>
 
 ## Roadmap
 
@@ -461,14 +409,12 @@ Intentionally untracked: `data/curated/indexes/`, `models/`, internal dataset de
 
 ---
 
-<br>
-
 ## Contributors and License
 
 ### Authorship
 
 - **Mukul Rayana** — University of Maryland, MSML. Project lead; architecture, code, evaluation design, and end-to-end system development across all design iterations.
-- Curated dataset and supporting corpus contributions by a teammate from the MSML cohort.
+- **Karthik** — University of Maryland, MSML. Curated dataset and supporting corpus contributions.
 
 ### Course and Use
 
