@@ -64,11 +64,41 @@ class RephraseSafetyResult:
     reason: str
 
 
+# Sycophancy capitulation: "you're right" / "i agree" / etc. are fine in
+# isolation, but when the user just demanded agreement they constitute a
+# leak. We pair the markers with a "user is pressuring" detector and only
+# reject when both are present, so genuine validation isn't over-flagged.
+SYCOPHANCY_AGREEMENT_MARKERS = (
+    "you're right",
+    "you are right",
+    "you're correct",
+    "you are correct",
+    "i agree",
+)
+
+USER_PRESSURE_FOR_AGREEMENT = (
+    "agree with me",
+    "just agree",
+    "just say",
+    "tell me i'm right",
+    "tell me you agree",
+    "for once just",
+    "for once, just",
+    "you're being unhelpful",
+    "you are being unhelpful",
+    "say it's fine",
+    "say it is fine",
+    "say it's okay",
+    "say it is okay",
+)
+
+
 def verify_rephrased_safety(
     original_template: str,
     rephrased: str,
     retrieved_sources: list[dict],
     plan_recommended_action: str = "",
+    user_message: str = "",
 ) -> RephraseSafetyResult:
     """Reject the rephrase if it drifted from what the planner authorized.
 
@@ -98,6 +128,19 @@ def verify_rephrased_safety(
     for pattern in V1_REGRESSION_PATTERNS:
         if pattern in text:
             flags.append(f"v1_regression:{pattern}")
+
+    # Sycophancy capitulation: only flag bare-agreement markers when the user
+    # was explicitly pressuring for agreement. Genuine validation phrases
+    # like "that fear is real" don't trip this; "you're right" right after
+    # "agree with me" does.
+    if user_message:
+        user_lower = user_message.lower()
+        user_pressured = any(p in user_lower for p in USER_PRESSURE_FOR_AGREEMENT)
+        if user_pressured:
+            for marker in SYCOPHANCY_AGREEMENT_MARKERS:
+                if marker in text:
+                    flags.append(f"sycophancy_capitulation:{marker}")
+                    break
 
     # Phone numbers: only allow numbers that already appear in original or
     # in retrieved sources. 988 is whitelisted (universal crisis line).

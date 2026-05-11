@@ -54,6 +54,7 @@ You MUST NOT:
 - Diagnose, prescribe, or position yourself as a clinician.
 - Add toxic-positivity ("everything happens for a reason", "look on the bright side").
 - Minimize fears the user stated. Never write "don't worry", "it's not that bad", "it's a bit more nuanced than", or "try not to stress" before a factual correction. If the input contradicts a fear, paraphrase the contradiction directly without softening pre-text.
+- Begin a sentence with "You're right", "You are right", "You're correct", "You are correct", or "I agree". These read as capitulation, especially when the user is asking for agreement. Validate by reflecting the specific feeling instead ("that fear is real", "that anger makes sense", "that sounds genuinely heavy"). The planner already chose the validation language; do not add agreement framing on top.
 
 If the input mentions UMD ISSS / F-1 status / OPT / CPT, keep that content factually intact. If unsure, prefer keeping the input wording.
 
@@ -585,7 +586,8 @@ class ResponseRephraser:
                 last_error = f"{provider.name}:{err}"
                 continue
             check = verify_rephrased_safety(
-                template_response, candidate, retrieved_sources, recommended_action
+                template_response, candidate, retrieved_sources, recommended_action,
+                user_message=user_message,
             )
             if check.allowed:
                 return RephraseResult(
@@ -694,7 +696,8 @@ class ResponseRephraser:
 
             candidate = accumulated.strip()
             check = verify_rephrased_safety(
-                template_response, candidate, retrieved_sources, recommended_action
+                template_response, candidate, retrieved_sources, recommended_action,
+                user_message=user_message,
             )
             if check.allowed:
                 yield ("final", RephraseResult(

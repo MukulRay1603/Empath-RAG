@@ -135,6 +135,11 @@ class EmpathRAGCore:
         # forward (international concern, last specific route) instead of being
         # re-derived from each message in isolation.
         self.session_intl_flag: dict[str, bool] = {}
+        # Turns since the user last mentioned F-1 / visa / international
+        # status keywords. ISSS auto-surfacing decays after 2 silent turns
+        # so the conversation can fully shift topic without ISSS hijacking
+        # every subsequent response.
+        self.session_turns_since_intl: dict[str, int] = {}
         self.session_last_specific_route: dict[str, str] = {}
         # Rolling per-session message log so the rephraser has continuity.
         # Only the last few user-assistant pairs are passed to the LLM; full
@@ -146,12 +151,14 @@ class EmpathRAGCore:
             self.tier_history.pop(session_id, None)
             self.locked_sessions.pop(session_id, None)
             self.session_intl_flag.pop(session_id, None)
+            self.session_turns_since_intl.pop(session_id, None)
             self.session_last_specific_route.pop(session_id, None)
             self.session_message_history.pop(session_id, None)
         else:
             self.tier_history.clear()
             self.locked_sessions.clear()
             self.session_intl_flag.clear()
+            self.session_turns_since_intl.clear()
             self.session_last_specific_route.clear()
             self.session_message_history.clear()
 
@@ -323,13 +330,23 @@ class EmpathRAGCore:
 
         # Cross-cutting: when an F-1 / visa / international-status worry shows up
         # at any point in the session, keep the ISSS surface and the
-        # international-aware framing for subsequent turns.
+        # international-aware framing for subsequent turns — but decay it so
+        # ISSS doesn't hijack every later turn after the topic has shifted.
         intl_now = has_international_concern(message)
         if intl_now:
             self.session_intl_flag[session_id] = True
+            self.session_turns_since_intl[session_id] = 0
+        else:
+            self.session_turns_since_intl[session_id] = (
+                self.session_turns_since_intl.get(session_id, 0) + 1
+            )
         intl_session = self.session_intl_flag.get(session_id, False)
+        # "Active" means F-1 framing should drive retrieval + sub-topic logic
+        # this turn. After 2 turns with no F-1 keyword the flag remains True
+        # for diagnostics but stops dominating responses.
+        intl_active = intl_session and self.session_turns_since_intl.get(session_id, 0) <= 2
 
-        if not should_intercept and intl_session:
+        if not should_intercept and intl_active:
             already_has_isss = any(
                 (s.get("source_name") or "").lower().startswith("umd international")
                 or (s.get("service_id") or "").startswith("umd_isss")
@@ -350,10 +367,12 @@ class EmpathRAGCore:
                 safety_tier.value,
                 retrieved,
                 audience_mode,
-                international_concern_override=intl_session,
+                international_concern_override=intl_active,
             )
             stage = decide_stage(message, route_label, safety_tier.value, turn_index)
-            intl_topic = classify_intl_topic(message) if intl_session else ""
+            # Only classify F-1 sub-topic when the framing is actively in play.
+            # After 2 silent turns, decayed; don't pin the planner to OPT/RCL/etc.
+            intl_topic = classify_intl_topic(message) if intl_active else ""
             # Minimal-affirmation handler. "yes" / "no" / "ok" with no other
             # content has no new intent — re-rendering the OFFER template just
             # repeats the previous turn. Instead, route to a clarifying-question
@@ -361,6 +380,13 @@ class EmpathRAGCore:
             minimal_kind = _minimal_response_kind(message)
             if minimal_kind:
                 template_response = _render_minimal_followup(minimal_kind, intl_session)
+                stage = "clarify"
+                recommended_action = response_plan.recommended_action
+            elif _is_incomplete_message(message):
+                # The student's message trails off ("what should i do to",
+                # "honestly", "kind of"). Guessing the intent and producing
+                # a full OFFER response is worse than asking them to finish.
+                template_response = _render_incomplete_followup()
                 stage = "clarify"
                 recommended_action = response_plan.recommended_action
             elif intl_topic and stage == "offer":
@@ -750,6 +776,74 @@ def _recommended_action(route: str, safety_tier: str) -> str:
     return plan.recommended_action
 
 
+# Words that, when they're the last token of a short message, strongly
+# suggest the user trailed off mid-sentence. Conservative list: only
+# prepositions/conjunctions/articles/auxiliaries that almost never close
+# a real sentence. We deliberately omit "is", "are", "was" — those can
+# legitimately close a sentence ("It is what it is").
+_INCOMPLETE_TERMINAL_WORDS = frozenset({
+    # Prepositions
+    "to", "for", "with", "about", "of", "on", "at", "by", "from", "into",
+    "over", "under", "between", "without", "through", "during",
+    # Conjunctions / subordinators
+    "and", "but", "or", "because", "if", "when", "while", "though",
+    "although", "since", "until", "whereas",
+    # Articles
+    "a", "an", "the",
+    # Auxiliary fragments
+    "should", "would", "could", "might", "may", "will", "can", "do",
+    "does", "did",
+    # Fragment determiners
+    "my", "your", "his", "her", "their", "our", "this", "that",
+    # Transitive verbs that almost always need an object
+    "want", "need", "wish",
+})
+
+# Words that close a sentence legitimately in longer messages ("It is what
+# it is") but signal incompleteness in very short ones ("the thing is").
+_SHORT_ONLY_TERMINAL_WORDS = frozenset({
+    "is", "are", "was", "were", "i",
+})
+
+# Whole-message hedges that carry no content. Distinct from minimal
+# affirmations (yes/no/ok) — those have a routing meaning; these don't.
+_HEDGE_ONLY_MESSAGES = frozenset({
+    "honestly", "kind of", "kinda", "sort of", "sorta", "i mean",
+    "well", "uh", "um", "you know", "like", "i guess", "hmm",
+    "idk maybe", "idk i guess", "maybe idk",
+})
+
+
+def _is_incomplete_message(message: str) -> bool:
+    """True if the message looks like it trailed off or is hedge-only."""
+    if not message:
+        return True
+    raw = message.strip()
+    if not raw:
+        return True
+    # Pure ellipsis / punctuation-only
+    if all(c in ".,;:!? \t-" for c in raw):
+        return True
+    # Strip trailing punctuation/whitespace before testing the terminal word
+    text = raw.rstrip(".,!?;:- \t").strip()
+    if not text:
+        return True
+    text_lower = " ".join(text.lower().split())
+    if text_lower in _HEDGE_ONLY_MESSAGES:
+        return True
+    # Last word ending the (short) message is a known incomplete-terminal
+    words = text_lower.split()
+    if not words:
+        return True
+    if words[-1] in _INCOMPLETE_TERMINAL_WORDS and len(text) < 80:
+        return True
+    # Short-only terminals: "is" / "are" close real sentences in longer
+    # messages but signal incompleteness in fragments like "the thing is".
+    if words[-1] in _SHORT_ONLY_TERMINAL_WORDS and len(words) <= 3:
+        return True
+    return False
+
+
 _MINIMAL_AFFIRM = frozenset({
     "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "kk", "k",
     "alright", "fine", "definitely", "absolutely",
@@ -777,6 +871,15 @@ def _minimal_response_kind(message: str) -> str:
     if clean in _MINIMAL_UNSURE:
         return "unsure"
     return ""
+
+
+def _render_incomplete_followup() -> str:
+    """Response for messages that trail off mid-sentence or are content-free
+    hedges. Invite completion without guessing at intent."""
+    return (
+        "Looks like the thought might have cut off. Take your time and say "
+        "the rest when you're ready, in whatever words feel right."
+    )
 
 
 def _render_minimal_followup(kind: str, intl_session: bool) -> str:
