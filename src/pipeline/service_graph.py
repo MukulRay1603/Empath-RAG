@@ -63,6 +63,7 @@ class ServiceNode:
             "source_type": self.source_authority,
             "why_retrieved": why,
             "documents": list(self.documents) if self.documents else [],
+            "last_verified": self.last_verified,
         }
 
 

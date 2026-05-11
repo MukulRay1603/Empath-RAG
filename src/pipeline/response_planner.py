@@ -681,19 +681,62 @@ def render_intl_factual_offer(topic: str, message: str = "") -> str:
     return ""
 
 
-def render_crisis_response(route: str, audience_mode: str = "student") -> str:
+# Phrases that indicate active interpersonal danger (intimate-partner
+# violence, stalking, assault threat). Distinct from self-harm ideation,
+# and the right redirect is 911 + safe location + UMD CARE, not 988.
+_INTERPERSONAL_DANGER_PATTERNS = (
+    "hitting me", "hit me", "beats me", "beating me", "beat me up",
+    "scared of him", "scared of her", "afraid of him", "afraid of her",
+    "abusing me", "is abusive", "abusive partner", "domestic violence",
+    "stalker", "stalking me", "won't leave me alone",
+    "threatening to kill me", "threatening me", "threatened me",
+    "not safe at home", "scared to go home",
+    "he's coming back", "she's coming back",
+    "forced me", "raped me", "assaulted me",
+)
+
+
+def _is_interpersonal_danger(message: str) -> bool:
+    text = (message or "").lower()
+    return any(p in text for p in _INTERPERSONAL_DANGER_PATTERNS)
+
+
+def render_crisis_response(
+    route: str,
+    audience_mode: str = "student",
+    user_message: str = "",
+) -> str:
+    # Peer-helper crisis: user is worried about someone else.
     if route == SupportRoute.PEER_HELPER.value or audience_mode == "helping_friend":
         return (
-            "I'm really glad you told me about this. This sounds like an immediate safety "
-            "situation for your friend, and you should not handle it alone. Please contact "
-            "emergency or crisis support now, and involve a trusted nearby person, RA, "
-            "supervisor, or campus support while you try to reach them."
+            "I'm really glad you told me about this. This sounds like an immediate "
+            "safety situation for your friend, and you should not handle it alone. "
+            "Please contact emergency or crisis support now, and involve a trusted "
+            "nearby person, an RA, a supervisor, or campus support while you try "
+            "to reach them. What you can say if you do reach them: I care about you, "
+            "I'm worried, and I want to get another person involved so you're not alone."
         )
+
+    # Active interpersonal danger (DV / stalking / assault threat).
+    # 911 + safe location + UMD CARE, not 988.
+    if _is_interpersonal_danger(user_message):
+        return (
+            "I'm really glad you told me, and I'm taking what you said seriously. "
+            "If you're not safe right now or someone might be coming to you, call 911 "
+            "or get to a public location with other people around. When you're "
+            "somewhere safe, UMD CARE to Stop Violence is a confidential resource "
+            "that can walk through next steps with you, including safety planning and "
+            "what your options look like. No pressure to file or report anything right now."
+        )
+
+    # Default: self-harm ideation / imminent safety to self.
     return (
-        "I'm really glad you told me. What you're describing sounds like a moment where "
-        "having a real person with you matters. Please call or text 988 now, or call "
-        "emergency services if there's immediate danger. If someone nearby can stay with "
-        "you, move near them while you get help. I'm here while you do."
+        "I'm really glad you told me. What you're describing sounds like a moment "
+        "where having a real person with you matters. Please call or text 988 now, "
+        "or call emergency services if there's immediate danger. If someone nearby "
+        "can stay with you, move near them while you get help. UMD Counseling "
+        "Center after-hours is at 301-314-HELP (4357) and is staffed for moments "
+        "exactly like this. I'm here while you reach out."
     )
 
 

@@ -115,10 +115,34 @@ def classify_route(
     if _has_any(text, ("lonely", "isolated", "no one cares", "no friends", "alone", "roommate moved out", "dorm feels hollow", "nobody texts", "burden people", "disappear socially")):
         return RouteDecision(SupportRoute.LONELINESS_ISOLATION, safety_tier, "loneliness_language", audience_mode)
 
-    if _has_any(text, ("panic", "panicking", "anxiety", "anxious", "grounding", "breathing", "stomach is wrecked", "freeze in social", "intrusive thoughts", "heart rate", "drinking more", "mindfulness", "sensory overwhelm", "quick reset", "journaling", "worry loops")):
+    if _has_any(text, (
+        # Formal anxiety/panic language
+        "panic", "panicking", "anxiety", "anxious", "grounding", "breathing",
+        "stomach is wrecked", "freeze in social", "intrusive thoughts",
+        "heart rate", "drinking more", "mindfulness", "sensory overwhelm",
+        "quick reset", "journaling", "worry loops",
+        # Slang / informal anxiety markers
+        "stressed", "stressing", "stressed out", "stress out", "freaking out",
+        "freaked out", "spiraling", "overwhelmed", "overthinking",
+        "can't breathe", "cant breathe", "heart racing", "shaking",
+        "on edge", "wound up", "tense",
+    )):
         return RouteDecision(SupportRoute.ANXIETY_PANIC, safety_tier, "anxiety_or_panic_language", audience_mode)
 
-    if _has_any(text, ("depressed", "depressing", "depression", "low mood", "hopeless", "feel numb", "motivation disappeared", "canceling plans", "guilty", "dark moods", "pointless")):
+    if _has_any(text, (
+        # Formal low-mood language
+        "depressed", "depressing", "depression", "low mood", "hopeless",
+        "feel numb", "motivation disappeared", "canceling plans", "guilty",
+        "dark moods", "pointless",
+        # Slang / informal low-mood markers
+        "im sad", "i'm sad", "feeling sad", "so sad", "really sad",
+        "im down", "i'm down", "feeling down", "feel down", "down lately",
+        "im tired", "i'm tired", "so tired", "exhausted",
+        "i give up", "want to give up", "wanna give up", "im done",
+        "i'm done", "so done", "ngl tired", "burned out", "burnt out",
+        "no point", "what's the point", "whats the point",
+        "everything sucks", "life sucks",
+    )):
         return RouteDecision(SupportRoute.LOW_MOOD, safety_tier, "low_mood_language", audience_mode)
 
     return RouteDecision(SupportRoute.GENERAL_STUDENT_SUPPORT, safety_tier, "default_support_navigation", audience_mode)

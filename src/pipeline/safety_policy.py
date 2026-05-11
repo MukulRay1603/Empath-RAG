@@ -156,6 +156,20 @@ EXPLICIT_CRISIS_PATTERNS = tuple(
         r"\bending things\b",
         r"\bending it all\b",
         r"\bpainless ways to disappear\b",
+        # Interpersonal danger — distinct kind of crisis, same intercept tier.
+        # The student is reporting active or imminent harm from another
+        # person. Stage-1 intercept fires so the LLM never sees it; the
+        # render_crisis_response DV variant picks up from there with the
+        # right redirect (911 + UMD CARE rather than 988).
+        r"\b(hitting|hits|hit) me\b",
+        r"\b(beats|beating|beat) me\b",
+        r"\bscared (?:to go home|of him|of her)\b",
+        r"\bnot safe (?:at home|in my)\b",
+        r"\b(threatening|threatened) (?:to|me)\b",
+        r"\b(raped|assaulted) me\b",
+        r"\babusive (?:partner|relationship|boyfriend|girlfriend|husband|wife)\b",
+        r"\bstalking me\b",
+        r"\bwon'?t leave me alone\b",
     )
 )
 
