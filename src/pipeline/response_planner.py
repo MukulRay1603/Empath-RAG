@@ -35,6 +35,11 @@ from .v2_schema import SupportRoute
 LISTEN = "listen"
 PERMISSION = "permission"
 OFFER = "offer"
+# CLARIFY is set by the planner for minimal-affirm / incomplete / truncated
+# messages — short open-ended responses that intentionally skip the
+# OFFER-stage output guard. Exported here as a string constant so callers
+# don't reach for stringly-typed values.
+CLARIFY = "clarify"
 
 
 # Routes that always go straight to OFFER. The prompt itself is an explicit

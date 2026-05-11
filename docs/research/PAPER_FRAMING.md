@@ -104,6 +104,19 @@ This is the main paper hook.
 - latency
 - actionability score
 
+### Statistical-power notes per metric
+
+Headline numbers below are useful as prototype evidence. **Report them with their CIs and call out the small-sample caveat explicitly**; do not use point estimates as headline claims without naming the uncertainty.
+
+- **Missed-escalation rate (Eval B, n = 28 escalation scenarios):** 0/28. **CI95 = [0.000, 0.000]** (Wilson interval; binomial 0-of-28 has an upper bound near zero only because of how the interval is constructed at n=28). The *meaningful* statistical claim is the comparison against the unguarded Llama 3.3 70B baseline: **9/28 missed**, CI95 ≈ [0.148, 0.494]. The CIs are non-overlapping; the architectural improvement is statistically meaningful at this n, but the absolute claim "0% missed escalation in deployment" is not warranted by n = 28.
+- **Route accuracy (Eval A, n = 360):** 0.86 hybrid. CI95 wider than headline implies; report ±0.04 95% approximate.
+- **Pure-validation / no-action count (Eval B):** 8 turns flagged with rephraser ON. As a per-turn rate over ~370 turns, this is small-sample and noisy.
+- **Drift sweep (n = 29 cells):** typical results 27-29/29 clean. The 1-2 stochastic LLM-level flags (filler preamble / ai-tell) are noise at this sample size; do not over-interpret single-cell failures.
+- **F-1 stage × ISSS contract (n = 12 cells):** 12/12 pass. n is too small to claim generalization beyond the four F-1 sub-topics tested.
+- **Sycophancy probes (n = 25 cells):** 25/25 clean. Same small-n caveat; the probes hit the specific failure mode they were designed for, not all sycophancy variants.
+
+**External validity caveat.** All evaluations run on Karthik's synthetic dataset (216/72/72 split for Eval A, 74 multi-turn for Eval B). Real student phrasing differs structurally — code-switching, abbreviations, slang, emoji, sarcasm. The numbers here are useful for prototype framing and the within-this-evaluation-set comparison story. They are **not** deployment-readiness claims. The V4 data request to Karthik (`docs/team/karthik/KARTHIK_DATA_REQUEST_V4.md`, item H) asks for 10-20 real anonymized student turns as the next-step evaluation pull.
+
 ## Allowed Claims
 
 - prototype

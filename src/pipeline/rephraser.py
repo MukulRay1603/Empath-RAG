@@ -27,6 +27,35 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+
+# Transient HTTP statuses that are worth retrying once before falling through
+# to the next provider. 4xx client errors (other than 429) are caller-side
+# problems we don't fix by retrying.
+_RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+_RETRYABLE_NETWORK_ERRORS = ("URLError", "TimeoutError", "ConnectionResetError", "OSError")
+# Backoff before the single retry attempt. Small enough to stay inside the
+# user's typing-delay budget; large enough that a transient blip recovers.
+_RETRY_BACKOFF_S = 0.4
+
+
+def _is_retryable_error(last_error: str) -> bool:
+    """Inspect a provider.last_error string and decide whether retrying once
+    is worth it. Returns False for clearly-permanent failures (auth, schema)
+    so we don't waste a retry on those."""
+    if not last_error:
+        return False
+    if last_error.startswith("network:"):
+        return any(kind in last_error for kind in _RETRYABLE_NETWORK_ERRORS)
+    if last_error.startswith("http_"):
+        try:
+            code = int(last_error.split("_", 1)[1].split(":", 1)[0])
+        except ValueError:
+            return False
+        return code in _RETRYABLE_HTTP_STATUSES
+    if last_error in ("bad_json", "stream_interrupted", "unexpected_response_shape"):
+        return True
+    return False
+
 from .llm_safety import verify_rephrased_safety
 
 
@@ -581,8 +610,18 @@ class ResponseRephraser:
             candidate = provider.complete(user_message, template_response, history=history)
             elapsed = (time.perf_counter() - t0) * 1000.0
             total_latency_ms += elapsed
+            # One transient-retry pass before falling through to the next
+            # provider — covers network blips, 429/503 spikes, malformed
+            # responses. Auth errors and 4xx-client failures are not retried.
             if candidate is None:
-                # Capture the error for surfacing in diagnostics.
+                provider_err = getattr(provider, "last_error", "")
+                if _is_retryable_error(provider_err):
+                    time.sleep(_RETRY_BACKOFF_S)
+                    t0 = time.perf_counter()
+                    candidate = provider.complete(user_message, template_response, history=history)
+                    elapsed = (time.perf_counter() - t0) * 1000.0
+                    total_latency_ms += elapsed
+            if candidate is None:
                 err = getattr(provider, "last_error", "") or "unknown"
                 last_error = f"{provider.name}:{err}"
                 continue
@@ -697,11 +736,34 @@ class ResponseRephraser:
             total_latency_ms += elapsed
 
             if stream_failed or not accumulated.strip():
-                # Provider failed before producing usable output. Try next.
-                if not stream_failed:
-                    err = getattr(provider, "last_error", "") or "empty_stream"
-                    last_error = f"{provider.name}:{err}"
-                continue
+                # Provider failed before producing usable output. Try one
+                # retry if the failure looks transient, then fall through.
+                # We retry only when no tokens were yielded to the consumer
+                # yet — once the chat bubble has visible text, "retry" would
+                # mean a confusing replacement.
+                provider_err = getattr(provider, "last_error", "")
+                if not accumulated and _is_retryable_error(provider_err):
+                    time.sleep(_RETRY_BACKOFF_S)
+                    stream_failed = False
+                    try:
+                        for chunk in provider.complete_streaming(user_message, template_response, history=history):
+                            if not chunk:
+                                continue
+                            accumulated += chunk
+                            since_yield += chunk
+                            last = since_yield[-1]
+                            if (len(since_yield) >= _STREAM_BATCH_CHARS and last in " \n\t") or last in ".,;:!?\n":
+                                yield ("chunk", accumulated, provider.name)
+                                since_yield = ""
+                        if since_yield:
+                            yield ("chunk", accumulated, provider.name)
+                    except Exception:
+                        stream_failed = True
+                if stream_failed or not accumulated.strip():
+                    if not stream_failed:
+                        err = getattr(provider, "last_error", "") or "empty_stream"
+                        last_error = f"{provider.name}:{err}"
+                    continue
 
             candidate = accumulated.strip()
             if skip_safety_check:

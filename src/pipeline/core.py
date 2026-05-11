@@ -15,6 +15,7 @@ import time
 from .ml_router import MLRouter
 from .output_guard import validate_output
 from .response_planner import (
+    CLARIFY,
     INTERNATIONAL_SOURCE_HINT,
     build_response_plan,
     classify_intl_topic,
@@ -437,18 +438,18 @@ class EmpathRAGCore:
                     "Your message was long enough that I only have the first part. Could you say "
                     "which piece feels most pressing right now, in a sentence or two?"
                 )
-                stage = "clarify"
+                stage = CLARIFY
                 recommended_action = response_plan.recommended_action
             elif minimal_kind:
                 template_response = _render_minimal_followup(minimal_kind, intl_session)
-                stage = "clarify"
+                stage = CLARIFY
                 recommended_action = response_plan.recommended_action
             elif _is_incomplete_message(message):
                 # The student's message trails off ("what should i do to",
                 # "honestly", "kind of"). Guessing the intent and producing
                 # a full OFFER response is worse than asking them to finish.
                 template_response = _render_incomplete_followup()
-                stage = "clarify"
+                stage = CLARIFY
                 recommended_action = response_plan.recommended_action
             elif intl_topic and stage == "offer":
                 template_response = render_intl_factual_offer(intl_topic, message)

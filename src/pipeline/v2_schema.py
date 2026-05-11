@@ -159,11 +159,20 @@ def action_ladder(tier: SafetyTier | str) -> dict[str, str]:
 # (academic disputes like goalpost-moving without alleged ethics violations).
 # Detection is conservative: requires (authority noun) AND (problematic
 # content) in the same message.
-_AUTHORITY_NOUNS = (
+# Authority-figure nouns. Single-word entries are matched with word
+# boundaries so "ta" doesn't fire on "stay" or "data" and "ra" doesn't fire
+# on "rage" or "fragrance". Multi-word phrases stay as substring matches.
+_AUTHORITY_NOUNS_WORD_BOUNDED = (
     "counsellor", "counselor", "advisor", "adviser", "professor", "prof",
-    "teacher", "ta ", " ta,", " ta.", " ta:", " ta ", "ra ", " ra,", "coach",
-    "dean", "director", "mentor", "instructor", "supervisor", "department chair",
-    "principal investigator", "my pi", " pi ", "boss",
+    "teacher", "ta", "ra", "coach", "dean", "director", "mentor",
+    "instructor", "supervisor", "boss", "pi",
+)
+_AUTHORITY_NOUNS_PHRASES = (
+    "department chair", "principal investigator", "my pi",
+)
+_AUTHORITY_NOUN_REGEX = re.compile(
+    r"\b(?:" + "|".join(re.escape(w) for w in _AUTHORITY_NOUNS_WORD_BOUNDED) + r")\b",
+    re.IGNORECASE,
 )
 _AUTHORITY_MISCONDUCT_CONTENT = (
     # Direct harm or illegality suggested to the student
@@ -188,7 +197,10 @@ _AUTHORITY_MISCONDUCT_CONTENT = (
 
 
 def _is_authority_misconduct(text: str) -> bool:
-    has_authority = _has_any(text, _AUTHORITY_NOUNS)
+    has_authority = (
+        bool(_AUTHORITY_NOUN_REGEX.search(text))
+        or _has_any(text, _AUTHORITY_NOUNS_PHRASES)
+    )
     has_content = _has_any(text, _AUTHORITY_MISCONDUCT_CONTENT)
     return has_authority and has_content
 
