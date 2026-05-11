@@ -225,6 +225,20 @@ Curated corpus + ML router artifacts are intentionally untracked; the system gra
 
 ---
 
+## Known limitations
+
+These are real failure modes documented during evaluation. Naming them is part of the system's defense story; please don't read past them.
+
+- **Bait-and-switch in the V1 NLI guardrail (40% recall).** Positive openers ("everything's been going so well lately") followed by crisis content fool the V1 DeBERTa NLI guardrail into misclassifying the turn as safe. Original V1 evaluation flagged this as the most dangerous documented failure mode. V2.5 / Core mitigates this with the four-tier safety ladder + trajectory escalation tracker, but the underlying NLI weakness is real and remains the strongest argument against shipping the V1 architecture without the Core wrappers around it.
+- **Synthetic-data ceiling.** Eval A/B are run on Karthik's curated synthetic dataset (74 multi-turn scenarios, 360 single-turn). Real student phrasing — code-switching, abbreviations, emoji, sarcasm, slang — is structurally different. Numbers in this README are useful as prototype evidence, not deployment claims.
+- **Statistical power.** n = 74 multi-turn scenarios. 95% CIs on missed-escalation rate are wide. Some claims will need a larger sample to survive review.
+- **Route classifier ceiling.** Hybrid rule + ML route accuracy is 0.86. The remaining 14% are largely emotional prompts (anxiety_panic, low_mood, loneliness) that fall through to `general_student_support`. Templates degrade gracefully but resource matching is generic. RoBERTa fine-tuning is the planned uplift.
+- **Domain-transfer false positives.** Academic hyperbole ("this thesis is killing me") fires the DeBERTa guardrail at high confidence — trained on r/SuicideWatch, never saw graduate-student language. We mitigate by running Stage-1 lexical precheck first and treating the model guardrail as a second opinion, not the primary gate.
+- **Faithfulness gap.** No automated faithfulness metric is deployed at runtime. RAGAS and DeepEval both produced degenerate scores with the small local judge available. BERTScore is reported instead in the V1 baseline; Core relies on the registry filter + post-rephrase verification rather than a learned faithfulness check.
+- **Cultural cross-cutting.** F-1 / international concern is the only audience layered as a first-class cross-cutting concern. Queer students, undocumented students, parenting students, first-generation students, and Black / racial-minority students would each warrant a similar layered treatment; today they are routed generically.
+
+---
+
 ## What is missing for an actual deployment
 
 This is a research and class-demo prototype. To pilot at UMD, the open work is:

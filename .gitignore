@@ -88,6 +88,12 @@ eval/eval_b*.md
 # from eval/sweep_*.py, so we don't track the markdown.
 eval/sweep_*_20*.md
 eval/audit_resource_urls_20*.md
+# Ablation + unguarded-baseline outputs are regeneratable from
+# eval/run_ablation_eval.py and eval/run_unguarded_baseline.py.
+eval/ablation_results*.json
+eval/ablation_report*.md
+eval/unguarded_baseline_results*.json
+eval/unguarded_baseline_report*.md
 pytest-cache-files-*/
 
 # Stray screenshot at repo root (paste artifact).

@@ -559,6 +559,7 @@ class ResponseRephraser:
         recommended_action: str = "",
         force_deterministic: bool = False,
         history: list[dict] | None = None,
+        skip_safety_check: bool = False,
     ) -> RephraseResult:
         """Always returns a safe response. Falls back to template on any failure."""
         if force_deterministic or not self.enabled:
@@ -585,10 +586,17 @@ class ResponseRephraser:
                 err = getattr(provider, "last_error", "") or "unknown"
                 last_error = f"{provider.name}:{err}"
                 continue
-            check = verify_rephrased_safety(
-                template_response, candidate, retrieved_sources, recommended_action,
-                user_message=user_message,
-            )
+            if skip_safety_check:
+                # Ablation: bypass the post-rephrase trust boundary. Used
+                # only by ablation-eval runs to measure how much the
+                # rephrase-safety layer actually catches.
+                from .llm_safety import RephraseSafetyResult
+                check = RephraseSafetyResult(True, [], "rephrase_safety_disabled_ablation")
+            else:
+                check = verify_rephrased_safety(
+                    template_response, candidate, retrieved_sources, recommended_action,
+                    user_message=user_message,
+                )
             if check.allowed:
                 return RephraseResult(
                     response=candidate,
@@ -621,6 +629,7 @@ class ResponseRephraser:
         recommended_action: str = "",
         force_deterministic: bool = False,
         history: list[dict] | None = None,
+        skip_safety_check: bool = False,
     ) -> Iterator[tuple]:
         """Streaming variant. Yields events:
 
@@ -695,10 +704,17 @@ class ResponseRephraser:
                 continue
 
             candidate = accumulated.strip()
-            check = verify_rephrased_safety(
-                template_response, candidate, retrieved_sources, recommended_action,
-                user_message=user_message,
-            )
+            if skip_safety_check:
+                # Ablation: bypass the post-rephrase trust boundary. Used
+                # only by ablation-eval runs to measure how much the
+                # rephrase-safety layer actually catches.
+                from .llm_safety import RephraseSafetyResult
+                check = RephraseSafetyResult(True, [], "rephrase_safety_disabled_ablation")
+            else:
+                check = verify_rephrased_safety(
+                    template_response, candidate, retrieved_sources, recommended_action,
+                    user_message=user_message,
+                )
             if check.allowed:
                 yield ("final", RephraseResult(
                     response=candidate,

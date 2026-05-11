@@ -107,6 +107,15 @@ class _TurnPlan:
 
 
 class EmpathRAGCore:
+    # Safety layers that can be selectively disabled for ablation evaluation.
+    # See eval/run_ablation_eval.py for the harness that uses this.
+    VALID_DISABLED_LAYERS = frozenset({
+        "stage1_precheck",     # Stage-1 lexical safety policy precheck
+        "output_guard",        # validate_output at OFFER stage
+        "rephrase_safety",     # verify_rephrased_safety on LLM output
+        "registry_filter",     # resource registry + retrieval filter
+    })
+
     def __init__(
         self,
         curated_db_path: Path | str = Path("data/curated/indexes/metadata_curated.db"),
@@ -117,7 +126,15 @@ class EmpathRAGCore:
         use_model_guardrail: bool | None = None,
         compute_ig_on_intercept: bool | None = None,
         guardrail_threshold: float = 0.5,
+        disable_layers: set[str] | None = None,
     ):
+        self.disable_layers = set(disable_layers or set())
+        invalid = self.disable_layers - self.VALID_DISABLED_LAYERS
+        if invalid:
+            raise ValueError(
+                f"Unknown disable_layers: {invalid}. "
+                f"Valid: {sorted(self.VALID_DISABLED_LAYERS)}"
+            )
         self.curated_db_path = Path(curated_db_path)
         self.retrieval_corpus = "curated_support" if self.curated_db_path.exists() else retrieval_corpus
         self.top_k = top_k
@@ -162,6 +179,12 @@ class EmpathRAGCore:
             self.session_last_specific_route.clear()
             self.session_message_history.clear()
 
+    # Input length cap: defends against (1) accidental wall-of-text pastes
+    # ballooning LLM cost and planner regex matching, (2) deliberate DoS
+    # via runaway-length payloads. Configurable via env so larger contexts
+    # can be unlocked for evaluation runs that legitimately need them.
+    MAX_USER_MESSAGE_CHARS = int(os.getenv("EMPATHRAG_MAX_USER_MESSAGE_CHARS", "2000"))
+
     def run_turn(
         self,
         message: str,
@@ -180,6 +203,7 @@ class EmpathRAGCore:
             retrieved_sources=plan.retrieved,
             recommended_action=plan.recommended_action,
             history=self._recent_history(session_id),
+            skip_safety_check="rephrase_safety" in self.disable_layers,
         )
         return self._finalize_turn(plan, rephrase_result.response, rephrase_result)
 
@@ -223,6 +247,7 @@ class EmpathRAGCore:
                 retrieved_sources=plan.retrieved,
                 recommended_action=plan.recommended_action,
                 history=history,
+                skip_safety_check="rephrase_safety" in self.disable_layers,
             )
             result = self._finalize_turn(plan, rephrase_result.response, rephrase_result)
             yield ("token", result.response)
@@ -237,6 +262,7 @@ class EmpathRAGCore:
             retrieved_sources=plan.retrieved,
             recommended_action=plan.recommended_action,
             history=history,
+            skip_safety_check="rephrase_safety" in self.disable_layers,
         ):
             if event[0] == "chunk":
                 _, accumulated, _provider_name = event
@@ -277,8 +303,28 @@ class EmpathRAGCore:
         t_total = time.perf_counter()
         latency: dict[str, float] = {}
 
+        # Length cap: a very long input is either an accidental wall-of-text
+        # paste or a DoS attempt. We truncate before the planner sees it (so
+        # regex matching + downstream LLM cost stay bounded) and surface a
+        # short clarify-style response if the truncation actually mattered.
+        message_was_truncated = False
+        if message and len(message) > self.MAX_USER_MESSAGE_CHARS:
+            message = message[: self.MAX_USER_MESSAGE_CHARS]
+            message_was_truncated = True
+
         t0 = time.perf_counter()
-        stage1_decision = self.safety_policy.classify(message, confidence=0.0, model_flag=False)
+        if "stage1_precheck" in self.disable_layers:
+            # Ablation: pretend the message passes safety. Used to measure
+            # what fraction of escalation catches depend on the Stage-1
+            # lexical check vs. downstream layers (ML router, contextual
+            # overrides, output guard). Never set in production.
+            from .safety_policy import SafetyDecision, SafetyLevel as _SL
+            stage1_decision = SafetyDecision(
+                level=_SL.PASS, confidence=0.0,
+                reason="stage1_disabled_ablation", should_intercept=False,
+            )
+        else:
+            stage1_decision = self.safety_policy.classify(message, confidence=0.0, model_flag=False)
         latency["stage1_precheck_ms"] = _elapsed_ms(t0)
 
         t0 = time.perf_counter()
@@ -325,7 +371,14 @@ class EmpathRAGCore:
             latency["integrated_gradients_ms"] = _elapsed_ms(t0)
 
         t0 = time.perf_counter()
-        retrieved = self._retrieve(message, route_label, safety_tier.value, audience_mode, should_intercept)
+        if "registry_filter" in self.disable_layers:
+            # Ablation: no resource-registry filtering, no curated retrieval.
+            # Planner falls back to generic templates with no named UMD
+            # resources. Used to measure how much of the system's
+            # resource-grounding depends on the registry layer.
+            retrieved = []
+        else:
+            retrieved = self._retrieve(message, route_label, safety_tier.value, audience_mode, should_intercept)
         latency["retrieval_ms"] = _elapsed_ms(t0)
 
         # Cross-cutting: when an F-1 / visa / international-status worry shows up
@@ -373,12 +426,20 @@ class EmpathRAGCore:
             # Only classify F-1 sub-topic when the framing is actively in play.
             # After 2 silent turns, decayed; don't pin the planner to OPT/RCL/etc.
             intl_topic = classify_intl_topic(message) if intl_active else ""
-            # Minimal-affirmation handler. "yes" / "no" / "ok" with no other
-            # content has no new intent — re-rendering the OFFER template just
-            # repeats the previous turn. Instead, route to a clarifying-question
-            # response that asks the student which thread they want to pull.
-            minimal_kind = _minimal_response_kind(message)
-            if minimal_kind:
+            # Length-cap / minimal / incomplete short-circuits, in priority
+            # order. Each picks a clarify-style template instead of trying
+            # to OFFER a full route response on insufficient or excessive
+            # input. Output guard skipped for the clarify stage.
+            minimal_kind = "" if message_was_truncated else _minimal_response_kind(message)
+            if message_was_truncated:
+                template_response = (
+                    "That's a lot, and I want to make sure I focus on what matters most to you. "
+                    "Your message was long enough that I only have the first part. Could you say "
+                    "which piece feels most pressing right now, in a sentence or two?"
+                )
+                stage = "clarify"
+                recommended_action = response_plan.recommended_action
+            elif minimal_kind:
                 template_response = _render_minimal_followup(minimal_kind, intl_session)
                 stage = "clarify"
                 recommended_action = response_plan.recommended_action
@@ -429,7 +490,9 @@ class EmpathRAGCore:
         response: str,
         rephrase_result: RephraseResult | None,
     ) -> EmpathRAGResult:
-        if plan.should_intercept:
+        if "output_guard" in self.disable_layers:
+            output_guard = {"allowed": True, "reason": "output_guard_disabled_ablation", "flags": []}
+        elif plan.should_intercept:
             output_guard = {"allowed": True, "reason": "crisis_template", "flags": []}
         elif plan.stage == "clarify":
             # Clarifying replies after minimal user input (yes/no/maybe) are
