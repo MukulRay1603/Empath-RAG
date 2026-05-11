@@ -839,6 +839,26 @@ body::before {
   border-color: var(--border);
   color: rgba(255,255,255,0.18);
 }
+
+/* Resource card foot row — Open ↗ link + last-verified date as a small
+   trust signal. Clinicians look for this. */
+.er-source-foot {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.er-source-verified {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  background: var(--surface);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  cursor: help;
+}
 @keyframes er-fallback-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.0); }
   50%      { box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.18); }
@@ -1945,8 +1965,13 @@ def format_decision_trace(result=None) -> str:
             if risk: html += f"<span class='er-tag {risk_cls}'>{escape(risk)}</span>"
             html += "</div>"
             html += f"<div class='er-source-why'>{escape(_pretty_reason(why))}</div>"
+            last_verified = str(src.get("last_verified") or "").strip()
             if url:
-                html += f"<div style='margin-top:8px;'><a href='{url}' target='_blank' rel='noopener'>Open ↗</a></div>"
+                html += "<div class='er-source-foot'>"
+                html += f"<a href='{url}' target='_blank' rel='noopener'>Open ↗</a>"
+                if last_verified:
+                    html += f"<span class='er-source-verified' title='URL last verified on this date'>Verified {escape(last_verified)}</span>"
+                html += "</div>"
             documents = src.get("documents") or []
             if documents:
                 html += "<div class='er-source-docs'>"

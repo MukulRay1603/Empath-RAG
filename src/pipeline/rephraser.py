@@ -31,6 +31,33 @@ from dataclasses import dataclass
 # Transient HTTP statuses that are worth retrying once before falling through
 # to the next provider. 4xx client errors (other than 429) are caller-side
 # problems we don't fix by retrying.
+# Patterns the LLM occasionally emits that look broken when Gradio Chatbot
+# renders them. We strip these from the rephrased candidate before it goes
+# to safety verification — purely cosmetic, doesn't change semantics.
+_MARKDOWN_NORMALIZE_PATTERNS = (
+    (r"\*\*(.*?)\*\*", r"\1"),    # **bold** -> bold (planner doesn't use bold)
+    (r"(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)", r"\1"),  # *italic* -> italic
+    (r"^#+\s+", ""),              # leading "# heading" -> drop
+    (r"\n#+\s+", "\n"),           # mid-text "# heading" -> drop
+    (r"\n\s*-\s+-\s+-\s*\n", "\n\n"),  # "---" separator -> blank line
+    (r"`{3}.*?`{3}", ""),         # ```code blocks``` -> drop
+    (r"`([^`]+)`", r"\1"),        # `inline code` -> inline code
+    # Em-dashes / en-dashes are AI-tells. Replace with a comma + space so
+    # the surrounding prose still reads naturally.
+    (r"\s*[—–]\s*", ", "),
+)
+
+
+def _normalize_markdown(text: str) -> str:
+    """Strip stray markdown the LLM sometimes emits but the planner never
+    asked for. Keeps the prose intact; removes formatting artifacts."""
+    import re
+    out = text
+    for pattern, repl in _MARKDOWN_NORMALIZE_PATTERNS:
+        out = re.sub(pattern, repl, out, flags=re.DOTALL | re.MULTILINE)
+    return out
+
+
 _RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
 _RETRYABLE_NETWORK_ERRORS = ("URLError", "TimeoutError", "ConnectionResetError", "OSError")
 # Backoff before the single retry attempt. Small enough to stay inside the
@@ -73,6 +100,9 @@ You MUST:
 - When the user names specific events ("I bombed my midterm", "my advisor moved the goalposts"), specific fears ("lose my standing", "get deported"), specific people ("my advisor", "my roommate"), or specific time anchors ("two days", "this morning", "for weeks"), reflect those specific words rather than abstracting them to "something this big" or "the situation". Specificity reads as listening; abstraction reads as a flowchart.
 - Use plain, conversational language. No clinical labels.
 - Start the response with the planner's first idea, not a filler preamble. Do NOT begin with "It can be really tough when...", "It sounds like...", "I can imagine that...", or any restatement of the user's situation as a frame. Get into it.
+- Vary your opening across turns. Do NOT begin every response with "That sounds...". Alternative openings: paraphrase what the student named specifically ("Bombed midterm, and the standing fear underneath it — that lands hard"), name the specific feeling ("That kind of pre-test heaviness is real"), or pivot straight to the protective action ("The thing that protects you most here is..."). Pick whichever fits the turn. Use commas or periods, not em-dashes or en-dashes, between clauses.
+- When you write a follow-up question at the end of an OFFER response, make it specific to what the student just said — not a generic "a, b, or c?" menu. If the student named an exam, a course, a person, a deadline, reference that in the question. Generic follow-ups read as a script.
+- Adjust emotional density to the student's signal. If their message reads frantic ("im so done", "i give up", multiple sentences of distress), use steadier shorter language. If their message is matter-of-fact ("I need accommodations for next week's exam"), keep the response brief and practical.
 
 You MUST NOT:
 - Add new advice, resources, phone numbers, or claims that aren't in the input.
@@ -625,6 +655,9 @@ class ResponseRephraser:
                 err = getattr(provider, "last_error", "") or "unknown"
                 last_error = f"{provider.name}:{err}"
                 continue
+            # Normalize stray markdown the LLM occasionally emits (**bold**,
+            # # headings, etc.) before safety verification + display.
+            candidate = _normalize_markdown(candidate)
             if skip_safety_check:
                 # Ablation: bypass the post-rephrase trust boundary. Used
                 # only by ablation-eval runs to measure how much the
@@ -765,7 +798,7 @@ class ResponseRephraser:
                         last_error = f"{provider.name}:{err}"
                     continue
 
-            candidate = accumulated.strip()
+            candidate = _normalize_markdown(accumulated.strip())
             if skip_safety_check:
                 # Ablation: bypass the post-rephrase trust boundary. Used
                 # only by ablation-eval runs to measure how much the

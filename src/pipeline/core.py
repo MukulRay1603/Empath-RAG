@@ -411,7 +411,9 @@ class EmpathRAGCore:
 
         intl_topic = ""
         if should_intercept:
-            template_response = render_crisis_response(route_label, audience_mode=audience_mode)
+            template_response = render_crisis_response(
+                route_label, audience_mode=audience_mode, user_message=message,
+            )
             recommended_action = _recommended_action(route_label, safety_tier.value)
             stage = "offer"
         else:
@@ -427,17 +429,38 @@ class EmpathRAGCore:
             # Only classify F-1 sub-topic when the framing is actively in play.
             # After 2 silent turns, decayed; don't pin the planner to OPT/RCL/etc.
             intl_topic = classify_intl_topic(message) if intl_active else ""
+            # Conversational utterances (greeting / goodbye / meta) route to
+            # short purposeful templates BEFORE the regular minimal /
+            # incomplete checks. These aren't support content — they're
+            # conversation openers and closers. Treating them as OFFER
+            # responses produces jarring "let me tell you about UMD CC"
+            # replies to a simple "hi".
+            conv_intent = (
+                "" if message_was_truncated else _conversational_intent(message)
+            )
             # Length-cap / minimal / incomplete short-circuits, in priority
             # order. Each picks a clarify-style template instead of trying
             # to OFFER a full route response on insufficient or excessive
             # input. Output guard skipped for the clarify stage.
-            minimal_kind = "" if message_was_truncated else _minimal_response_kind(message)
+            minimal_kind = "" if (message_was_truncated or conv_intent) else _minimal_response_kind(message)
             if message_was_truncated:
                 template_response = (
                     "That's a lot, and I want to make sure I focus on what matters most to you. "
                     "Your message was long enough that I only have the first part. Could you say "
                     "which piece feels most pressing right now, in a sentence or two?"
                 )
+                stage = CLARIFY
+                recommended_action = response_plan.recommended_action
+            elif conv_intent == "greeting":
+                template_response = _render_greeting()
+                stage = CLARIFY
+                recommended_action = response_plan.recommended_action
+            elif conv_intent == "goodbye":
+                template_response = _render_goodbye()
+                stage = CLARIFY
+                recommended_action = response_plan.recommended_action
+            elif conv_intent == "meta":
+                template_response = _render_meta()
                 stage = CLARIFY
                 recommended_action = response_plan.recommended_action
             elif minimal_kind:
@@ -814,6 +837,9 @@ def _source_summaries(rows: list[dict]) -> list[dict]:
             "source_type": row.get("source_type", ""),
             "why_retrieved": row.get("why_retrieved", ""),
             "documents": row.get("documents", []) or [],
+            # Trust signal: surface the verification date in the UI so users
+            # (especially clinicians) can see how fresh the link is.
+            "last_verified": row.get("last_verified") or row.get("last_checked", ""),
         }
         for row in rows
     ]
@@ -935,6 +961,75 @@ def _minimal_response_kind(message: str) -> str:
     if clean in _MINIMAL_UNSURE:
         return "unsure"
     return ""
+
+
+# Conversation openers / closers / meta — these are NOT student-support
+# content. They route to short purposeful templates instead of a heavy
+# OFFER response that would feel jarring for an opener or premature for a
+# close.
+_GREETING_PATTERNS = frozenset({
+    "hi", "hello", "hey", "yo", "hiya", "hey there", "hi there", "hello there",
+    "good morning", "good afternoon", "good evening",
+    "sup", "what's up", "whats up", "wassup",
+    "hey empathrag", "hi empathrag",
+})
+_GOODBYE_PATTERNS = frozenset({
+    "thanks", "thank you", "thx", "ty", "thank u",
+    "bye", "goodbye", "see you", "see ya", "later",
+    "i'll think about it", "ill think about it", "let me think",
+    "got it", "cool", "appreciate it", "that helps",
+    "alright then", "ok thanks", "thanks bye",
+})
+_META_PATTERNS = (
+    "are you a bot", "are you an ai", "are you a robot", "are you human",
+    "what are you", "who are you", "are you real", "are you a person",
+    "is this an ai", "is this a bot", "is this real",
+    "what can you do", "how do you work", "what is this",
+)
+
+
+def _conversational_intent(message: str) -> str:
+    """Returns 'greeting' / 'goodbye' / 'meta' / '' for non-support
+    conversational utterances. These are routed to short purposeful
+    templates rather than full OFFER responses."""
+    text = (message or "").strip().lower()
+    if not text or len(text) > 60:
+        return ""
+    clean = " ".join(text.rstrip(".,!?;:").split())
+    if clean in _GREETING_PATTERNS:
+        return "greeting"
+    if clean in _GOODBYE_PATTERNS:
+        return "goodbye"
+    if any(pattern in clean for pattern in _META_PATTERNS):
+        return "meta"
+    return ""
+
+
+def _render_greeting() -> str:
+    return (
+        "Hi. I'm here if there's something on your mind — academic stress, "
+        "visa or status worry, feeling low, helping a friend through "
+        "something, or anything else weighing on you. Say what feels "
+        "easiest to share first."
+    )
+
+
+def _render_goodbye() -> str:
+    return (
+        "Take care of yourself. The resources we talked through will still "
+        "be here when you're ready to follow up. If anything shifts in the "
+        "meantime — especially anything that feels urgent — UMD Counseling "
+        "Center is at counseling.umd.edu and 988 is always there."
+    )
+
+
+def _render_meta() -> str:
+    return (
+        "I'm EmpathRAG — a research prototype built at UMD to help students "
+        "navigate campus support. I'm not a counselor, therapist, or "
+        "emergency service. I listen, then point to verified UMD resources "
+        "when it feels like the right moment. Anything you'd like to start with?"
+    )
 
 
 def _render_incomplete_followup() -> str:
