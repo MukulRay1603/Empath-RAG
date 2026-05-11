@@ -105,3 +105,17 @@ CLEANUP_DONE_*.md
 *_VERIFICATION.md
 *_RECON.md
 ROTATION_CHECKLIST.md
+
+# Internal docs — kept locally on disk, never pushed.
+# Public docs live under docs/architecture/ and docs/research/ (specific files).
+docs/README.md
+docs/audits/
+docs/planning/
+docs/team/
+docs/demo/
+docs/research/COUNSELOR_ASSIST_DIRECTION.md
+docs/research/SAFETY_AND_DATASET_PLAN.md
+
+# Detailed internal README preserved locally; public-facing README.md is
+# the one tracked in git.
+README_INTERNAL.md
