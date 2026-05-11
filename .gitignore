@@ -61,7 +61,43 @@ service-account*.json
 
 # Data artifacts
 data/processed/
+Data_Karthik/
+data/curated/resources_seed.jsonl
+data/curated/source_inventory.csv
+data/curated/excluded_sources.csv
+data/curated/README_corpus_notes.md
+data/curated/raw_pages/
+data/curated/indexes/
 eval/ragas_results.json
+eval/curated_retrieval_audit.json
+eval/multiturn_results*.json
+eval/karthik_eval_results.json
+eval/empathrag_core_supervised.csv
+eval/router_eval_results.json
+eval/core_eval_results.json
+eval/core_eval_summary.md
+eval/core_dataset_v2_ingest_report.json
+eval/core_dataset_v2_ingest_report.md
+eval/core_dataset_v2_ingest_report.sample.json
+eval/core_dataset_v2_ingest_report.sample.md
+eval/empathrag_core_supervised.sample.csv
+eval/multiturn_scenarios.sample.jsonl
+# Eval B summaries — single-file and per-variant outputs.
+eval/eval_b*.md
+# Drift / F-1 / fairness sweep reports are timestamped per run — regeneratable
+# from eval/sweep_*.py, so we don't track the markdown.
+eval/sweep_*_20*.md
+eval/audit_resource_urls_20*.md
+# Ablation + unguarded-baseline outputs are regeneratable from
+# eval/run_ablation_eval.py and eval/run_unguarded_baseline.py.
+eval/ablation_results*.json
+eval/ablation_report*.md
+eval/unguarded_baseline_results*.json
+eval/unguarded_baseline_report*.md
+pytest-cache-files-*/
+
+# Stray screenshot at repo root (paste artifact).
+/image.png
 
 # Session artifacts
 CHANGES_APPLIED.md
@@ -69,3 +105,17 @@ CLEANUP_DONE_*.md
 *_VERIFICATION.md
 *_RECON.md
 ROTATION_CHECKLIST.md
+
+# Internal docs — kept locally on disk, never pushed.
+# Public docs live under docs/architecture/ and docs/research/ (specific files).
+docs/README.md
+docs/audits/
+docs/planning/
+docs/team/
+docs/demo/
+docs/research/COUNSELOR_ASSIST_DIRECTION.md
+docs/research/SAFETY_AND_DATASET_PLAN.md
+
+# Detailed internal README preserved locally; public-facing README.md is
+# the one tracked in git.
+README_INTERNAL.md

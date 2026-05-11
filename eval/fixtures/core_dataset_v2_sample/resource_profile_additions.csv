@@ -1,0 +1,2 @@
+resource_name,resource_type,official_url,source_authority,route_labels,safety_tiers,usage_modes,audience,contact_mode,contact_value,hours,location,confidentiality_status,last_verified,notes
+Sample Resource,umd_official,internal://fixture,curated_internal,general_student_support,support_navigation,retrieval,student,website,unknown,unknown,unknown,unknown,unknown,sample fixture only

@@ -20,6 +20,7 @@ VRAM sequencing on RTX 3060 6GB:
 import asyncio
 import sqlite3
 import time
+from pathlib import Path
 import torch
 import numpy as np
 import faiss
@@ -31,6 +32,7 @@ from llama_cpp import Llama
 
 from .session_tracker import SessionTracker
 from .query_router import route_query, LABEL_NAMES
+from .safety_policy import SafetyLevel, SafetyTriagePolicy
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -105,18 +107,31 @@ class EmpathRAGPipeline:
         guardrail_ckpt:  str = "models/safety_guardrail",
         faiss_index_path:str = "data/indexes/faiss_flat.index",
         db_path:         str = "data/indexes/metadata.db",
+        retrieval_corpus: str = "reddit_research",
+        curated_index_path: str = "data/curated/indexes/faiss_curated.index",
+        curated_db_path: str = "data/curated/indexes/metadata_curated.db",
         mistral_path:    str = "models/generator/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
         st_model:        str = "sentence-transformers/all-mpnet-base-v2",
         n_gpu_layers:    int = 28,
         n_ctx:           int = 4096,
+        generation_max_tokens: int = 200,
         top_k:           int = 5,
         tracker_n:       int = 3,
         guardrail_threshold: float = 0.5,
-        use_real_guardrail:  bool  = False,
+        use_real_guardrail:  bool  = True,
+        allow_stub_guardrail: bool = False,
     ):
         self.top_k               = top_k
+        self.generation_max_tokens = generation_max_tokens
         self.guardrail_threshold = guardrail_threshold
-        self.db_path             = db_path
+        self.retrieval_corpus    = self._resolve_retrieval_corpus(
+            retrieval_corpus, curated_index_path, curated_db_path
+        )
+        self.faiss_index_path    = curated_index_path if self.retrieval_corpus == "curated_support" else faiss_index_path
+        self.db_path             = curated_db_path if self.retrieval_corpus == "curated_support" else db_path
+        self.safety_policy       = SafetyTriagePolicy(
+            support_threshold=guardrail_threshold
+        )
 
         print("[EmpathRAG] Loading emotion classifier (CPU)...")
         self.ec_tok   = AutoTokenizer.from_pretrained(ec_checkpoint)
@@ -139,10 +154,22 @@ class EmpathRAGPipeline:
                 self.guardrail = SafetyGuardrail()
                 print("[EmpathRAG] Real DeBERTa guardrail loaded (CPU).")
             except Exception as e:
+                if not allow_stub_guardrail:
+                    raise RuntimeError(
+                        "Real safety guardrail failed to load. EmpathRAG v2 fails "
+                        "closed by default; pass allow_stub_guardrail=True only for "
+                        "offline development or retrieval-only experiments."
+                    ) from e
                 print(f"[EmpathRAG] WARNING: Real guardrail failed to load ({e}). "
-                      f"Falling back to stub.")
+                      f"Falling back to stub because allow_stub_guardrail=True.")
                 self.guardrail = _GuardrailStub()
         else:
+            if not allow_stub_guardrail:
+                raise RuntimeError(
+                    "use_real_guardrail=False disables the crisis guardrail. Pass "
+                    "allow_stub_guardrail=True only for controlled development or "
+                    "component-level evaluation."
+                )
             self.guardrail = _GuardrailStub()
             print("[EmpathRAG] Guardrail stub active — swap to real once "
                   "models/safety_guardrail/ is populated.")
@@ -153,7 +180,8 @@ class EmpathRAGPipeline:
         # Start on CPU — we move to GPU only during encode(), then back
 
         print("[EmpathRAG] Loading FAISS index...")
-        self.faiss_index = faiss.read_index(faiss_index_path)
+        self.faiss_index = faiss.read_index(self.faiss_index_path)
+        print(f"[EmpathRAG] Retrieval corpus: {self.retrieval_corpus}")
         print(f"[EmpathRAG] FAISS: {self.faiss_index.ntotal:,} vectors")
 
         print("[EmpathRAG] Loading Mistral 7B (GPU)...")
@@ -169,6 +197,20 @@ class EmpathRAGPipeline:
         self.tracker = SessionTracker(N=tracker_n)
         self.conv_history = []  # list of {"role": "user"|"assistant", "content": str}
         print("[EmpathRAG] Pipeline initialised. Ready for inference.")
+
+    def _resolve_retrieval_corpus(
+        self,
+        retrieval_corpus: str,
+        curated_index_path: str,
+        curated_db_path: str,
+    ) -> str:
+        allowed = {"reddit_research", "curated_support", "auto"}
+        if retrieval_corpus not in allowed:
+            raise ValueError(f"retrieval_corpus must be one of {sorted(allowed)}")
+        if retrieval_corpus == "auto":
+            curated_ready = Path(curated_index_path).exists() and Path(curated_db_path).exists()
+            return "curated_support" if curated_ready else "reddit_research"
+        return retrieval_corpus
 
     # ── Stage 1: Emotion classification ───────────────────────────────────────
 
@@ -186,10 +228,15 @@ class EmpathRAGPipeline:
 
     # ── Stage 4: FAISS retrieval ───────────────────────────────────────────────
 
-    def _retrieve(self, query: str, emotion_label: int) -> list[str]:
+    def _retrieve(
+        self,
+        query: str,
+        emotion_label: int,
+        safety_level: SafetyLevel = SafetyLevel.PASS,
+    ) -> list[dict]:
         """
         Encodes query on GPU, searches FAISS, filters via SQLite.
-        Returns top_k chunk texts ranked by emotion match + safety score.
+        Returns top_k chunk metadata dicts.
         GPU usage: ~440 MB during encode, freed before returning.
         """
         # Move encoder to GPU for this call only
@@ -203,14 +250,18 @@ class EmpathRAGPipeline:
         self.encoder.to("cpu")
         torch.cuda.empty_cache()
 
-        # Search wider than top_k so we have room to re-rank by emotion
+        # Search wider than top_k so filters have room to work.
+        search_multiplier = 8 if self.retrieval_corpus == "curated_support" else 3
         distances, ids = self.faiss_index.search(
-            q_vec.astype(np.float32), self.top_k * 3
+            q_vec.astype(np.float32), self.top_k * search_multiplier
         )
         candidate_ids = [int(i) for i in ids[0] if i >= 0]
 
         if not candidate_ids:
             return []
+
+        if self.retrieval_corpus == "curated_support":
+            return self._fetch_curated_rows(candidate_ids, safety_level=safety_level)
 
         # Fetch metadata from SQLite
         placeholders = ",".join("?" * len(candidate_ids))
@@ -229,7 +280,117 @@ class EmpathRAGPipeline:
             return match_bonus + safety
 
         rows_sorted = sorted(rows, key=_score, reverse=True)[: self.top_k]
-        return [r[1] for r in rows_sorted]
+        return [
+            {
+                "id": r[0],
+                "text": r[1],
+                "emotion_label": r[2],
+                "safety_score": r[3],
+                "source_name": "Reddit Mental Health",
+                "source_type": "research_corpus",
+                "title": "Reddit Mental Health chunk",
+                "url": "",
+                "topic": "",
+                "risk_level": "research_only",
+                "usage_mode": "retrieval",
+            }
+            for r in rows_sorted
+        ]
+
+    def _fetch_curated_rows(
+        self,
+        candidate_ids: list[int],
+        safety_level: SafetyLevel = SafetyLevel.PASS,
+    ) -> list[dict]:
+        placeholders = ",".join("?" * len(candidate_ids))
+        conn = sqlite3.connect(self.db_path)
+        rows = conn.execute(
+            f"""
+            SELECT id, resource_id, text, source_id, source_name, source_type,
+                   title, url, topic, audience, risk_level, usage_mode, summary,
+                   last_checked, notes
+            FROM chunks
+            WHERE id IN ({placeholders})
+            """,
+            candidate_ids,
+        ).fetchall()
+        conn.close()
+
+        by_id = {row[0]: row for row in rows}
+        ordered = [by_id[i] for i in candidate_ids if i in by_id]
+        allowed_usage_modes = self._allowed_curated_usage_modes(safety_level)
+        filtered_candidates = [
+            row for row in ordered
+            if row[10] != "exclude" and row[11] != "metadata_only"
+            and row[11] in allowed_usage_modes
+        ]
+        filtered = self._limit_curated_source_repetition(filtered_candidates)
+        return [
+            {
+                "id": row[0],
+                "resource_id": row[1],
+                "text": row[2],
+                "source_id": row[3],
+                "source_name": row[4],
+                "source_type": row[5],
+                "title": row[6],
+                "url": row[7],
+                "topic": row[8],
+                "audience": row[9],
+                "risk_level": row[10],
+                "usage_mode": row[11],
+                "summary": row[12],
+                "last_checked": row[13],
+                "notes": row[14],
+            }
+            for row in filtered
+        ]
+
+    def _allowed_curated_usage_modes(self, safety_level: SafetyLevel) -> set[str]:
+        if safety_level in {SafetyLevel.CRISIS, SafetyLevel.EMERGENCY}:
+            return {"crisis_only"}
+        if safety_level == SafetyLevel.WELLBEING_SUPPORT:
+            return {"retrieval", "wellbeing_only"}
+        return {"retrieval"}
+
+    def _limit_curated_source_repetition(self, rows: list[tuple]) -> list[tuple]:
+        selected = []
+        source_counts: dict[str, int] = {}
+        for row in rows:
+            source_name = row[4]
+            if source_counts.get(source_name, 0) >= 2:
+                continue
+            selected.append(row)
+            source_counts[source_name] = source_counts.get(source_name, 0) + 1
+            if len(selected) == self.top_k:
+                return selected
+
+        if len(selected) < self.top_k:
+            selected_ids = {row[0] for row in selected}
+            for row in rows:
+                if row[0] in selected_ids:
+                    continue
+                selected.append(row)
+                if len(selected) == self.top_k:
+                    break
+        return selected
+
+    def _retrieve_crisis_support_sources(self, emotion_label: int) -> list[dict]:
+        if self.retrieval_corpus != "curated_support":
+            return []
+        query = (
+            "immediate crisis help for a UMD student, 988 Suicide and Crisis "
+            "Lifeline, emergency services, after-hours counseling support"
+        )
+        try:
+            return self._retrieve(
+                query,
+                emotion_label,
+                safety_level=SafetyLevel.CRISIS,
+            )
+        except Exception as exc:
+            print(f"[EmpathRAG] WARNING: crisis source retrieval failed: {exc}")
+            return []
 
     # ── Stage 5: Generation ────────────────────────────────────────────────────
 
@@ -275,7 +436,7 @@ class EmpathRAGPipeline:
 
         out = self.llm(
             prompt,
-            max_tokens  = 200,
+            max_tokens  = self.generation_max_tokens,
             temperature = 0.75,
             stop        = ["[INST]", "Student:", "\n\n\n", "</s>"],
         )
@@ -324,22 +485,32 @@ class EmpathRAGPipeline:
             user_message, threshold=self.guardrail_threshold
         )
         latency["guardrail_ms"] = round((time.perf_counter() - t0) * 1000)
+        safety_decision = self.safety_policy.classify(
+            user_message, confidence=confidence, model_flag=is_crisis
+        )
 
         # Update session tracker (skip very short filler messages)
         self.tracker.update(emotion_label, token_count)
         trajectory = self.tracker.trajectory()
 
         # ── Guardrail intercept: terminate pipeline, return safe response ──────
-        if is_crisis:
+        if safety_decision.should_intercept:
+            t0 = time.perf_counter()
+            crisis_sources = self._retrieve_crisis_support_sources(emotion_label)
+            latency["crisis_retrieval_ms"] = round((time.perf_counter() - t0) * 1000)
             return {
-                "response":          SAFE_RESPONSE,
+                "response":          safety_decision.response or SAFE_RESPONSE,
                 "emotion":           emotion_label,
                 "emotion_name":      LABEL_NAMES[emotion_label],
                 "trajectory":        trajectory,
-                "crisis":            True,
+                "crisis":            safety_decision.level in {SafetyLevel.CRISIS, SafetyLevel.EMERGENCY},
                 "crisis_confidence": confidence,
+                "safety_level":      safety_decision.level.value,
+                "safety_reason":     safety_decision.reason,
                 "ig_highlights":     ig_highlights,
                 "retrieved_chunks":  [],
+                "retrieved_sources": self._source_summaries(crisis_sources),
+                "retrieval_corpus":   self.retrieval_corpus,
                 "latency_ms":        latency,
             }
 
@@ -350,7 +521,12 @@ class EmpathRAGPipeline:
 
         # ── Stage 4: Retrieval ─────────────────────────────────────────────────
         t0 = time.perf_counter()
-        chunks = self._retrieve(routed_query, emotion_label)
+        retrieved = self._retrieve(
+            routed_query,
+            emotion_label,
+            safety_level=safety_decision.level,
+        )
+        chunks = [row["text"] for row in retrieved]
         latency["retrieval_ms"] = round((time.perf_counter() - t0) * 1000)
 
         # ── Stage 5: Generation ────────────────────────────────────────────────
@@ -372,10 +548,27 @@ class EmpathRAGPipeline:
             "trajectory":        trajectory,
             "crisis":            False,
             "crisis_confidence": 0.0,
+            "safety_level":      safety_decision.level.value,
+            "safety_reason":     safety_decision.reason,
             "ig_highlights":     [],
             "retrieved_chunks":  chunks,
+            "retrieved_sources": self._source_summaries(retrieved),
+            "retrieval_corpus":  self.retrieval_corpus,
             "latency_ms":        latency,
         }
+
+    def _source_summaries(self, retrieved: list[dict]) -> list[dict]:
+        return [
+            {
+                "title": row.get("title", ""),
+                "source_name": row.get("source_name", ""),
+                "url": row.get("url", ""),
+                "topic": row.get("topic", ""),
+                "risk_level": row.get("risk_level", ""),
+                "usage_mode": row.get("usage_mode", ""),
+            }
+            for row in retrieved
+        ]
 
     def reset_session(self):
         """Clear session emotion history and conversation history."""

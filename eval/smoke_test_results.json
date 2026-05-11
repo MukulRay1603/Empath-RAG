@@ -16,9 +16,9 @@
       "expected_emotion": "anxiety",
       "got_emotion": "anxiety",
       "expected_crisis": false,
-      "got_crisis": true,
-      "crisis_conf": 0.7768,
-      "status": "PASS*"
+      "got_crisis": false,
+      "crisis_conf": 0.0,
+      "status": "PASS"
     },
     {
       "input": "My advisor rejected my work again without even reading it properly.",

@@ -2,221 +2,112 @@
 
 <div align="center">
 
-**Emotion-Aware Retrieval-Augmented Generation with Safety Guardrails for Student Mental Health**
+**A guarded conversational RAG support navigator for UMD students.**
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.5.1+cu121-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)]()
 [![University](https://img.shields.io/badge/UMD-MSML641-E03A3E?style=flat-square)](https://umd.edu)
 
-*MSML641 · Applied Machine Learning · University of Maryland · Spring 2025*
+*A research prototype, not a clinical product.*
 
 </div>
 
 ---
 
-Standard RAG systems treat every message identically as a neutral information request. A student in crisis and a student asking for study tips go through the same retrieval pipeline, with no emotional awareness and no safety gate.
+EmpathRAG listens to a student's message, decides what kind of support is needed, retrieves grounded UMD resources, and produces a single practical next step. Crisis content is intercepted before any language model is invoked. The system is **not** therapy, diagnosis, counseling, or an emergency service.
 
-**EmpathRAG fixes this.** It is a 5-stage NLP pipeline that classifies a student's emotional state *before* retrieval, rewrites queries based on that state, and intercepts crisis-level messages with a trained NLI classifier before the language model is ever invoked.
+Most chatbots route every message through the language model. This one doesn't. A deterministic safety planner decides *what* to say; the LLM only paraphrases *how*.
 
----
+## Headline result
 
-## Pipeline
+Same underlying model (Llama 3.3 70B via Groq), 28 escalation scenarios from a multi-turn safety benchmark:
 
-```
-Student Message
-      │
-      ├──▶ [1] Emotion Classifier     RoBERTa + LoRA  (CPU)
-      │         distress · anxiety · frustration · neutral · hopeful
-      │
-      ├──▶ [2] Safety Guardrail       DeBERTa-v3 NLI  (CPU)
-      │         ⚠ If crisis → return 988 lifeline · STOP · generator never runs
-      │
-      ├──▶ [3] Query Router           Deterministic templates + session tracker
-      │         Rewrites query with emotion context · tracks 6 trajectory states
-      │
-      ├──▶ [4] FAISS Retrieval        all-mpnet-base-v2 · 1,674,369 vectors
-      │         Emotion-match re-ranking · SQLite metadata sidecar
-      │
-      └──▶ [5] Mistral 7B Generator   Q4_K_M GGUF · 28/33 GPU layers
-                Sliding 3-turn memory · 2-paragraph empathetic response
-```
+| System | Missed escalation rate | Harm endorsement |
+|---|---:|---:|
+| **EmpathRAG Core (full stack)** | **0 / 28 (0.0%)** | **0** |
+| Unguarded Llama 3.3 70B (no pipeline) | 9 / 28 (32.1%) | 2 turns |
 
----
+Non-overlapping 95% CIs. The entire delta is architectural. Full evaluation results and reproducibility commands are in [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md) and [`docs/research/REPRODUCIBILITY.md`](docs/research/REPRODUCIBILITY.md).
 
-## Results
-
-| Metric | Value | Target | |
-|---|---|---|---|
-| RoBERTa Emotion F1 (weighted) | **0.7127** | > 0.55 | ✅ |
-| DeBERTa Crisis Recall (held-out NLI test set, 23K samples) | **0.9629** | > 0.80 | ✅ |
-| DeBERTa Crisis Recall (30 adversarial probes, 6 categories) | **0.75** | — | ✅ |
-| DeBERTa Crisis Precision | **0.7951** | > 0.65 | ✅ |
-| BERTScore F1 | **0.8266** | > 0.72 | ✅ |
-| Wilcoxon p-value (Full vs BM25) | **3.62e-08** | < 0.05 | ✅ |
-| Euphemistic recall — NLI vs keyword | **100% vs 20%** | — | 🔑 |
-
-### Ablation — Emotion Alignment Score (3-condition)
-
-| Condition | Retrieval | Emotion Conditioning | Score |
-|---|---|---|---|
-| A — BM25 baseline | Sparse | None | 0.30 |
-| C — Dense RAG | FAISS semantic | None | 0.50 |
-| D — **Full EmpathRAG** | FAISS + emotion | Query rewrite + re-rank | **0.88** |
-
-> Emotion conditioning contributes **+0.38** over pure dense retrieval (C→D). Wilcoxon signed-rank: p = 3.62e-08.
-
-> **Note:** Condition B (DPR two-tower baseline) was descoped — deprioritised to increase adversarial probe depth. A ColBERT-scale index would be required for DPR to offer meaningful gains over FAISS flat-L2 at 1.67M vectors.
-
----
-
-## Key Finding
-
-The NLI-framed safety guardrail outperforms a keyword filter across every adversarial probe category that matters:
-
-| Probe Category | EmpathRAG (NLI) | Keyword Filter |
-|---|---|---|
-| Direct crisis language | 100% | 80% |
-| Euphemistic / indirect | **100%** | 20% |
-| Negation bypass | **100%** | 60% |
-| Bait-and-switch | 40% | 20% |
-
-Keyword filters miss indirect phrasing. NLI understands semantic entailment. This is the core research finding.
-
----
-
-## Demo
-
-> 🔄 **Demo recording in progress** — Loom walkthrough coming soon.
-
-The Gradio demo shows:
-- Real-time emotion timeline with trajectory detection across turns
-- Safety guardrail panel with Integrated Gradients token attribution highlights
-- Multi-turn conversation memory (sliding 3-turn window)
-- Session ID for human evaluation correlation
-
-To run locally (requires models — see [Setup](#setup)):
-```bash
-python demo/app.py
-```
-
----
-
-## VRAM Budget (RTX 3060, 6 GB)
-
-| Component | Device | VRAM |
-|---|---|---|
-| RoBERTa + DeBERTa | CPU | 0 MB |
-| Sentence Transformer | GPU (encode only) | 440 MB |
-| Mistral 7B Q4_K_M | GPU resident | 3,870 MB |
-| KV cache + compute | GPU | ~630 MB |
-| **Total peak** | | **~4,940 MB** ✅ |
-
----
-
-## Repo Structure
+## Architecture
 
 ```
-Empath-RAG/
-├── src/
-│   ├── pipeline/
-│   │   ├── pipeline.py          # 5-stage orchestrator · conversation memory
-│   │   ├── query_router.py      # Emotion-conditioned query rewriting
-│   │   └── session_tracker.py   # Trajectory detection (6 states)
-│   ├── models/
-│   │   ├── guardrail_ig.py      # DeBERTa NLI + Integrated Gradients
-│   │   └── annotate_corpus.py   # Corpus emotion annotation (Colab A100)
-│   └── data/
-│       ├── preprocess.py        # GoEmotions 27→5 label collapse
-│       ├── build_faiss_index.py # FAISS IVFFlat builder
-│       └── build_nli_pairs.py   # NLI training pair construction
-├── demo/
-│   └── app.py                   # Gradio demo · emotion timeline · crisis panel
-├── eval/
-│   ├── run_ablation.py          # Conditions A / C / D
-│   ├── run_bertscore.py         # BERTScore F1
-│   ├── run_wilcoxon.py          # Wilcoxon signed-rank test
-│   ├── run_adversarial.py       # NLI vs keyword filter · 30 probes
-│   ├── test_prompts.json        # 50 prompts · 10 per emotion class
-│   └── adversarial_probes.json  # 30 probes · 6 categories × 5
-├── notebooks/
-│   ├── colab_emotion_classifier.ipynb   # RoBERTa + LoRA · A100
-│   └── colab_deberta_guardrail.ipynb    # DeBERTa NLI · A100 · bf16
-└── data/
-    └── MANIFEST.md              # Dataset download instructions
+Student message
+     │
+     ├──▶ [1] Stage-1 lexical safety precheck       crisis intercept · LLM bypassed
+     ├──▶ [2] Optional DeBERTa NLI guardrail        off in live demo for latency
+     ├──▶ [3] Hybrid route + tier classifier        14 routes × 4 safety tiers
+     ├──▶ [4] Resource registry filter              34 verified UMD/national entries
+     ├──▶ [5] Stage-aware planner                   LISTEN → PERMISSION → OFFER → CLARIFY
+     ├──▶ [6] Plan-and-rephrase                     Groq → Anthropic → fallback
+     │                                              + post-rephrase trust boundary
+     └──▶ [7] Output guard                          missing-action / dependency /
+                                                    sycophancy / fabrication
 ```
 
----
+A per-layer ablation evaluation quantifies each layer's contribution to the safety floor. See [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md).
 
-## Setup
+## Quickstart
 
-**Requirements:** Python 3.12 · CUDA 12.1 · 6 GB VRAM · 16 GB RAM · ~15 GB disk
-
-> ⚠️ Install order is critical — do not skip steps.
-
-```bash
-# 1. Clone
+```powershell
+# 1. Clone + venv
 git clone https://github.com/MukulRay1603/Empath-RAG.git
 cd Empath-RAG
 python -m venv venv
-venv\Scripts\activate        # Windows
+.\venv\Scripts\activate
 
-# 2. PyTorch with CUDA — install FIRST
-pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
-
-# 3. llama-cpp-python CUDA wheel — install SECOND
-pip install "llama_cpp_python==0.3.4" --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
-
-# 4. Everything else
+# 2. Dependencies
 pip install -r requirements.txt
 
-# 5. Force correct numpy (faiss requires < 2.0)
-pip install "numpy==1.26.4" --force-reinstall
+# 3. .env at repo root
+#    GROQ_API_KEY=gsk_...
+#    ANTHROPIC_API_KEY=sk-ant-...   (optional fallback)
+
+# 4. Launch the Gradio demo
+$env:EMPATHRAG_DEMO_BACKEND='fast'
+$env:EMPATHRAG_REPHRASER_ENABLED='1'
+.\venv\Scripts\python.exe -u demo\app.py
+
+# 5. Open http://127.0.0.1:7860/
 ```
 
-**Model downloads** — see [`data/MANIFEST.md`](data/MANIFEST.md) for dataset download instructions.
+Without API keys the system runs in deterministic-template mode — all safety layers still function; only the natural-language paraphrasing is offline.
 
-Mistral 7B GGUF → download `mistral-7b-instruct-v0.2.Q4_K_M.gguf` from [TheBloke/Mistral-7B-Instruct-v0.2-GGUF](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) → place at `models/generator/mistral-7b-instruct-v0.2.Q4_K_M.gguf`
+## Documentation
 
----
-
-## Datasets
-
-| Dataset | Role | License |
+| Doc | Audience | What's in it |
 |---|---|---|
-| [GoEmotions](https://huggingface.co/datasets/google-research-datasets/go_emotions) | Emotion classifier training | Apache 2.0 |
-| [Reddit Mental Health](https://zenodo.org/records/3941387) | FAISS retrieval corpus | CC BY 4.0 |
-| [Suicide Detection](https://www.kaggle.com/datasets/nikhileswarkomati/suicide-watch) | Guardrail NLI training | Public |
-| [Empathetic Dialogues](https://huggingface.co/datasets/facebook/empathetic_dialogues) | BERTScore gold references | CC BY-NC 4.0 |
+| [`docs/architecture/EMPATHRAG_CORE_ARCHITECTURE.md`](docs/architecture/EMPATHRAG_CORE_ARCHITECTURE.md) | Engineers, reviewers | Runtime design, pipeline order, the seven safety layers |
+| [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md) | Reviewers, the paper | Research story, baselines, full evaluation results, V1 motivation |
+| [`docs/research/REPRODUCIBILITY.md`](docs/research/REPRODUCIBILITY.md) | Reviewers, forks | Exact commands per evaluation, expected results, what's tracked vs untracked |
+| [`docs/research/ERROR_ANALYSIS.md`](docs/research/ERROR_ANALYSIS.md) | Reviewers | Seven categories of observed failure modes with mitigations and residual risk |
+| [`docs/research/PRIVACY_AND_DATA_FLOW.md`](docs/research/PRIVACY_AND_DATA_FLOW.md) | Students, clinicians | What data goes where, retention, how to clear local state |
+| [`docs/research/HIPAA_FERPA_GAP_ANALYSIS.md`](docs/research/HIPAA_FERPA_GAP_ANALYSIS.md) | Compliance reviewers | Explicit accounting of deployment-readiness gaps |
 
----
+## Repo
 
-## Evaluation Status
+```
+src/pipeline/      core.py · rephraser.py · response_planner.py · safety_policy.py
+                   output_guard.py · ml_router.py · service_graph.py · llm_safety.py
+                   support_plan.py · voice.py · v2_schema.py
+demo/              app.py            Gradio UI + streaming + safety-pipeline viz
+eval/              run_multiturn_eval.py · run_ablation_eval.py · run_unguarded_baseline.py
+                   sweep_*.py (5 targeted failure-mode probe sweeps)
+                   audit_resource_urls.py
+data/curated/      service_graph.jsonl  (34 verified UMD/national service objects)
+tests/             test_v25_support_navigator.py  (21 regression tests)
+docs/              architecture/ · research/
+```
 
-| Task | Status |
-|---|---|
-| Emotion Classifier (RoBERTa F1 = 0.7127) | ✅ Complete |
-| Safety Guardrail (DeBERTa recall = 0.9629) | ✅ Complete |
-| BERTScore Evaluation (F1 = 0.8266) | ✅ Complete |
-| Wilcoxon Test (p = 3.62e-08) | ✅ Complete |
-| Adversarial Probe Evaluation (30 probes) | ✅ Complete |
-| Human Evaluation (8–10 raters) | 🔄 In Progress |
-| Loom Demo Recording | 🔄 In Progress |
+Intentionally untracked (regenerable or sensitive): `data/curated/indexes/`, `models/router/`, `Data_Karthik/`, `.env`, generated eval reports.
 
----
+## Contributors
 
-## Known Limitations
+- **Mukul Rayana** — UMD MSML, project lead.
+- **Karthik** — UMD MSML, dataset and curated-corpus delivery.
 
-- **Bait-and-switch probes:** Positive openers cause the guardrail to misclassify follow-up crisis content (40% recall). Most dangerous documented failure mode.
-- **Domain transfer false positives:** Academic hyperbole ("this thesis is killing me") fires the guardrail at high confidence — trained on r/SuicideWatch, never saw graduate student language.
-- **Generator quality:** Mistral 7B Q4_K_M produces adequate but not optimal empathetic responses. Architecture supports drop-in model replacement.
-- **Faithfulness gap:** No automated faithfulness metric deployed — RAGAS and DeepEval both produced degenerate scores with a small model judge. BERTScore reported instead.
-
----
+This prototype is built openly for academic use. It is not a UMD product or service.
 
 ## License
 
-MIT License — see [`LICENSE`](LICENSE) for details.
-
-Dataset licenses vary — see Datasets table above. Mistral 7B: Apache 2.0.
+[MIT](LICENSE). Dataset and third-party model licenses vary; see `docs/research/PAPER_FRAMING.md` for the full provenance.
