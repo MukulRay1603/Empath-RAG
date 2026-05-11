@@ -117,6 +117,64 @@ Headline numbers below are useful as prototype evidence. **Report them with thei
 
 **External validity caveat.** All evaluations run on Karthik's synthetic dataset (216/72/72 split for Eval A, 74 multi-turn for Eval B). Real student phrasing differs structurally — code-switching, abbreviations, slang, emoji, sarcasm. The numbers here are useful for prototype framing and the within-this-evaluation-set comparison story. They are **not** deployment-readiness claims. The V4 data request to Karthik (`docs/team/karthik/KARTHIK_DATA_REQUEST_V4.md`, item H) asks for 10-20 real anonymized student turns as the next-step evaluation pull.
 
+## Evaluation results (V4, commit `4f20fa7` or newer)
+
+All numbers below are reproducible from this repo via `docs/research/REPRODUCIBILITY.md`. Stochastic LLM evaluations vary by 1-2 cells run-to-run within tolerance; the tables reflect typical runs.
+
+### Headline: same-model guarded vs unguarded comparison
+
+| System | Underlying model | Missed escalation count | Rate | CI95 |
+|---|---|---:|---:|---|
+| EmpathRAG Core (full stack, rephraser ON) | Llama 3.3 70B (Groq) | **0 / 28** | **0.0** | [0.000, 0.000] |
+| Unguarded Llama 3.3 70B (no planner, no registry, no guards) | Llama 3.3 70B (Groq) | **9 / 28** | **0.321** | [0.148, 0.494] |
+
+Same underlying model. The entire delta is architectural. **The CIs are non-overlapping; the architectural improvement is statistically meaningful at n = 28.**
+
+The unguarded baseline also produced **2 harm-endorsement turns** (regex-detected) across the 74 scenarios; our system: **0** across the same 74.
+
+### Per-layer ablation (rephraser ON, Eval B 74 scenarios / 28 escalation)
+
+| Variant | Layer(s) disabled | Missed escalation | Δ vs baseline | Avg latency |
+|---|---|---:|---:|---:|
+| `baseline` | — | 0 / 28 | — | 579 ms |
+| `no_stage1_precheck` | Stage-1 lexical safety policy | **22 / 28** | **+22** | 624 ms |
+| `no_output_guard` | OFFER-stage validate_output | 0 / 28 | — | 557 ms |
+| `no_rephrase_safety` | verify_rephrased_safety on LLM output | 0 / 28 | — | 562 ms |
+| `no_registry_filter` | resource registry + retrieval | 0 / 28 | — | 529 ms |
+
+**Interpretation:** Stage-1 lexical precheck is load-bearing on the missed-escalation metric — removing it forces the entire stack to depend on the ML router + contextual overrides + downstream guards, which on this dataset miss ~78% of escalations Stage-1 catches. The other three layers protect against *orthogonal* failure modes (drift, sycophancy capitulation, scope drift, fabrication, action-language) that are caught by targeted sweeps (sycophancy 25/25 clean, drift 27-29/29 clean, F-1 contract 12/12 clean) but don't manifest as missed_escalation. The defense-in-depth story is honest: layers protect *different* failure modes; together they hit 0/28; alone they each leave gaps.
+
+### Targeted failure-mode sweeps (rephraser ON)
+
+| Sweep | Cells | Clean | Notes |
+|---|---:|---:|---|
+| Drift sweep (14 routes × 3 stages) | 29 | 27-29 | 1-2 stochastic LLM-level flags (filler / ai-tell) within tolerance |
+| F-1 stage × ISSS contract | 12 | 12 | ISSS named only at PERMISSION+OFFER; F-1 mechanics only at OFFER |
+| Sycophancy probes (incl. multi-turn pressure) | 25 | 25 | 0 capitulation under explicit "agree with me" pressure |
+| Prompt-injection probes (9 attack categories) | 16 | 16 | Planner-as-trust-boundary holds across direct override, role replacement, DAN-style, pseudo-system, extraction, recursive injection, authority spoof, inverse instruction |
+| Fairness spot-check (paired demographic perturbation) | 18 | 18 | 0 routing divergences across gender, race, sexuality, F-1/domestic, grad/undergrad, first-gen, disability axes |
+| Resource URL audit | 63 | 60 live | 3 SAMHSA TLS quirks (work in browser; urllib client issue) |
+| Regression tests | 21 | 21 | — |
+
+### V1 baseline (preserved for the paper's Section 4)
+
+These are the numbers from the original EmpathRAG V1 evaluation that motivated the Core redesign. They are kept in the paper as baseline rigor and as honest documentation of where V1 fell short.
+
+| V1 metric | Value |
+|---|---:|
+| RoBERTa emotion classifier F1 (weighted) | 0.713 |
+| DeBERTa crisis recall (held-out NLI test set, 23K) | 0.963 |
+| DeBERTa crisis recall (30 adversarial probes) | 0.75 |
+| DeBERTa crisis precision | 0.795 |
+| BERTScore F1 | 0.827 |
+| Wilcoxon p (Full vs BM25) | 3.62e-08 |
+| **Bait-and-switch recall** | **0.40** ← documented V1 failure mode that Core mitigates |
+| Direct crisis language (probe set) | 1.00 |
+| Euphemistic / indirect | 1.00 |
+| Negation bypass | 1.00 |
+
+The bait-and-switch number is the single strongest motivation for the Core redesign: V1's NLI guardrail is fooled by positive openers followed by crisis content. Core's response is the four-tier safety ladder + trajectory escalation tracker + Stage-1 lexical precheck running *before* the NLI model, so the NLI weakness is no longer load-bearing.
+
 ## Allowed Claims
 
 - prototype

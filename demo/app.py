@@ -783,6 +783,62 @@ body::before {
   cursor: help;
   animation: er-fallback-pulse 2.4s ease-in-out infinite;
 }
+
+/* Safety pipeline visualization — 6 chips showing each layer's state for
+   the current turn. Hover for tooltip with the layer's reason. */
+.er-safety-pipeline {
+  margin: 10px 0 4px 0;
+  padding: 8px 10px;
+  background: rgba(94, 234, 212, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.er-safety-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.er-safety-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.er-safety-chip {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-mid);
+  cursor: help;
+  transition: transform 120ms ease;
+  letter-spacing: 0.02em;
+  min-width: 26px;
+  text-align: center;
+}
+.er-safety-chip:hover { transform: translateY(-1px); }
+.er-safety-on {
+  background: rgba(94, 234, 212, 0.14);
+  border-color: rgba(94, 234, 212, 0.36);
+  color: var(--accent);
+}
+.er-safety-hit {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #fda4a4;
+}
+.er-safety-skip {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+.er-safety-off {
+  background: transparent;
+  border-color: var(--border);
+  color: rgba(255,255,255,0.18);
+}
 @keyframes er-fallback-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.0); }
   50%      { box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.18); }
@@ -1094,6 +1150,37 @@ body::before {
   .er-hero h1 { font-size: 26px; }
   .er-diag-grid { grid-template-columns: 1fr; }
   .gradio-container .er-chat .message.user { max-width: 90% !important; }
+  /* Make the 4-button action area in the topbar stay tappable on phones */
+  .gradio-container .er-export-btn,
+  .gradio-container .er-reset-btn { flex: 1 1 auto !important; }
+  .gradio-container .er-export-btn button,
+  .gradio-container .er-reset-btn button { padding: 8px 12px !important; font-size: 12px !important; }
+  /* Safety pipeline chips wrap to multiple lines on phones; keep them
+     readable rather than squished. */
+  .er-safety-row { row-gap: 5px !important; }
+  .er-safety-chip { font-size: 10px !important; padding: 3px 7px !important; }
+  /* Hero gets cramped at narrow widths */
+  .er-hero { padding: 18px 14px !important; }
+  .er-hero p { font-size: 14px !important; }
+  /* Composer right-padding accounts for one button at narrow widths */
+  .gradio-container .er-composer-wrap textarea { padding-right: 52px !important; }
+  /* Source cards already full-width; tighten internal padding */
+  .er-source { padding: 12px 14px !important; }
+  /* Voice row stays compact */
+  .er-voice-row { flex-direction: column !important; align-items: stretch !important; gap: 6px !important; }
+  .er-voice-row > * { width: 100% !important; }
+}
+
+/* Extra-small phones (iPhone SE width ~375px) */
+@media (max-width: 420px) {
+  .gradio-container { padding: 0 12px 24px !important; }
+  .er-brand { gap: 8px !important; font-size: 14px !important; }
+  .er-hero h1 { font-size: 22px !important; }
+  .er-hero p { font-size: 13px !important; }
+  .er-modebar { flex-wrap: wrap !important; }
+  .er-chip-btn { font-size: 11.5px !important; padding: 6px 10px !important; }
+  /* Send button stays anchored bottom-right but shrinks slightly */
+  .gradio-container .er-send-btn button { padding: 8px 12px !important; }
 }
 """
 
@@ -2002,6 +2089,116 @@ def _action_items_for(result: dict | None) -> list[str]:
     return items
 
 
+def _render_safety_pipeline(result: dict | None) -> str:
+    """Six-badge row visualizing each safety layer's status for this turn.
+
+    Order mirrors the pipeline: Stage-1 -> Route -> Registry -> Stage ->
+    Rephrase -> Safety verify -> Output guard. Each badge state:
+      - on   (green) : layer ran and did what it should
+      - hit  (red)   : layer intercepted / blocked something
+      - skip (gray)  : layer intentionally skipped (e.g. listening stage)
+      - off  (gray-dim): layer disabled or N/A
+    """
+    if not result:
+        # Empty-state: show the layer names ghosted so the architecture is
+        # legible even before the first message.
+        slots = [
+            ("S1", "Stage-1 safety", "off"),
+            ("Route", "Route classifier", "off"),
+            ("Reg", "Resource registry", "off"),
+            ("Stage", "Conversation stage", "off"),
+            ("Reph", "Rephraser", "off"),
+            ("Guard", "Output guard", "off"),
+        ]
+    else:
+        # Stage-1 lexical precheck
+        precheck = result.get("safety_precheck", {}) or {}
+        if precheck.get("should_intercept"):
+            s1 = ("S1", f"Stage-1 INTERCEPTED: {precheck.get('reason','crisis')}", "hit")
+        elif precheck.get("level") in ("wellbeing_support",):
+            s1 = ("S1", f"Stage-1 flagged wellbeing: {precheck.get('reason','')}", "on")
+        else:
+            s1 = ("S1", f"Stage-1 pass: {precheck.get('reason','no_match')}", "on")
+
+        # Route classifier
+        route_label = result.get("route_label", "")
+        classifier = result.get("classifier_confidence", {}) or {}
+        route_conf = float(classifier.get("route", 0.0) or 0.0)
+        used_ml = classifier.get("used_ml")
+        route_state = "hit" if route_label == "crisis_immediate" else "on"
+        route = ("Route",
+                 f"Route: {route_label} (conf {route_conf:.2f}, {'ML' if used_ml else 'rule'})",
+                 route_state)
+
+        # Resource registry filter — count of sources surfaced
+        sources = result.get("retrieved_sources", []) or []
+        if sources:
+            reg = ("Reg", f"{len(sources)} verified UMD/national resource(s) surfaced", "on")
+        else:
+            reg = ("Reg", "No resources surfaced (route doesn't need them)", "skip")
+
+        # Conversation stage
+        stage_val = result.get("conversation_stage", "—")
+        stage_glyph = {"listen": "L", "permission": "P", "offer": "O", "clarify": "C", "offer (crisis)": "X"}.get(
+            stage_val, stage_val[:1].upper() if stage_val else "?"
+        )
+        if result.get("crisis"):
+            stage_state = "hit"
+            stage_glyph = "X"
+            stage_label = f"CRISIS — LLM bypassed, deterministic crisis template"
+        elif stage_val == "clarify":
+            stage_state = "skip"
+            stage_label = "Clarify: short open-ended (output guard skipped)"
+        elif stage_val == "offer":
+            stage_state = "on"
+            stage_label = "Offer: full plan + named resources"
+        else:
+            stage_state = "on"
+            stage_label = f"{stage_val.title()}: listening / inviting"
+        stage = (stage_glyph, stage_label, stage_state)
+
+        # Rephraser
+        provider = result.get("rephraser_provider", "deterministic")
+        used_llm = bool(result.get("rephraser_used_llm"))
+        rephraser_err = result.get("rephraser_last_error", "")
+        if used_llm:
+            reph = ("Reph", f"Paraphrased via {provider}", "on")
+        elif provider == "deterministic_fallback":
+            reph = ("Reph", f"FALLBACK to deterministic — {rephraser_err or 'unknown error'}", "hit")
+        elif provider == "deterministic":
+            reph = ("Reph", "Deterministic templates (rephraser off)", "skip")
+        else:
+            reph = ("Reph", f"Provider: {provider}", "on")
+
+        # Output guard
+        guard = result.get("output_guard", {}) or {}
+        guard_flags = guard.get("flags", []) or []
+        guard_reason = guard.get("reason", "")
+        if guard_flags:
+            grd = ("Guard", f"Guard flags: {', '.join(guard_flags)}", "hit")
+        elif "disabled" in guard_reason:
+            grd = ("Guard", "Output guard disabled (ablation)", "off")
+        elif "listening_stage" in guard_reason or "minimal_response_clarify" == guard_reason:
+            grd = ("Guard", f"Skipped at {stage_val} stage by design", "skip")
+        elif guard_reason == "crisis_template":
+            grd = ("Guard", "Crisis template (no guard needed)", "skip")
+        else:
+            grd = ("Guard", "Output guard passed", "on")
+
+        slots = [s1, route, reg, stage, reph, grd]
+
+    html = "<div class='er-safety-pipeline'>"
+    html += "<div class='er-safety-label'>Safety pipeline</div>"
+    html += "<div class='er-safety-row'>"
+    for label, tooltip, state in slots:
+        html += (
+            f"<div class='er-safety-chip er-safety-{escape(state)}' "
+            f"title='{escape(tooltip)}'>{escape(label)}</div>"
+        )
+    html += "</div></div>"
+    return html
+
+
 def format_live_context(result: dict | None = None, turn_index: int = 0) -> str:
     """Right-panel: arc + signals + resources + things-to-try (one HTML string)."""
     has_msg = bool(result)
@@ -2064,6 +2261,12 @@ def format_live_context(result: dict | None = None, turn_index: int = 0) -> str:
         + f"<div class='er-ctx-status {status_cls}'>{escape(status_text)}</div>"
         "</div>"
     )
+
+    # Safety-pipeline visualization: 6 layer badges showing what fired on this
+    # turn. The point is to make the "defense in depth" story visible during
+    # the demo without forcing the viewer to open Diagnostics. Each badge has
+    # a tooltip with the layer's reason / status.
+    parts.append(_render_safety_pipeline(result))
 
     # Arc
     parts.append(
