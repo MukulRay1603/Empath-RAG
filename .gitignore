@@ -119,3 +119,6 @@ docs/research/SAFETY_AND_DATASET_PLAN.md
 # Detailed internal README preserved locally; public-facing README.md is
 # the one tracked in git.
 README_INTERNAL.md
+
+# Local-only docs (end-to-end internal reference, submission brief, etc.)
+docs_local/
