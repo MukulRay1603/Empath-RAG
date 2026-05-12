@@ -3014,6 +3014,14 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS, js=_CHATBOT_A
             ):
                 diag_block = gr.HTML(value=format_studio_diagnostics(None))
 
+    # iframe-resizer height anchor for HF Spaces deployment.
+    # HF Spaces uses iframe-resizer in `taggedElement` mode to auto-size the
+    # iframe to the Gradio app's content height. Without an element marked with
+    # `data-iframe-height`, the iframe falls back to a default short height
+    # and clips the top of the page (topbar, hero, etc.). This sentinel div
+    # at the very end of the layout tells iframe-resizer how tall to grow.
+    gr.HTML('<div data-iframe-height style="height:1px;width:1px;"></div>')
+
     # Hidden state surfaces (kept to preserve respond() output contract)
     session_id_box = gr.Textbox(value=initial_state["session_id"], visible=False)
 
