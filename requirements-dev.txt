@@ -1,0 +1,46 @@
+# EmpathRAG — Full development / training dependencies
+#
+# Install order matters — read INSTALL NOTES below before running pip install.
+# The slim runtime requirements live in requirements.txt and are what the
+# Hugging Face Space and Gradio demo actually import. This file adds the
+# baseline-iteration training stack (RoBERTa, DeBERTa, Mistral, FAISS) used
+# by the notebooks and the V1 pipeline.
+#
+# ── INSTALL NOTES ──────────────────────────────────────────────────────────────
+# 1. PyTorch (CUDA) - install FIRST before anything else:
+#    pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+#
+# 2. llama-cpp-python (CUDA wheel) - install SECOND:
+#    pip install llama_cpp_python==0.3.4 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
+#
+# 3. Everything else:
+#    pip install -r requirements-dev.txt
+#
+# 4. Force correct numpy (faiss requires <2.0):
+#    pip install "numpy==1.26.4" --force-reinstall
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Slim runtime (also pulled by requirements.txt)
+-r requirements.txt
+
+# HuggingFace stack — baseline iteration only
+transformers==4.57.6
+peft==0.18.1
+datasets==2.18.0
+accelerate==1.13.0
+evaluate==0.4.1
+
+# Retrieval — baseline iteration only
+faiss-cpu==1.9.0.post1
+sentence-transformers==3.4.1
+
+# Explainability — baseline iteration only
+captum==0.7.0
+
+# Evaluation
+ragas==0.1.21
+bert-score==0.3.13
+rank-bm25==0.2.2
+
+# Data utilities only used by training notebooks
+kaggle==1.6.3
