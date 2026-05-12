@@ -18,6 +18,14 @@ huggingface_hub>=0.30,<1.0
 # time the API info endpoint is hit. Pinning to 2.10.6 keeps schemas as dicts.
 pydantic==2.10.6
 
+# Starlette 1.0 dropped the old `TemplateResponse(name, context)` positional
+# signature in favor of `TemplateResponse(request, name, context)`. Gradio
+# 4.44.1 still calls the old signature, so the context dict gets passed as
+# the template name and jinja2 raises "unhashable type: 'dict'". Pin both
+# fastapi and starlette to versions matching what gradio 4.44.1 was tested on.
+fastapi==0.115.5
+starlette==0.41.3
+
 # Hybrid route classifier (TF-IDF + logistic regression).
 # Loose lower bounds so the resolver picks wheels compatible with the
 # Python version configured in the README YAML (currently 3.10).
