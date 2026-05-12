@@ -422,11 +422,8 @@ app.py                Hugging Face Spaces entry shim
 
 ### Authorship
 
-- **Mukul Rayana** — University of Maryland, MSML. Project lead; architecture, code, evaluation design, and end-to-end system development across all design iterations.
-- **Karthik** — University of Maryland, MSML. Data partner. Contributions include:
-  - Curation of the UMD Student Support Conversational Dataset (single-turn, multi-turn, and high-risk scenarios).
-  - Compilation and source-verification of the UMD Resource Knowledge Base passages drawn from UMD Counseling, ISSS, ADS, Graduate Ombuds, NIMH, NAMI, SAMHSA, CDC, and 988.
-  - Annotation conventions for safety-tier and route labels used by the route classifier and evaluation harness.
+- **Mukul Rayana** — University of Maryland, MSML. Project lead; architecture, code, evaluation design, and end-to-end system development.
+- **Karthik** — University of Maryland, MSML. Data partner; dataset curation, resource-source verification, and annotation conventions for routing and safety tiers.
 
 ### Course and Use
 
