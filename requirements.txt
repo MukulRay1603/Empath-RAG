@@ -7,27 +7,24 @@
 # Demo UI
 gradio==4.44.1
 
-# Polyfill for stdlib `audioop`, removed in Python 3.13 (PEP 594).
-# pydub (a gradio dep) still imports it, so without this the Space crashes
-# at import time. Conditional install: only needed on 3.13+.
-audioop-lts; python_version >= "3.13"
-
 # gradio 4.44.1 still imports HfFolder, which was removed in huggingface_hub 1.0.
 # Pin to the 0.x line so the resolver does not pull 1.x from the HF Spaces base
 # image (which installs huggingface_hub>=0.30 with no upper bound).
 huggingface_hub>=0.30,<1.0
 
-# Hybrid route classifier (TF-IDF + logistic regression)
-scikit-learn==1.8.0
-scipy==1.17.1
-numpy>=2.1,<3.0
+# Hybrid route classifier (TF-IDF + logistic regression).
+# Loose lower bounds so the resolver picks wheels compatible with the
+# Python version configured in the README YAML (currently 3.10).
+scikit-learn>=1.3,<2.0
+scipy>=1.11,<2.0
+numpy>=1.26,<3.0
 
 # Tabular utilities
-pandas==2.3.3
+pandas>=2.0,<3.0
 
 # Support-plan PDF export (uses bundled DejaVu font for Unicode)
 fpdf2==2.8.4
-matplotlib>=3.9,<4.0
+matplotlib>=3.7,<4.0
 
 # Local development convenience (.env loading)
 python-dotenv>=1.0

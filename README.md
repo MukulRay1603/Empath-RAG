@@ -5,6 +5,7 @@ colorFrom: green
 colorTo: indigo
 sdk: gradio
 sdk_version: 4.44.1
+python_version: "3.10"
 app_file: demo/app.py
 pinned: false
 short_description: Guarded RAG support navigator for UMD students
