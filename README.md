@@ -18,11 +18,19 @@ short_description: Guarded RAG support navigator for UMD students
 ### A guarded conversational retrieval-augmented support navigator for University of Maryland students.
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
 [![UMD MSML641](https://img.shields.io/badge/UMD-MSML641-E03A3E?style=flat-square)](https://umd.edu)
-[![Hugging Face Space](https://img.shields.io/badge/🤗-Live%20Demo-yellow?style=flat-square)](https://huggingface.co/spaces/MukulRay/EmpathRAG)
+[![Hugging Face Space](https://img.shields.io/badge/🤗-Live%20Demo-yellow?style=flat-square)](https://mukulray-empathrag.hf.space/)
 
 </div>
+
+<br>
+
+### 🚀 &nbsp; Try EmpathRAG Live
+
+> 👉 &nbsp; **<https://mukulray-empathrag.hf.space/>**
+>
+> No installation required. Hosted on Hugging Face Spaces.
 
 <br>
 
@@ -423,4 +431,4 @@ Class project for **MSML641 (Applied Machine Learning)**, University of Maryland
 
 ### License
 
-Code released under the [MIT License](LICENSE). Dataset and third-party model licenses vary; full provenance in [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md).
+Code released under the [Apache License 2.0](LICENSE). Dataset and third-party model licenses vary; full provenance in [`docs/research/PAPER_FRAMING.md`](docs/research/PAPER_FRAMING.md).
