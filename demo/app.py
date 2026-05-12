@@ -103,9 +103,11 @@ html, body {
   letter-spacing: -0.005em;
 }
 
+/* Decorative aurora overlay. Uses position:absolute (not fixed) so it does
+   not interfere with HF Spaces' iframe height-detection postMessage. */
 body::before {
   content: "";
-  position: fixed; inset: 0;
+  position: absolute; inset: 0;
   pointer-events: none; z-index: 0;
   background:
     radial-gradient(1100px 520px at 18% -10%, rgba(94,234,212,0.07), transparent 70%),
@@ -142,22 +144,23 @@ body::before {
   box-shadow: none !important;
 }
 
-/* TOP BAR — uses position:relative (not sticky) so it renders inside the
-   HF Spaces iframe, where there is no scroll container for sticky to attach
-   to. Solid background so brand text is always legible. */
+/* TOP BAR — explicit min-height (not fixed height). HF Spaces iframe sometimes
+   collapses fixed-height flex rows containing nested gr.Radio/gr.Button to
+   zero visible height even though they exist in the DOM. min-height +
+   flex-wrap lets the row size to its actual content. */
 .er-topbar {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 16px !important;
-  padding: 14px 0 12px !important;
+  padding: 16px 0 14px !important;
   margin: 0 0 16px !important;
   border-bottom: 1px solid var(--border) !important;
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;
   position: relative;
   z-index: 100;
   background: var(--bg);
-  height: 64px;
+  min-height: 64px;
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0;
