@@ -1,6 +1,6 @@
 # Multi-Turn Evaluation Harness
 
-This harness evaluates the V2.5 fast backend without loading the full local LLM stack.
+This harness evaluates the current EmpathRAG fast backend without loading the full local LLM stack.
 
 Run:
 

@@ -96,7 +96,7 @@ Run:
 .\venv\Scripts\python.exe -B eval\run_empathrag_core_eval.py
 ```
 
-Current local checkpoint metrics on the 92-row prepared Karthik dataset:
+Current local checkpoint metrics on the 92-row prepared evaluation dataset:
 
 - Rule route accuracy: 0.935
 - Hybrid ML route accuracy: 0.978

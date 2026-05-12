@@ -75,7 +75,7 @@ Compare:
 
 - rule router
 - TF-IDF/logistic router
-- RoBERTa route classifier, once Karthik's route-labeled dataset exists
+- RoBERTa route classifier, once a route-labeled dataset of sufficient size is available
 - full hybrid Core system
 
 ### Eval B: Multi-Turn Headline Benchmark
@@ -115,7 +115,7 @@ Headline numbers below are useful as prototype evidence. **Report them with thei
 - **F-1 stage × ISSS contract (n = 12 cells):** 12/12 pass. n is too small to claim generalization beyond the four F-1 sub-topics tested.
 - **Sycophancy probes (n = 25 cells):** 25/25 clean. Same small-n caveat; the probes hit the specific failure mode they were designed for, not all sycophancy variants.
 
-**External validity caveat.** All evaluations run on Karthik's synthetic dataset (216/72/72 split for Eval A, 74 multi-turn for Eval B). Real student phrasing differs structurally — code-switching, abbreviations, slang, emoji, sarcasm. The numbers here are useful for prototype framing and the within-this-evaluation-set comparison story. They are **not** deployment-readiness claims. The V4 data request to Karthik (`docs/team/karthik/KARTHIK_DATA_REQUEST_V4.md`, item H) asks for 10-20 real anonymized student turns as the next-step evaluation pull.
+**External validity caveat.** All evaluations run on the curated UMD synthetic dataset (216/72/72 split for Eval A, 74 multi-turn for Eval B). Real student phrasing differs structurally — code-switching, abbreviations, slang, emoji, sarcasm. The numbers here are useful for prototype framing and the within-this-evaluation-set comparison story. They are **not** deployment-readiness claims. The next-iteration dataset pull is planned to add 10-20 real anonymized student turns.
 
 ## Evaluation results (V4, commit `4f20fa7` or newer)
 
@@ -198,14 +198,14 @@ These are real failure modes that survived V1's adversarial evaluation. The Core
 
 - **Bait-and-switch in the NLI guardrail (40% recall).** Positive openers followed by crisis content fool the V1 DeBERTa NLI guardrail into misclassifying the turn as safe. Single most dangerous documented V1 failure mode. **Mitigation in Core:** trajectory escalation tracker + Stage-1 lexical precheck before NLI + locked-session state when 3 consecutive high-risk turns are observed. The underlying NLI weakness still exists; we just stop relying on it alone.
 - **Domain-transfer false positives.** Academic hyperbole ("this thesis is killing me") fires the V1 NLI guardrail at high confidence. Trained on r/SuicideWatch; never saw graduate-student idiom. **Mitigation in Core:** Stage-1 lexical precheck runs first; the model guardrail is a second opinion, not the primary gate. False positives flow into the same Core support-navigation path as legitimate stress, not into emergency intercept.
-- **Synthetic-data evaluation ceiling.** Karthik's curated dataset (216/72/72 split, 74 multi-turn scenarios) is structurally different from real student phrasing — code-switching, slang, emoji, abbreviations. **Why this matters for the paper:** report claims should be qualified as "on this evaluation set" rather than absolute. The V3 data request to Karthik asks for real anonymized student turns as the next-step evaluation pull.
+- **Synthetic-data evaluation ceiling.** The curated UMD dataset (216/72/72 split, 74 multi-turn scenarios) is structurally different from real student phrasing — code-switching, slang, emoji, abbreviations. **Why this matters for the paper:** report claims should be qualified as "on this evaluation set" rather than absolute. The next-iteration dataset pull is planned to add real anonymized student turns.
 - **n = 74 multi-turn statistical power.** CI95 on missed-escalation rate is wide; some headline numbers will need a larger sample. The paper should report CIs, not just point estimates.
 - **Route classifier 0.86 ceiling.** Hybrid rule + ML. Remaining 14% are mostly emotional prompts falling to `general_student_support`. RoBERTa fine-tuning planned. **Affects paper claims:** route accuracy isn't the headline metric (safety is), but downstream resource specificity depends on it.
 - **No deployed runtime faithfulness metric.** RAGAS / DeepEval produced degenerate scores under a small local judge model. **Architectural compensation:** the resource registry filter + post-rephrase verification act as structural faithfulness guards. NLI-based runtime faithfulness explicitly cut from the class sprint per Future Work Boundary.
 
 ## Current Limitation
 
-The current class demo uses EmpathRAG Core with a lightweight local ML router. If model artifacts are missing, the system falls back to deterministic routing. Research claims still require Karthik's larger dataset, human review, and careful comparison against V1.
+The current class demo uses EmpathRAG Core with a lightweight local ML router. If model artifacts are missing, the system falls back to deterministic routing. Stronger research claims still require a larger dataset, human review, and careful comparison against the open-retrieval baseline.
 
 ## Phase 8: Controlled Paraphrasing (plan-and-rephrase)
 

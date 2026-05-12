@@ -15,8 +15,8 @@ and the exact commands to do so.
 | Sycophancy probes (25 cells) | ✓ Probes hard-coded | ✓ Full reproduction (requires Groq) |
 | Prompt-injection probes (16 cells) | ✓ Probes hard-coded | ✓ Full reproduction (requires Groq) |
 | Fairness spot-check (18 paired prompts) | ✓ Probes hard-coded | ✓ Full reproduction (requires Groq) |
-| Eval A (360 single-turn) | ⚠ Requires Karthik's V2 dataset under `Data_Karthik/` (untracked by design — teammate's delivery) | ⚠ Inputs needed; obtain from co-author |
-| ML router training | ✗ Trained artifacts under `models/router/` are intentionally untracked | ⚠ Re-train from Karthik's labeled CSV via `eval/train_ml_router.py` |
+| Eval A (360 single-turn) | ⚠ Requires the curated UMD evaluation dataset (intentionally untracked, internal coursework deliverable) | ⚠ Inputs needed |
+| ML router training | ✗ Trained artifacts under `models/router/` are intentionally untracked | ⚠ Re-train from the labeled dataset via `eval/train_ml_router.py` |
 | Curated retrieval index | ✗ FAISS index under `data/curated/indexes/` is intentionally untracked | ⚠ Re-build via `src/data/build_curated_index.py` from `data/curated/resources_seed.jsonl` |
 
 ## Commands
@@ -67,7 +67,7 @@ tolerances above. Deterministic-template evaluations are stable across runs.
 
 ## What's intentionally untracked
 
-- **`Data_Karthik/`** — teammate dataset deliveries. Not the repo's to redistribute.
+- **Internal dataset folders** — teammate dataset deliveries are not the repo's to redistribute.
 - **`data/curated/indexes/`** — FAISS index + SQLite metadata, regenerable from `resources_seed.jsonl`.
 - **`models/router/`** — ML router artifacts (TF-IDF vectorizer + logistic regression), regenerable via `eval/train_ml_router.py` once the labeled dataset is present.
 - **`.env`** — API keys.
@@ -77,7 +77,7 @@ See `.gitignore` for the exhaustive list and the rationale per pattern.
 
 ## Versioning and dataset provenance
 
-This evaluation set is based on Karthik's V2 delivery (`Data_Karthik/empathrag_core_dataset_v2/`, ingested 2026-04-30, 216/72/72 train/dev/test split for Eval A; 50 + 24 multi-turn = 74 scenarios for Eval B). The next data pull (`docs/team/karthik/KARTHIK_DATA_REQUEST_V4.md`) extends with authority-misconduct scenarios, sycophancy probes, topic-shift scenarios, incomplete-message scenarios, and real anonymized student turns.
+This evaluation set is based on the curated UMD Student Support Conversational Dataset (216/72/72 train/dev/test split for Eval A; 50 + 24 multi-turn = 74 scenarios for Eval B). The planned next dataset pull extends coverage with authority-misconduct scenarios, sycophancy probes, topic-shift scenarios, incomplete-message scenarios, and real anonymized student turns.
 
 ## Honest caveats
 
