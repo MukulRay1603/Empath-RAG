@@ -45,8 +45,8 @@ short_description: Guarded RAG support navigator for UMD students
 
 | Section | Description |
 |---|---|
-| [Problem](#problem) | The student-support gap the system addresses |
-| [Architecture](#architecture) | End-to-end pipeline diagram |
+| [Problem Statement](#problem-statement) | The student-support gap the system addresses |
+| [Architecture Diagram](#architecture-diagram) | End-to-end pipeline diagram |
 | [Approach](#approach) | The plan-and-rephrase design pattern |
 | [Design Iterations](#design-iterations) | How the architecture evolved |
 | [Datasets](#datasets) | Sources, sizes, licenses |
@@ -63,7 +63,7 @@ short_description: Guarded RAG support navigator for UMD students
 
 ---
 
-## Problem
+## Problem Statement
 
 University students often need help that sits in the gap between a counseling appointment and a Google search. They have a question, a worry, or a moment of distress, and they need a system that will listen, decide what kind of help is appropriate, and point them to a real resource.
 
@@ -78,7 +78,7 @@ EmpathRAG addresses both by separating *what to say* from *how to say it*. Routi
 
 ---
 
-## Architecture
+## Architecture Diagram
 
 ```mermaid
 flowchart TB
@@ -423,7 +423,10 @@ app.py                Hugging Face Spaces entry shim
 ### Authorship
 
 - **Mukul Rayana** — University of Maryland, MSML. Project lead; architecture, code, evaluation design, and end-to-end system development across all design iterations.
-- **Karthik** — University of Maryland, MSML. Curated dataset and supporting corpus contributions.
+- **Karthik** — University of Maryland, MSML. Data partner. Contributions include:
+  - Curation of the UMD Student Support Conversational Dataset (single-turn, multi-turn, and high-risk scenarios).
+  - Compilation and source-verification of the UMD Resource Knowledge Base passages drawn from UMD Counseling, ISSS, ADS, Graduate Ombuds, NIMH, NAMI, SAMHSA, CDC, and 988.
+  - Annotation conventions for safety-tier and route labels used by the route classifier and evaluation harness.
 
 ### Course and Use
 
