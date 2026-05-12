@@ -142,7 +142,9 @@ body::before {
   box-shadow: none !important;
 }
 
-/* TOP BAR */
+/* TOP BAR — uses position:relative (not sticky) so it renders inside the
+   HF Spaces iframe, where there is no scroll container for sticky to attach
+   to. Solid background so brand text is always legible. */
 .er-topbar {
   display: flex !important;
   align-items: center !important;
@@ -152,11 +154,9 @@ body::before {
   margin: 0 0 16px !important;
   border-bottom: 1px solid var(--border) !important;
   flex-wrap: nowrap !important;
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
-  backdrop-filter: blur(14px) saturate(140%);
-  background: linear-gradient(180deg, rgba(10,12,16,0.94) 0%, rgba(10,12,16,0.80) 100%);
+  background: var(--bg);
   height: 64px;
   width: 100% !important;
   max-width: 100% !important;
@@ -454,19 +454,13 @@ body::before {
   box-sizing: border-box !important;
 }
 
-/* CONTEXT COLUMN — sticky to the top so it stays visible while the chat
-   column flows. max-height + overflow-y on the column body lets the
-   diagnostics accordion scroll independently inside it. */
+/* CONTEXT COLUMN — natural document flow so it renders correctly inside
+   the HF Spaces iframe. Sticky positioning needs a scroll-container
+   ancestor that the iframe document does not provide. */
 .gradio-container .er-context-col {
-  position: sticky !important;
-  top: 84px !important;  /* below sticky topbar */
   align-self: start !important;
-  max-height: calc(100vh - 100px) !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
   padding: 0 6px 16px 24px !important;
   border-left: 1px solid var(--border) !important;
-  scrollbar-gutter: stable;
 }
 
 /* HERO (empty state). Compact so it fits the viewport */
@@ -480,11 +474,9 @@ body::before {
   letter-spacing: -0.024em;
   margin: 0 0 8px;
   line-height: 1.2;
-  background: linear-gradient(180deg, #f3f7fc 0%, #b6c2d2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  /* Solid color instead of gradient text-clip — the latter renders fully
+     transparent in HF Spaces' iframe sandbox in some browsers. */
+  color: #f3f7fc;
 }
 .er-hero p {
   color: var(--text-muted);
