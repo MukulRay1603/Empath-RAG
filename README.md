@@ -1,13 +1,13 @@
 ---
 title: EmpathRAG
 emoji: 🛡️
-colorFrom: teal
+colorFrom: green
 colorTo: indigo
 sdk: gradio
 sdk_version: 4.44.1
 app_file: demo/app.py
 pinned: false
-short_description: Guarded conversational RAG support navigator for UMD students
+short_description: Guarded RAG support navigator for UMD students
 ---
 
 <div align="center">
