@@ -7,6 +7,11 @@
 # Demo UI
 gradio==4.44.1
 
+# Polyfill for stdlib `audioop`, removed in Python 3.13 (PEP 594).
+# pydub (a gradio dep) still imports it, so without this the Space crashes
+# at import time. Conditional install: only needed on 3.13+.
+audioop-lts; python_version >= "3.13"
+
 # Hybrid route classifier (TF-IDF + logistic regression)
 scikit-learn==1.8.0
 scipy==1.17.1
