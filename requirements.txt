@@ -12,6 +12,11 @@ gradio==4.44.1
 # at import time. Conditional install: only needed on 3.13+.
 audioop-lts; python_version >= "3.13"
 
+# gradio 4.44.1 still imports HfFolder, which was removed in huggingface_hub 1.0.
+# Pin to the 0.x line so the resolver does not pull 1.x from the HF Spaces base
+# image (which installs huggingface_hub>=0.30 with no upper bound).
+huggingface_hub>=0.30,<1.0
+
 # Hybrid route classifier (TF-IDF + logistic regression)
 scikit-learn==1.8.0
 scipy==1.17.1
