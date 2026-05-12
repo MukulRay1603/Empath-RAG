@@ -2856,6 +2856,7 @@ theme = gr.themes.Base(
 # behavior reliable across versions.
 _CHATBOT_AUTOSCROLL_JS = """
 () => {
+  // Chatbot auto-scroll on streaming updates.
   const tryAttach = () => {
     const containers = document.querySelectorAll('.er-chat .wrap, .er-chat .bubble-wrap, .er-chat > div, .er-chat');
     let target = null;
@@ -2875,6 +2876,35 @@ _CHATBOT_AUTOSCROLL_JS = """
     scroll();
   };
   tryAttach();
+
+  // HF Spaces iframe-resizer fix.
+  // HF embeds Gradio in an iframe sized by iframe-resizer in `taggedElement`
+  // mode. iframe-resizer scans the DOM at page-load and gives up when it
+  // finds nothing tagged with `data-iframe-height` — but Gradio is a Svelte
+  // SPA, so our tagged element does not exist in the DOM yet at that moment.
+  // The result is the iframe staying at its tiny default height and clipping
+  // the top of our app (topbar / hero invisible).
+  //
+  // Fix: after each Gradio re-render, ask iframe-resizer to re-measure via
+  // its parentIFrame.size() API, and as a fallback dispatch a window resize
+  // event (which iframe-resizer also listens to).
+  const triggerIframeResize = () => {
+    try {
+      if (window.parentIFrame && typeof window.parentIFrame.size === 'function') {
+        window.parentIFrame.size();
+      }
+      window.dispatchEvent(new Event('resize'));
+    } catch (e) { /* noop — only relevant when embedded in HF Spaces */ }
+  };
+  // Trigger on initial mount, then watch for any DOM changes (e.g. new chat
+  // messages, accordion expand) and re-trigger so the iframe grows with us.
+  setTimeout(triggerIframeResize, 100);
+  setTimeout(triggerIframeResize, 600);
+  setTimeout(triggerIframeResize, 1500);
+  const resizeObs = new MutationObserver(() => {
+    requestAnimationFrame(triggerIframeResize);
+  });
+  resizeObs.observe(document.body, { childList: true, subtree: true });
 }
 """
 
