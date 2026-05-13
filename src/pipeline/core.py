@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import os
 from pathlib import Path
+import re
 from typing import Literal
 import sqlite3
 import time
@@ -173,6 +174,12 @@ class EmpathRAGCore:
         #     "stage": "initial" | "acknowledged" | "delivered",
         #   }
         self.session_open_offer: dict[str, dict] = {}
+        # The stage we rendered on the previous turn for this session.
+        # Used to interpret a minimal-affirm response correctly: an affirm
+        # after PERMISSION should *advance* to OFFER (the user consented
+        # to widen things out), while an affirm after OFFER should go
+        # into the consent flow (initial -> acknowledged -> delivered).
+        self.session_last_stage: dict[str, str] = {}
         # Rolling per-session message log so the rephraser has continuity.
         # Only the last few user-assistant pairs are passed to the LLM; full
         # history is kept here for diagnostics. Each entry: {"role", "content"}.
@@ -186,6 +193,7 @@ class EmpathRAGCore:
             self.session_turns_since_intl.pop(session_id, None)
             self.session_last_specific_route.pop(session_id, None)
             self.session_open_offer.pop(session_id, None)
+            self.session_last_stage.pop(session_id, None)
             self.session_message_history.pop(session_id, None)
         else:
             self.tier_history.clear()
@@ -194,6 +202,7 @@ class EmpathRAGCore:
             self.session_turns_since_intl.clear()
             self.session_last_specific_route.clear()
             self.session_open_offer.clear()
+            self.session_last_stage.clear()
             self.session_message_history.clear()
 
     # Input length cap: defends against (1) accidental wall-of-text pastes
@@ -479,6 +488,22 @@ class EmpathRAGCore:
                 template_response = _render_meta()
                 stage = CLARIFY
                 recommended_action = response_plan.recommended_action
+            elif (
+                minimal_kind == "affirm"
+                and self.session_last_stage.get(session_id) == "permission"
+                and not _open_offer_recent(
+                    self.session_open_offer.get(session_id), turn_index
+                )
+            ):
+                # The student said yes to widening out after a PERMISSION
+                # turn. Advance to OFFER — render the full plan with
+                # named resources and a follow-up question. Without this
+                # branch the system would fall to the generic clarifier
+                # ("Which part of what we just talked about...") which
+                # ignores the explicit consent and feels regressive.
+                template_response = response_plan.render(OFFER)
+                recommended_action = response_plan.recommended_action
+                stage = OFFER
             elif minimal_kind == "affirm" and _open_offer_recent(
                 self.session_open_offer.get(session_id), turn_index
             ):
@@ -559,6 +584,12 @@ class EmpathRAGCore:
                 # don't bind a much-later "yes" to an offer the user already
                 # moved past.
                 self.session_open_offer.pop(session_id, None)
+
+            # Record the stage rendered this turn so the next turn can
+            # interpret a minimal-affirm correctly (advance after
+            # PERMISSION, consent-flow after OFFER).
+            if not should_intercept:
+                self.session_last_stage[session_id] = stage
 
         return _TurnPlan(
             message=message,
@@ -1024,26 +1055,115 @@ _MINIMAL_AFFIRM = frozenset({
 _MINIMAL_NEGATE = frozenset({"no", "nope", "nah", "not really", "nuh"})
 _MINIMAL_UNSURE = frozenset({"maybe", "idk", "dunno", "unsure", "not sure", "perhaps"})
 
+# Leading-affirm patterns: a turn that begins with one of these and is
+# followed by light confirmatory content ("yeah that would help", "sure
+# let's do it", "yes please") should be treated as advancing consent,
+# not as substantive new content. Patterns are ordered by specificity so
+# longer multi-word affirms are tried before single-token ones.
+_AFFIRM_LEADING_RE = re.compile(
+    r"^\s*("
+    r"sounds good|that works|that would help|that helps|"
+    r"that would be helpful|that'?d be helpful|that'?d help|"
+    r"i'?d like that|i would like that|let'?s do it|let'?s start|"
+    r"let'?s try|please do|"
+    r"yes please|yeah please|ok please|sure please|"
+    r"yes|yeah|yep|yup|sure|ok|okay|kk|"
+    r"alright|fine|definitely|absolutely|right"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Leading-negate patterns. Same shape as affirm: a leading negate token
+# followed by light content ("no thanks", "nah i'm good") still reads as
+# declining, not as new substantive content.
+_NEGATE_LEADING_RE = re.compile(
+    r"^\s*("
+    r"not really|not right now|no thanks|no thank you|"
+    r"i'?d rather not|i don'?t think so|i don'?t want to|"
+    r"no|nope|nah|nuh"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Leading-unsure patterns. "i don't know" / "not sure yet" lead into a
+# clarify branch — the user is consenting to listen but not picking yet.
+_UNSURE_LEADING_RE = re.compile(
+    r"^\s*("
+    r"i don'?t know|i'?m not sure|not sure|not quite sure|"
+    r"hard to say|hard to pick|"
+    r"maybe|idk|dunno|unsure|perhaps"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# After-the-affirm signals that flip the turn back to substantive. If
+# any of these appear AFTER the lead affirm token, the user is not just
+# saying yes — they're either pivoting away from the offer or
+# introducing new content that the planner needs to process. Examples:
+#   "yeah but i'm scared about my visa too"
+#   "ok actually, my advisor also said something weird"
+#   "sure, also i'm an F-1 student"
+_AFFIRM_THEN_SUBSTANTIVE_RE = re.compile(
+    r"\b("
+    r"but|actually|though|however|wait|except|although|"
+    r"on second thought|on the other hand|"
+    r"also|and also|plus|another thing|one more thing|"
+    r"i'?m an? |i have |i'?m dealing|i'?m struggling|"
+    r"i'?ve been|i'?m feeling|my \w+|the thing is"
+    r")\b",
+    re.IGNORECASE,
+)
+
 
 def _minimal_response_kind(message: str) -> str:
-    """Return 'affirm' / 'negate' / 'unsure' / '' for very short reply-only turns.
+    """Classify a turn as 'affirm' / 'negate' / 'unsure' / '' based on
+    intent, not just exact-string match.
 
-    Single-word affirmations are ambiguous — without context, re-rendering the
-    same OFFER template is the worst possible response. We catch them here and
-    redirect to a clarifying-question response instead.
+    A turn is a minimal-affirm when it LEADS with an affirm token and
+    everything after is light confirmatory expansion ("yeah", "yes
+    please", "sure let's do it", "that would help"). It is NOT a
+    minimal-affirm when the user introduces new content or pivots
+    ("yeah but i'm scared", "sure, also i'm an F-1 student"). Same
+    shape for negate and unsure.
+
+    The old exact-set match treated "yeah that would help" as
+    substantive content because the string wasn't literally in the set.
+    That was brittle. This function asks the right question: did the
+    student lead with an affirmation, and is the rest of the message
+    just expansion, not new content?
     """
-    text = (message or "").strip().lower()
-    if not text or len(text) > 24:
+    text = (message or "").strip()
+    if not text:
         return ""
-    # Strip trailing punctuation; collapse internal whitespace.
-    clean = " ".join(text.replace(".", " ").replace("!", " ").replace("?", " ").replace(",", " ").split())
-    if clean in _MINIMAL_AFFIRM:
-        return "affirm"
-    if clean in _MINIMAL_NEGATE:
-        return "negate"
-    if clean in _MINIMAL_UNSURE:
-        return "unsure"
-    return ""
+    # Pre-cap: very long messages are almost always substantive even if
+    # they happen to start with "yeah" — keep the planner in charge.
+    if len(text) > 80:
+        return ""
+    # Question-ended messages are not minimal — they want an answer.
+    if text.rstrip().endswith("?"):
+        return ""
+
+    affirm_match = _AFFIRM_LEADING_RE.match(text)
+    negate_match = _NEGATE_LEADING_RE.match(text)
+    unsure_match = _UNSURE_LEADING_RE.match(text)
+
+    # Prefer the longest leading match to disambiguate cases like
+    # "i don't know" (unsure) vs a bare "i" / "i'm" prefix.
+    candidates = [
+        ("affirm", affirm_match.end() if affirm_match else 0),
+        ("negate", negate_match.end() if negate_match else 0),
+        ("unsure", unsure_match.end() if unsure_match else 0),
+    ]
+    kind, end = max(candidates, key=lambda kv: kv[1])
+    if end == 0:
+        return ""
+
+    remainder = text[end:].strip(" \t,.!?-")
+    if remainder and _AFFIRM_THEN_SUBSTANTIVE_RE.search(remainder):
+        # User pivoted away from the affirm — let the planner handle the
+        # substantive content instead of binding to the prior offer.
+        return ""
+    return kind
 
 
 # Conversation openers / closers / meta — these are NOT student-support
