@@ -272,14 +272,16 @@ class ResponsePlan:
             parts.append(self.recommended_action)
 
         # Soft, named resource mention. Only for routes where it adds value.
+        # The Support card UI on the right surfaces verified links + last-
+        # verified dates already, so the chat bubble doesn't need to point
+        # at the panel — that text used to leak into the LLM rephrase and
+        # read as a UI instruction inside what should be conversational
+        # prose.
         if self.route not in ("crisis_immediate", "out_of_scope", "peer_helper"):
             names = self._resource_names(2)
             phrase = self._phrase_resources(names)
             if phrase:
-                parts.append(
-                    f"Specific places worth knowing: {phrase}. The source cards are on the "
-                    "side under Inspect → Support card if you want details."
-                )
+                parts.append(f"Specific places worth knowing: {phrase}.")
 
         if self.international_concern and self.route not in ("crisis_immediate", "out_of_scope"):
             parts.append(
