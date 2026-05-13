@@ -65,9 +65,25 @@ class SafetyTriagePolicy:
         self.emergency_threshold = emergency_threshold
 
     def classify(self, text: str, confidence: float, model_flag: bool) -> SafetyDecision:
+        # Two-pass match: first try the raw normalized text, then a typo-
+        # corrected version for crisis / imminent patterns only. Students
+        # in distress drop letters, miss apostrophes, and contract things
+        # in ways that brittle regex would miss. The cost of a false
+        # positive on safety is a 988 card on a benign message; the cost
+        # of a false negative is missing crisis language. We err toward
+        # catching by trying both passes for the high-stakes patterns.
+        # Ambiguous-metaphor / academic-idiom checks stay on raw text so
+        # the typo-correction layer can't accidentally over-flag idioms.
         normalized = _normalize(text)
-        explicit = _matches_any(normalized, EXPLICIT_CRISIS_PATTERNS)
-        imminent = _matches_any(normalized, IMMINENT_RISK_PATTERNS)
+        typo_corrected = _typo_correct_for_safety(normalized)
+        explicit = (
+            _matches_any(normalized, EXPLICIT_CRISIS_PATTERNS)
+            or (typo_corrected != normalized and _matches_any(typo_corrected, EXPLICIT_CRISIS_PATTERNS))
+        )
+        imminent = (
+            _matches_any(normalized, IMMINENT_RISK_PATTERNS)
+            or (typo_corrected != normalized and _matches_any(typo_corrected, IMMINENT_RISK_PATTERNS))
+        )
         ambiguous_metaphor = _matches_any(normalized, AMBIGUOUS_METAPHOR_PATTERNS)
         academic_idiom = _matches_any(normalized, ACADEMIC_IDIOM_PATTERNS)
 
@@ -125,6 +141,92 @@ class SafetyTriagePolicy:
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
+
+
+# Word-level typo dictionary used ONLY for safety pattern matching.
+# Each key is a frequently-mistyped form of a word that appears in
+# crisis or imminent-risk regex; the value is the canonical spelling
+# the regex expects. We only correct words where the canonical version
+# is a critical safety keyword — generic typo correction is out of
+# scope. Apply via word-boundary substitution so we don't mangle
+# unrelated tokens that happen to contain a typo substring.
+CRITICAL_WORD_TYPOS: dict[str, str] = {
+    # "want" + common typos
+    "wan": "want",
+    "wnat": "want",
+    "wnt": "want",
+    "wantt": "want",
+    "wnant": "want",
+    # "wanna" -> "want to" so the regex can match either form
+    "wanna": "want to",
+    "wana": "want to",
+    "wnna": "want to",
+    # missing apostrophes / contracted negations
+    "dont": "don't",
+    "doesnt": "doesn't",
+    "didnt": "didn't",
+    "cant": "can't",
+    "couldnt": "couldn't",
+    "wont": "won't",
+    "wouldnt": "wouldn't",
+    "shouldnt": "shouldn't",
+    "im": "i'm",
+    "ive": "i've",
+    "id": "i'd",
+    # "myself" + typos
+    "myslef": "myself",
+    "mysef": "myself",
+    "myselv": "myself",
+    "myseflf": "myself",
+    # "kill" + typos
+    "kil": "kill",
+    "kll": "kill",
+    "killl": "kill",
+    # "hurt" + typos
+    "hrut": "hurt",
+    "hurtt": "hurt",
+    "hurtm": "hurt",
+    # "alive" + typos
+    "alvie": "alive",
+    "alve": "alive",
+    "aliv": "alive",
+    # "live" common variants — keep narrow to avoid clobbering "lively"
+    "liv": "live",
+    # "die" + typos (very few)
+    "diee": "die",
+    # "tonight" + typos (timing word in imminent patterns)
+    "tnight": "tonight",
+    "toniht": "tonight",
+    "toinght": "tonight",
+    # "suicide" + typos
+    "sucide": "suicide",
+    "sucidie": "suicide",
+    "suicde": "suicide",
+    "suiced": "suicide",
+    "suicdal": "suicidal",
+    "sucidal": "suicidal",
+    # "anymore" + typos
+    "anymore": "anymore",
+    "anymroe": "anymore",
+    "anymor": "anymore",
+}
+
+_CRITICAL_TYPO_RE = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in CRITICAL_WORD_TYPOS) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _typo_correct_for_safety(text: str) -> str:
+    """Map common typo / contraction-without-apostrophe forms of
+    safety-critical words to their canonical spellings, for pattern
+    matching only. Never use this to rewrite user-facing text."""
+    if not text:
+        return text
+    return _CRITICAL_TYPO_RE.sub(
+        lambda m: CRITICAL_WORD_TYPOS[m.group(1).lower()],
+        text,
+    )
 
 
 def _matches_any(text: str, patterns: tuple[re.Pattern[str], ...]) -> bool:
