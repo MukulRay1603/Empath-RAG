@@ -762,33 +762,34 @@ def render_crisis_response(
     if route == SupportRoute.PEER_HELPER.value or audience_mode == "helping_friend":
         return (
             "I'm really glad you told me about this. This sounds like an immediate "
-            "safety situation for your friend, and you should not handle it alone. "
-            "Please contact emergency or crisis support now, and involve a trusted "
-            "nearby person, an RA, a supervisor, or campus support while you try "
-            "to reach them. What you can say if you do reach them: I care about you, "
-            "I'm worried, and I want to get another person involved so you're not alone."
+            "safety situation for your friend, and you should not handle it alone.\n\n"
+            "- **Call or text [988](tel:988)** — Suicide & Crisis Lifeline\n"
+            "- **Call [911](tel:911)** if there's immediate danger\n"
+            "- Involve a trusted nearby person, an RA, a supervisor, or campus support\n\n"
+            "What you can say if you reach your friend: I care about you, I'm worried, "
+            "and I want to get another person involved so you're not alone."
         )
 
     # Active interpersonal danger (DV / stalking / assault threat).
     # 911 + safe location + UMD CARE, not 988.
     if _is_interpersonal_danger(user_message):
         return (
-            "I'm really glad you told me, and I'm taking what you said seriously. "
-            "If you're not safe right now or someone might be coming to you, call 911 "
-            "or get to a public location with other people around. When you're "
-            "somewhere safe, UMD CARE to Stop Violence is a confidential resource "
-            "that can walk through next steps with you, including safety planning and "
-            "what your options look like. No pressure to file or report anything right now."
+            "I'm really glad you told me, and I'm taking what you said seriously.\n\n"
+            "- **Call [911](tel:911)** if you're not safe right now or someone might be coming to you\n"
+            "- Get to a public location with other people around\n"
+            "- **UMD CARE to Stop Violence: [301-741-3442](tel:3017413442)** — confidential, can walk through next steps including safety planning\n\n"
+            "No pressure to file or report anything right now. Safety first."
         )
 
     # Default: self-harm ideation / imminent safety to self.
     return (
         "I'm really glad you told me. What you're describing sounds like a moment "
-        "where having a real person with you matters. Please call or text 988 now, "
-        "or call emergency services if there's immediate danger. If someone nearby "
-        "can stay with you, move near them while you get help. UMD Counseling "
-        "Center after-hours is at 301-314-HELP (4357) and is staffed for moments "
-        "exactly like this. I'm here while you reach out."
+        "where having a real person with you matters.\n\n"
+        "- **Call or text [988](tel:988)** — Suicide & Crisis Lifeline (24/7)\n"
+        "- **Call [911](tel:911)** if there's immediate danger\n"
+        "- **UMD Counseling Center after-hours: [301-314-HELP (4357)](tel:3013144357)** — staffed for moments exactly like this\n\n"
+        "If someone nearby can stay with you, move near them while you get help. "
+        "I'm here while you reach out."
     )
 
 

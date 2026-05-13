@@ -990,6 +990,19 @@ body::before {
   background: linear-gradient(135deg, var(--warm-soft), transparent 60%), var(--surface-2);
 }
 .er-rsrc.featured:hover { background: linear-gradient(135deg, var(--warm-soft), transparent 50%), var(--surface-3); }
+/* Crisis cards: visually unmistakable so 988 / Crisis Text Line /
+   UMD CC after-hours read as urgent at a glance, not as another
+   neutral resource lozenge buried in the panel. */
+.er-rsrc.crisis {
+  border-color: var(--danger);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.12), transparent 60%), var(--surface-2);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25) inset;
+}
+.er-rsrc.crisis:hover {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.18), transparent 50%), var(--surface-3);
+}
+.er-rsrc.crisis .er-rsrc-title { color: var(--text); font-weight: 600; }
+.er-rsrc.crisis a { color: var(--danger); font-weight: 600; }
 .er-rsrc-title {
   font-size: 13px;
   font-weight: 500;
@@ -2340,11 +2353,15 @@ def format_live_context(result: dict | None = None, turn_index: int = 0) -> str:
             why = escape(_pretty_reason(str(src.get("why_retrieved") or "matched the prompt")))
             url = escape(str(src.get("url") or ""))
             risk = str(src.get("risk_level") or "")
+            usage = str(src.get("usage_mode") or "")
             cls = "er-rsrc"
-            if "international" in title.lower() or "isss" in title.lower():
-                cls += " featured"
-            elif "crisis" in risk:
+            # Crisis cards must be visually unmistakable — check the
+            # actual usage_mode flag the registry sets, not the
+            # risk_level field which is only populated on some entries.
+            if "crisis_only" in usage or "crisis" in risk:
                 cls += " crisis"
+            elif "international" in title.lower() or "isss" in title.lower():
+                cls += " featured"
             inner = (
                 f"<div class='{cls}'>"
                 f"<div class='er-rsrc-title'>{title}</div>"
