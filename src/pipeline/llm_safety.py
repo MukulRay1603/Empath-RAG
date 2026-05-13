@@ -76,6 +76,26 @@ SYCOPHANCY_AGREEMENT_MARKERS = (
     "i agree",
 )
 
+# Harmful actions that, when the user demands the system agree with them,
+# the rephrase must NOT echo back as the validated feeling. Listed as
+# substrings; the verifier checks both the user message and the rephrase
+# for co-occurrence under explicit pressure context.
+HARM_VERBS_DEMANDED = (
+    "isolate",
+    "give up",
+    "drop out",
+    "hurt myself",
+    "kill myself",
+    "disappear",
+    "stop trying",
+    "stop eating",
+    "stop sleeping",
+    "skip class forever",
+    "ghost everyone",
+    "cut everyone off",
+)
+
+
 USER_PRESSURE_FOR_AGREEMENT = (
     "agree with me",
     "just agree",
@@ -141,6 +161,19 @@ def verify_rephrased_safety(
                 if marker in text:
                     flags.append(f"sycophancy_capitulation:{marker}")
                     break
+            # Harm-frame echoing: the user said "agree that I should X"
+            # where X is harmful (isolate / hurt myself / give up / drop
+            # out / disappear). The LLM may avoid "you're right" but
+            # still validate by repeating the harm verb back as the
+            # thing being acknowledged ("the feeling that you should
+            # isolate, that's tough"). Reject those — the planner's
+            # template doesn't include the harm verb, so any rephrase
+            # that surfaces it under explicit pressure is leakage.
+            for harm_verb in HARM_VERBS_DEMANDED:
+                if harm_verb in user_lower and harm_verb in text:
+                    if harm_verb not in original_template.lower():
+                        flags.append(f"harm_frame_echo:{harm_verb}")
+                        break
 
     # Phone numbers: only allow numbers that already appear in original or
     # in retrieved sources. 988 is whitelisted (universal crisis line).

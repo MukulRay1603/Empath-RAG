@@ -140,10 +140,16 @@ EXPLICIT_CRISIS_PATTERNS = tuple(
         r"\bsuicidal\b",
         r"\bsuicide plan\b",
         r"\bwant to die\b",
+        # Crisis "don't want to live / be alive / be here" — typo-tolerant
+        # because students typing this in distress hit "wan" / "wanna" /
+        # missed apostrophes constantly. The cost of a false positive
+        # here is a 988 card on a benign message; the cost of a false
+        # negative is missing crisis language. We err toward catching.
+        # "wanna" already incorporates "to" so it's matched without a
+        # following "to" token; "want / wan / wnat" need the explicit "to".
+        r"\b(don'?t|do not|dont) (?:wanna|(?:want|wan|wanan|wnat) to) (be alive|live|exist|be here(?: anymore)?)\b",
+        # Original phrasings retained for clarity / explicit coverage
         r"\bdon'?t want to be alive\b",
-        # "I don't want to be here anymore" / "do not want to be here anymore"
-        # — natural phrasing that the original "not be here anymore" regex
-        # doesn't catch because the negation lives one token earlier.
         r"\b(don'?t|do not) want to be here anymore\b",
         r"\b(don'?t|do not) wanna be here anymore\b",
         r"\bhurt myself\b",
