@@ -34,6 +34,18 @@ short_description: Guarded RAG support navigator for UMD students
 
 <br>
 
+### 🎥 &nbsp; Watch the Demo
+
+<div align="center">
+
+[![Watch the EmpathRAG demo — 5 minutes](https://img.shields.io/badge/▶%20Watch%20the%20demo-5%20min%20walkthrough-5eead4?style=for-the-badge&logoColor=white)](https://drive.google.com/file/d/14CB76OgVmZz8VqtBolKRJYSGh28BbSqL/view?usp=sharing)
+
+</div>
+
+> Four scenarios — the listening loop, F-1 and authority misconduct routing, substance use and confidentiality, crisis with sycophancy resistance — plus the counselor handoff via Support Plan export.
+
+<br>
+
 > EmpathRAG is **not** a counselor, therapist, or emergency service.
 > It is a research prototype that wraps a general-purpose language model in a layered safety architecture, so the resulting system behaves more reliably under adversarial multi-turn evaluation than the underlying model does on its own.
 
