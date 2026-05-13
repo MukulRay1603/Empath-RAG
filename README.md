@@ -87,10 +87,10 @@ flowchart TB
     CAP -->|under cap| S1{Stage-1 lexical<br/>safety check<br/>~5ms, no network}
 
     S1 -->|crisis detected| CR[Crisis intercept<br/>988 plus UMD Counseling<br/>or 911 plus UMD CARE for DV<br/>LLM never invoked]
-    S1 -->|pass| ROUTE[Hybrid route and tier classifier<br/>14 routes, 4 safety tiers]
+    S1 -->|pass| ROUTE[Hybrid route and tier classifier<br/>16 routes, 4 safety tiers]
 
     ROUTE --> REG[Resource registry filter<br/>34 verified UMD and national entries]
-    REG --> PLAN[Stage-aware planner<br/>LISTEN, PERMISSION, OFFER, CLARIFY<br/>F-1 awareness, authority-misconduct route]
+    REG --> PLAN[Stage-aware planner<br/>LISTEN, PERMISSION, OFFER, CLARIFY<br/>F-1 awareness, authority-misconduct,<br/>substance-use, privacy-confidentiality]
 
     PLAN -.->|template plus context| LLM[LLM rephraser<br/>Groq Llama 3.3 70B primary<br/>Anthropic Claude Haiku 4.5 fallback]
     LLM -.->|paraphrased candidate| VFY{Post-rephrase trust boundary<br/>scope drift, fabrication,<br/>sycophancy, minimization}
@@ -175,6 +175,8 @@ Real-conversation review showed that the guarded architecture still felt prescri
 The planner sends a template, the user message, and recent history to the language model under a strict system prompt. The model returns a paraphrased candidate. A post-rephrase verifier (`verify_rephrased_safety`) inspects the candidate for scope drift, fabricated resources, sycophantic agreement under explicit pressure, and length sanity. If any check fails, the deterministic template is returned. Crisis content never enters this path.
 
 Subsequent polish added: response streaming, support-plan export (Markdown and PDF), voice input via Whisper, ISSS document side-panel, an authority-misconduct route, a sycophancy guard, F-1 session decay, prompt-injection auditing, per-layer ablation evaluation, the same-model unguarded baseline, in-UI safety pipeline visualization, mobile CSS, and HIPAA / privacy gap documentation.
+
+A second hardening pass added a session-isolated state machine for the consent loop (a "yes" after an offer advances instead of re-rendering), natural-language intent detection for affirmations (`yeah that would help` / `sure, sounds good` / `yes please` all recognized, with pivots like `yeah but i'm an F-1 student` correctly deferred to the planner), and two new routes — `substance_use_concern` (UHC Psychiatry and SUIT, non-punitive framing) and `privacy_confidentiality` (factual orientation on FERPA and Counseling Center confidentiality, with mandatory-disclosure caveat). End-to-end session state now flows from the UI through the pipeline to the core; the "↺ New conversation" button actually resets every state dict.
 
 <br>
 

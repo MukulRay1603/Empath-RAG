@@ -130,18 +130,58 @@ LLM names ISSS / ADS / Counseling Center when the planner template did not. **Ca
 ### 6.5 AI-tells
 Em-dashes, "I understand", "let me reframe", "as your therapist" — patterns that read as chatbot-y or clinical positioning. **Caught at:** `verify_rephrased_safety.scope_drift` + AI-tell patterns in system prompt.
 
-## Category 7: What we explicitly cannot do
+## Category 7: Session-state and intent-detection gaps (fixed during pre-recording audit)
 
-### 7.1 Real clinical assessment
+### 7.1 Stale session state shared across users
+
+**Observed:** Pre-recording dry runs showed the rephraser referring to prior-conversation context ("You're still feeling...") on what should have been Turn 1 of a fresh session.
+
+**Why:** `FastDemoPipeline.run()` hardcoded `session_id="demo"` regardless of the UI's per-session uuid. Every conversation across browsers, refreshes, and reset clicks shared one state entry in `EmpathRAGCore`.
+
+**Architectural fix:** Threaded session_id end-to-end from the UI through `FastDemoPipeline` to `EmpathRAGCore`. The reset handler now calls `pipeline.reset_session(prev_sid)` so it actually clears every state dict for the old key.
+
+### 7.2 Multi-word affirmation bypassed the consent flow
+
+**Observed:** `yeah that would help` after an OFFER fell through to substantive content and re-rendered the OFFER instead of advancing to consent_acknowledged.
+
+**Architectural fix:** Replaced exact-string membership in `_MINIMAL_AFFIRM` with a leading-token regex plus pivot-rejection. Natural variants (`sure, sounds good`, `yes please`, `that works`, `let's start`) match; pivots (`yeah but i'm an F-1 student`) and wh-questions (`ok so what do i do?`) correctly defer to the planner.
+
+### 7.3 Greeting consumed the listening-layer turn slot
+
+**Observed:** A student who opened with `Hi` then said something substantive landed at PERMISSION, not LISTEN — invisible to anyone trying to demo the listening layer.
+
+**Architectural fix:** Added `session_substantive_count` that increments only on LISTEN / PERMISSION / OFFER stages. CLARIFY turns no longer consume the slot.
+
+### 7.4 Consent flow saturated past turn 4
+
+**Observed:** The consent flow recency check (`current_turn - offer_turn in 1..2`) silently failed past the fourth turn because `tier_history` is a rolling deque of size 3 and `turn_index` saturated at 4.
+
+**Architectural fix:** Added monotonic `session_seq` counter for diff-based recency comparisons; `turn_index` keeps its original semantics for the safety tracker.
+
+### 7.5 Substance-use signals not surfaced
+
+**Observed:** `i was high and hungover` routed to `academic_setback`. UMD UHC Psychiatry and Substance Use Services exists in the registry but never surfaced because no route bound to it.
+
+**Architectural fix:** New `substance_use_concern` route fires on strong substance signals (drunk / wasted / hungover / blackout / stoned / got high). `high` alone stays ambiguous so `high anxiety` / `high stress` do not false-positive. Template names UHC Psychiatry and SUIT, non-punitive framing.
+
+### 7.6 Confidentiality questions deflected
+
+**Observed:** `Is it safe? Will they report to my parents?` got the standard counseling-navigation template, never answered the actual question.
+
+**Architectural fix:** New ALWAYS_DIRECT `privacy_confidentiality` route. Template answers factually (UMD CC sessions generally confidential, FERPA basics, mandatory-disclosure caveat, redirect to Dean of Students for records-level concerns) with explicit non-legal-advice disclaimer.
+
+## Category 8: What we explicitly cannot do
+
+### 8.1 Real clinical assessment
 We are not a therapist. We do not assess symptoms, risk, suicidality severity, or treatment fit. We intercept crisis language and redirect; we do not assess.
 
-### 7.2 Multilingual conversation
+### 8.2 Multilingual conversation
 Voice input handles 90+ languages via Whisper. Text input through the planner is English-only. F-1 students whose first language isn't English get planner-mediated responses in English; their input passes through but doesn't get an L1 reflection. Multilingual openers are on the next-iteration backlog.
 
-### 7.3 Persistent memory across sessions
+### 8.3 Persistent memory across sessions
 Browser refresh = lose conversation. Server-side persistence requires auth + encryption + retention policy; deferred until the CC pilot conversation.
 
-### 7.4 Cultural cross-cutting beyond F-1
+### 8.4 Cultural cross-cutting beyond F-1
 Queer, undocumented, parenting, Black, first-gen students aren't layered the way F-1 is. They route generically.
 
 ## How this connects to the architecture
