@@ -1143,6 +1143,11 @@ _UNSURE_LEADING_RE = re.compile(
 #   "yeah but i'm scared about my visa too"
 #   "ok actually, my advisor also said something weird"
 #   "sure, also i'm an F-1 student"
+_WH_QUESTION_WORD_RE = re.compile(
+    r"\b(what|where|when|why|how|who|which)\b",
+    re.IGNORECASE,
+)
+
 _AFFIRM_THEN_SUBSTANTIVE_RE = re.compile(
     r"\b("
     r"but|actually|though|however|wait|except|although|"
@@ -1179,13 +1184,20 @@ def _minimal_response_kind(message: str) -> str:
     # they happen to start with "yeah" — keep the planner in charge.
     if len(text) > 80:
         return ""
-    # Question-ended messages are not minimal — they want an answer.
-    if text.rstrip().endswith("?"):
-        return ""
 
-    affirm_match = _AFFIRM_LEADING_RE.match(text)
-    negate_match = _NEGATE_LEADING_RE.match(text)
-    unsure_match = _UNSURE_LEADING_RE.match(text)
+    # Tag-question handling. "Yeah?" / "ok?" / "yes that helps?" /
+    # "sure that works?" should still count as affirm — the trailing
+    # question mark is a tag-confirm gesture, not a request for new
+    # information. We strip ONE trailing '?' for matching, then later
+    # reject if the remainder contains a wh-question word (what / where
+    # / when / why / how / who / which) which signals the student
+    # actually wants new information rather than just confirming.
+    ends_with_question = text.rstrip().endswith("?")
+    text_for_match = text.rstrip("?!.,;: \t").strip() if ends_with_question else text
+
+    affirm_match = _AFFIRM_LEADING_RE.match(text_for_match)
+    negate_match = _NEGATE_LEADING_RE.match(text_for_match)
+    unsure_match = _UNSURE_LEADING_RE.match(text_for_match)
 
     # Prefer the longest leading match to disambiguate cases like
     # "i don't know" (unsure) vs a bare "i" / "i'm" prefix.
@@ -1198,10 +1210,16 @@ def _minimal_response_kind(message: str) -> str:
     if end == 0:
         return ""
 
-    remainder = text[end:].strip(" \t,.!?-")
+    remainder = text_for_match[end:].strip(" \t,.!?-")
     if remainder and _AFFIRM_THEN_SUBSTANTIVE_RE.search(remainder):
         # User pivoted away from the affirm — let the planner handle the
         # substantive content instead of binding to the prior offer.
+        return ""
+    # Tag-question gate: if the message ended with '?' AND the remainder
+    # contains a wh-question word, the user is asking for new information
+    # ("ok so what do i do?" / "yeah but how does that work?") — defer
+    # to the planner rather than binding to consent.
+    if ends_with_question and remainder and _WH_QUESTION_WORD_RE.search(remainder):
         return ""
     return kind
 

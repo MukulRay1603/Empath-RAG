@@ -57,6 +57,10 @@ ALWAYS_DIRECT_ROUTES = frozenset({
     SupportRoute.OUT_OF_SCOPE.value,
     SupportRoute.CARE_VIOLENCE_CONFIDENTIAL.value,
     SupportRoute.AUTHORITY_MISCONDUCT.value,
+    # Privacy / confidentiality is always-direct: when a student asks "is
+    # this confidential" or "will they tell my parents", they want the
+    # factual orientation now, not a LISTEN reflection.
+    SupportRoute.PRIVACY_CONFIDENTIALITY.value,
 })
 
 EXPLICIT_ASK_PATTERNS = (
@@ -596,6 +600,41 @@ def build_response_plan(
             "No support source is retrieved for this route because the request is outside the system scope.",
             "For medical, legal, or emergency issues, use qualified human support.",
             "Do you want to rephrase this as a campus-support question?",
+            **common,
+        )
+
+    if route == SupportRoute.SUBSTANCE_USE_CONCERN.value:
+        return ResponsePlan(
+            route,
+            safety_tier,
+            "Thanks for naming that — it takes something to say it out loud.",
+            "Substance use, when school and sleep are already strained, tends to compound everything else. The point isn't a verdict on what happened; it's looking at what would actually help next.",
+            "A grounded next move: UMD's University Health Center has a Psychiatry and Substance Use Services office that handles this specifically. It is non-punitive and separate from academic records — they answer questions without escalating to professors or parents.",
+            f"Use {source_label} for the substance-use-specific path; UMD Counseling Center is also there if you want to talk about what's underneath.",
+            "If you ever feel physically unsafe — alcohol poisoning, blackout, mixing — use 911 or campus emergency, not the navigator.",
+            "Has this been a one-off rough night, or something that's been building? Either is fine to talk about.",
+            listen_reflection=(
+                "Thanks for naming that. A rough night layered on top of school "
+                "and missed sleep is a real thing, not a character flaw."
+            ),
+            listen_invite="Want to tell me more about what's been going on lately around this?",
+            permission_opener=(
+                "I hear you. The pile-up — school stress plus a rough night plus "
+                "no sleep — usually has more than one thing pulling on it."
+            ),
+            **common,
+        )
+
+    if route == SupportRoute.PRIVACY_CONFIDENTIALITY.value:
+        return ResponsePlan(
+            route,
+            safety_tier,
+            "Good question to ask before you do anything else.",
+            "The short answer: UMD Counseling Center sessions are generally confidential — they don't tell parents, professors, or the school by default. FERPA generally protects your student records once you're 18 and enrolled. There are a small number of mandatory-disclosure situations (immediate danger to yourself or someone else, or some abuse-reporting categories), and those exist on every campus, not just UMD.",
+            "A grounded next move: ask the office directly. UMD Counseling Center will walk you through what's protected and what isn't before you share anything. The Dean of Students Office can also answer FERPA questions for records-level concerns.",
+            f"Use {source_label} for the confidential conversation path; Dean of Students for records / FERPA / parental-notification specifics.",
+            "I'm a navigator, not a lawyer. For anything legally binding (subpoena, formal complaint, immigration), the office itself is the authoritative source.",
+            "What part of this is weighing on you most — the conversation itself, the records side, or whether someone specific would find out?",
             **common,
         )
 

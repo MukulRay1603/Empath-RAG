@@ -34,6 +34,8 @@ class SupportRoute(str, Enum):
     LONELINESS_ISOLATION = "loneliness_isolation"
     ANXIETY_PANIC = "anxiety_panic"
     LOW_MOOD = "low_mood"
+    SUBSTANCE_USE_CONCERN = "substance_use_concern"
+    PRIVACY_CONFIDENTIALITY = "privacy_confidentiality"
     CRISIS_IMMEDIATE = "crisis_immediate"
     GENERAL_STUDENT_SUPPORT = "general_student_support"
     OUT_OF_SCOPE = "out_of_scope"
@@ -84,6 +86,19 @@ def classify_route(
     # or generic care templates.
     if _is_authority_misconduct(text):
         return RouteDecision(SupportRoute.AUTHORITY_MISCONDUCT, safety_tier, "authority_misconduct_language", audience_mode)
+
+    # Privacy / confidentiality / parental-notification questions need a
+    # factual orientation, not the generic counseling-navigation template.
+    # Common student concern — must answer specifically rather than deflect.
+    if _is_privacy_question(text):
+        return RouteDecision(SupportRoute.PRIVACY_CONFIDENTIALITY, safety_tier, "privacy_confidentiality_question", audience_mode)
+
+    # Substance-use signals (drinking, weed, etc.) before counseling /
+    # exam-stress routes so the dedicated SU template can fire. The UMD
+    # University Health Center Psychiatry and Substance Use Services
+    # office handles this specifically and is non-punitive / confidential.
+    if _is_substance_use_concern(text):
+        return RouteDecision(SupportRoute.SUBSTANCE_USE_CONCERN, safety_tier, "substance_use_language", audience_mode)
 
     if _has_any(text, ("counseling center", "referral", "off-campus care", "after hours", "after-hours", "brief assessment", "group therapy", "individual counseling", "mental health crises", "number to call")):
         return RouteDecision(SupportRoute.COUNSELING_NAVIGATION, safety_tier, "counseling_navigation_language", audience_mode)
@@ -242,6 +257,55 @@ def _is_authority_misconduct(text: str) -> bool:
     )
     has_content = _has_any(text, _AUTHORITY_MISCONDUCT_CONTENT)
     return has_authority and has_content
+
+
+# Substance-use concern: the student is reporting recent use of alcohol /
+# weed / other substances in a way that's affecting their day. Detection is
+# conservative — "high" alone is ambiguous (could mean "highly stressed"),
+# so we require it to co-occur with a context cue OR rely on the stronger
+# unambiguous signals (drunk, hungover, blackout, stoned, etc.).
+_SUBSTANCE_STRONG_RE = re.compile(
+    r"\b("
+    r"drunk|wasted|hungover|hangover|black\s*out(?:\s*drunk)?|blacked\s*out|"
+    r"binge\s*drink(?:ing)?|alcohol\s*poisoning|"
+    r"stoned|smoked\s+weed|smoke(?:d)?\s+a\s+bowl|edibles|shrooms|"
+    r"got\s+high|was\s+high|been\s+high|getting\s+high|so\s+high|"
+    r"too\s+drunk|got\s+drunk|so\s+drunk|"
+    r"on\s+adderall(?:\s+(?:not\s+)?prescribed)?|"
+    r"ket(?:amine)?|cocaine|coke last night|coke yesterday|"
+    r"i\s+(?:was|am|got)\s+lit"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_substance_use_concern(text: str) -> bool:
+    return bool(_SUBSTANCE_STRONG_RE.search(text))
+
+
+# Privacy / confidentiality / parental-notification / FERPA questions.
+# Students ask these often and the system should answer with the factual
+# orientation (UMD CC confidentiality + FERPA basics + Dean of Students
+# referral) rather than deflecting to a generic offer template.
+_PRIVACY_QUESTION_RE = re.compile(
+    r"\b("
+    r"is it (?:safe|confidential|private|anonymous)|"
+    r"will (?:they|it|this)\s+(?:tell|report|notify|inform|share)|"
+    r"do they\s+(?:tell|report|notify|inform|share)|"
+    r"will (?:my|the)\s+(?:parents?|family|school|professor|advisor|i-?20)\s+(?:know|find out|be told)|"
+    r"go on my (?:record|transcript|file)|"
+    r"affect my (?:transcript|record|gpa|standing)\s+(?:if|because|when|after)|"
+    r"can\s+(?:they|the school|the college|umd)\s+(?:tell|report|disclose|share)|"
+    r"ferpa|confidential(?:ity)?|"
+    r"is (?:counseling|therapy|this)\s+confidential|"
+    r"will (?:this|that)\s+(?:show up|appear|stay)\s+on"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_privacy_question(text: str) -> bool:
+    return bool(_PRIVACY_QUESTION_RE.search(text))
 
 
 def _is_peer_helper(text: str, audience_mode: str) -> bool:
