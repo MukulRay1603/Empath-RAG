@@ -598,15 +598,18 @@ def build_response_plan(
         )
 
     # Generic / general_student_support fallback - listen-eligible.
+    # OFFER `validation` deliberately differs from `listen_reflection` so a
+    # session that walks LISTEN -> PERMISSION -> OFFER doesn't open all
+    # three turns with "That sounds like a lot to carry."
     return ResponsePlan(
         route,
         safety_tier,
-        "That sounds like a lot to carry.",
+        "Here's where I'd actually start.",
         "You shouldn't have to sort through this from scratch on your own.",
         "When you're ready, a useful first move is naming the kind of support that fits. Whether that's someone to talk to, a campus office, or a small concrete next step.",
         f"Use {source_label} as the starting point.",
         "If this becomes urgent or safety-related, switch to crisis or emergency support.",
-        "What would help most first: a next-step checklist, who to contact, or just talking it through more?",
+        "What would help most first — a next-step checklist, who to contact, or just talking it through more?",
         listen_reflection=(
             "That sounds like a lot to carry. Whatever's underneath this, you don't "
             "have to have it figured out right now."

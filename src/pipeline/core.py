@@ -1158,7 +1158,7 @@ def _render_consent_acknowledged(route: str, prior_question: str) -> str:
         if question[0].isupper():
             question = question[0].lower() + question[1:]
         return (
-            "Glad you're up for it. Just so I land in the right place — "
+            "Glad you're up for it. Just so I land in the right place, "
             f"{question}? You can answer in a sentence, or just name the "
             "part you want to start with."
         )
