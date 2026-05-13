@@ -18,7 +18,9 @@ from .output_guard import validate_output
 from .response_planner import (
     CLARIFY,
     INTERNATIONAL_SOURCE_HINT,
+    LISTEN,
     OFFER,
+    PERMISSION,
     build_response_plan,
     classify_intl_topic,
     decide_stage,
@@ -180,6 +182,19 @@ class EmpathRAGCore:
         # to widen things out), while an affirm after OFFER should go
         # into the consent flow (initial -> acknowledged -> delivered).
         self.session_last_stage: dict[str, str] = {}
+        # Count of "substantive" turns (LISTEN / PERMISSION / OFFER)
+        # rendered for this session. Non-substantive turns (greeting,
+        # goodbye, meta, minimal-affirm clarify, incomplete-message
+        # clarify) do not increment this. Used so a user who opens with
+        # "Hi" then says something real lands at LISTEN, not PERMISSION
+        # — the greeting shouldn't consume the listening-layer slot.
+        self.session_substantive_count: dict[str, int] = {}
+        # Monotonic per-session turn counter that does NOT cap. Used by
+        # the consent flow to measure "how many turns ago was the open
+        # offer rendered" — the tier_history-based turn_index saturates
+        # at 4 because tier_history is a rolling deque of size 3, which
+        # makes diff-based recency checks fail past turn 4.
+        self.session_seq: dict[str, int] = {}
         # Rolling per-session message log so the rephraser has continuity.
         # Only the last few user-assistant pairs are passed to the LLM; full
         # history is kept here for diagnostics. Each entry: {"role", "content"}.
@@ -194,6 +209,8 @@ class EmpathRAGCore:
             self.session_last_specific_route.pop(session_id, None)
             self.session_open_offer.pop(session_id, None)
             self.session_last_stage.pop(session_id, None)
+            self.session_substantive_count.pop(session_id, None)
+            self.session_seq.pop(session_id, None)
             self.session_message_history.pop(session_id, None)
         else:
             self.tier_history.clear()
@@ -203,6 +220,8 @@ class EmpathRAGCore:
             self.session_last_specific_route.clear()
             self.session_open_offer.clear()
             self.session_last_stage.clear()
+            self.session_substantive_count.clear()
+            self.session_seq.clear()
             self.session_message_history.clear()
 
     # Input length cap: defends against (1) accidental wall-of-text pastes
@@ -326,6 +345,12 @@ class EmpathRAGCore:
     ) -> _TurnPlan:
         if turn_index is None:
             turn_index = len(self.tier_history.get(session_id, [])) + 1
+        # Monotonic sequence — used wherever the diff-from-prior-turn
+        # comparison matters (consent recency, last-stage marker). The
+        # tier_history-based turn_index above caps because the safety
+        # tracker only keeps the last 3 entries.
+        self.session_seq[session_id] = self.session_seq.get(session_id, 0) + 1
+        seq = self.session_seq[session_id]
         t_total = time.perf_counter()
         latency: dict[str, float] = {}
 
@@ -450,7 +475,13 @@ class EmpathRAGCore:
                 audience_mode,
                 international_concern_override=intl_active,
             )
-            stage = decide_stage(message, route_label, safety_tier.value, turn_index)
+            # Stage progression should count *substantive* turns only.
+            # Greetings / goodbyes / meta / minimal-affirms / incomplete
+            # fragments do not consume the listening layer slot — a
+            # student who opens with "Hi" then says something real should
+            # land at LISTEN, not PERMISSION.
+            effective_turn_index = self.session_substantive_count.get(session_id, 0) + 1
+            stage = decide_stage(message, route_label, safety_tier.value, effective_turn_index)
             # Only classify F-1 sub-topic when the framing is actively in play.
             # After 2 silent turns, decayed; don't pin the planner to OPT/RCL/etc.
             intl_topic = classify_intl_topic(message) if intl_active else ""
@@ -492,7 +523,7 @@ class EmpathRAGCore:
                 minimal_kind == "affirm"
                 and self.session_last_stage.get(session_id) == "permission"
                 and not _open_offer_recent(
-                    self.session_open_offer.get(session_id), turn_index
+                    self.session_open_offer.get(session_id), seq
                 )
             ):
                 # The student said yes to widening out after a PERMISSION
@@ -505,7 +536,7 @@ class EmpathRAGCore:
                 recommended_action = response_plan.recommended_action
                 stage = OFFER
             elif minimal_kind == "affirm" and _open_offer_recent(
-                self.session_open_offer.get(session_id), turn_index
+                self.session_open_offer.get(session_id), seq
             ):
                 # The student just said yes/ok to an OFFER we made on a
                 # recent turn. Re-rendering the same template at this point
@@ -522,7 +553,7 @@ class EmpathRAGCore:
                         offer_state.get("question", ""),
                     )
                     offer_state["stage"] = "acknowledged"
-                    offer_state["acknowledged_turn"] = turn_index
+                    offer_state["acknowledged_turn"] = seq
                     self.session_open_offer[session_id] = offer_state
                     stage = OFFER
                 else:
@@ -530,7 +561,7 @@ class EmpathRAGCore:
                         offer_state.get("route", "")
                     )
                     offer_state["stage"] = "delivered"
-                    offer_state["delivered_turn"] = turn_index
+                    offer_state["delivered_turn"] = seq
                     self.session_open_offer[session_id] = offer_state
                     stage = OFFER
                 recommended_action = response_plan.recommended_action
@@ -560,8 +591,8 @@ class EmpathRAGCore:
             # would reset the consent progression.
             existing_offer = self.session_open_offer.get(session_id) or {}
             advanced_this_turn = (
-                existing_offer.get("acknowledged_turn") == turn_index
-                or existing_offer.get("delivered_turn") == turn_index
+                existing_offer.get("acknowledged_turn") == seq
+                or existing_offer.get("delivered_turn") == seq
             )
             if (
                 stage == OFFER
@@ -572,7 +603,7 @@ class EmpathRAGCore:
                 self.session_open_offer[session_id] = {
                     "route": route_label,
                     "question": response_plan.follow_up_question.strip(),
-                    "offer_turn": turn_index,
+                    "offer_turn": seq,
                     "stage": "initial",
                 }
             elif (
@@ -590,6 +621,15 @@ class EmpathRAGCore:
             # PERMISSION, consent-flow after OFFER).
             if not should_intercept:
                 self.session_last_stage[session_id] = stage
+                # Substantive stages (LISTEN / PERMISSION / OFFER) move
+                # the listening-layer counter forward. CLARIFY turns
+                # (greeting, goodbye, meta, minimal-affirm fallback,
+                # incomplete-message handler) do not — they're outside
+                # the listening loop's stage progression.
+                if stage in (LISTEN, PERMISSION, OFFER):
+                    self.session_substantive_count[session_id] = (
+                        self.session_substantive_count.get(session_id, 0) + 1
+                    )
 
         return _TurnPlan(
             message=message,

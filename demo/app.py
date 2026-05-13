@@ -1218,17 +1218,27 @@ class FastDemoPipeline:
         self._crisis_locked = False
         self._last_escalation_reason = ""
 
-    def run(self, user_message: str, audience_mode: str = "student") -> dict:
+    def run(
+        self,
+        user_message: str,
+        audience_mode: str = "student",
+        session_id: str = "demo",
+    ) -> dict:
         core_result = self.core.run_turn(
             message=user_message,
-            session_id="demo",
+            session_id=session_id,
             audience_mode=audience_mode,
             resource_profile="umd",
             backend_mode="hybrid_ml",
         ).to_dict()
         return self._enrich_result(core_result)
 
-    def run_streaming(self, user_message: str, audience_mode: str = "student"):
+    def run_streaming(
+        self,
+        user_message: str,
+        audience_mode: str = "student",
+        session_id: str = "demo",
+    ):
         """Generator wrapping ``EmpathRAGCore.run_turn_streaming``.
 
         Yields ``("token", text)`` for each streamed chunk and ``("done",
@@ -1236,7 +1246,7 @@ class FastDemoPipeline:
         """
         for event in self.core.run_turn_streaming(
             message=user_message,
-            session_id="demo",
+            session_id=session_id,
             audience_mode=audience_mode,
             resource_profile="umd",
             backend_mode="hybrid_ml",
@@ -1380,12 +1390,12 @@ class FastDemoPipeline:
     def tracker_trajectory(self) -> str:
         return "stable"
 
-    def reset_session(self) -> None:
+    def reset_session(self, session_id: str = "demo") -> None:
         self._turn = 0
         self._tier_history = []
         self._crisis_locked = False
         self._last_escalation_reason = ""
-        self.core.reset_session("demo")
+        self.core.reset_session(session_id)
 
     def _result(
         self,
@@ -2558,13 +2568,15 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
             def fast_check(text, threshold=0.5, skip_ig=False):
                 return original_check(text, threshold=threshold, skip_ig=True)
             active_pipeline.guardrail.check = fast_check
-            result = active_pipeline.run(message)
+            result = active_pipeline.run(message, session_id=session_id)
             active_pipeline.guardrail.check = original_check
             session_state["tracker_history"] = active_pipeline.tracker.history()
             session_state["conv_history"] = list(active_pipeline.conv_history)
         elif use_real_streaming:
             result = None
-            for ev in active_pipeline.run_streaming(message, audience_mode=audience_mode or "student"):
+            for ev in active_pipeline.run_streaming(
+                message, audience_mode=audience_mode or "student", session_id=session_id
+            ):
                 if ev[0] == "token":
                     chat_history[-1] = (message, ev[1])
                     yield (
@@ -2579,7 +2591,9 @@ def respond(message, chat_history, session_state, audience_mode, rephrase_mode="
             session_state["tracker_history"] = session_state.get("tracker_history", []) + [result["emotion"]]
             session_state["conv_history"] = session_state.get("conv_history", [])
         else:
-            result = active_pipeline.run(message, audience_mode=audience_mode or "student")
+            result = active_pipeline.run(
+                message, audience_mode=audience_mode or "student", session_id=session_id
+            )
             session_state["tracker_history"] = session_state.get("tracker_history", []) + [result["emotion"]]
             session_state["conv_history"] = session_state.get("conv_history", [])
 
@@ -2739,7 +2753,26 @@ def export_support_plan_pdf(session_state):
         return export_support_plan_md(session_state)
 
 
-def reset_session_handler():
+def reset_session_handler(prev_session_state=None):
+    """Reset to a brand-new session. Crucially, also clears any lingering
+    EmpathRAGCore state keyed to the previous session_id (tier_history,
+    open-offer slot, last-stage marker, intl flags, message history).
+    Without this, clicking "New conversation" only swapped the UI label
+    while the core kept growing state under the old key — which is why a
+    "fresh" run on the demo could still see prior turns in context.
+    """
+    prev_sid = (prev_session_state or {}).get("session_id")
+    with pipeline_lock:
+        try:
+            pipeline = get_pipeline()
+            if hasattr(pipeline, "reset_session") and prev_sid:
+                pipeline.reset_session(session_id=prev_sid)
+            elif hasattr(pipeline, "reset_session"):
+                pipeline.reset_session()
+        except Exception:
+            # Reset must never block UI; failed resets degrade silently
+            # because the new session_id alone gives a clean state entry.
+            pass
     session_state = new_session_state()
     return (
         [],
@@ -3090,11 +3123,11 @@ with gr.Blocks(theme=theme, title="EmpathRAG Studio", css=APP_CSS, js=_CHATBOT_A
         outputs=submit_outputs,
     ).then(_clear_input, outputs=msg_box)
 
-    def reset_with_chrome():
-        base = reset_session_handler()
+    def reset_with_chrome(prev_session_state):
+        base = reset_session_handler(prev_session_state)
         return base + (gr.update(visible=True),)
 
-    reset_btn.click(reset_with_chrome, outputs=submit_outputs)
+    reset_btn.click(reset_with_chrome, inputs=[session_state], outputs=submit_outputs)
 
     export_pdf_btn.click(export_support_plan_pdf, inputs=[session_state], outputs=[support_plan_file])
     export_md_btn.click(export_support_plan_md, inputs=[session_state], outputs=[support_plan_file])
