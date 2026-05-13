@@ -242,13 +242,13 @@ class ResponsePlan:
         if phrase:
             hint = (
                 f"When you want to widen this out: {phrase} are usually the most useful "
-                "starting points for what you've described. Or we can keep talking. "
+                "starting points for what you've described — or we can keep talking, "
                 "no pressure either way."
             )
         else:
             hint = (
                 "When you want to widen this out, I can point you toward a couple of "
-                "specific places that fit. Or we can keep talking. No pressure either way."
+                "specific places that fit — or we can keep talking, no pressure either way."
             )
 
         intl_line = ""

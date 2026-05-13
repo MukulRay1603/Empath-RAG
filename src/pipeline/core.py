@@ -1150,10 +1150,15 @@ def _render_consent_acknowledged(route: str, prior_question: str) -> str:
     point is to *advance* the turn: the user said yes, the system should
     acknowledge that yes and ask a more direct, conversational pick-one
     question instead of repeating the OFFER template verbatim."""
-    question = (prior_question or "").strip().rstrip("?")
+    question = (prior_question or "").strip().rstrip("?").rstrip(".")
     if question:
+        # Lowercase the first letter so the embedded question flows from
+        # the preamble as one continuous sentence — otherwise the em-dash
+        # is followed by a capital and reads as two stitched fragments.
+        if question[0].isupper():
+            question = question[0].lower() + question[1:]
         return (
-            "Glad you're up for it. To land in the right place — "
+            "Glad you're up for it. Just so I land in the right place — "
             f"{question}? You can answer in a sentence, or just name the "
             "part you want to start with."
         )
