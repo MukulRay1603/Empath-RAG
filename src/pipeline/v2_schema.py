@@ -91,7 +91,14 @@ def classify_route(
     if _has_any(text, ("accommodation", "disability", "504", "extended time", "assistive tech", "paratransit")) or _has_word(text, "ads"):
         return RouteDecision(SupportRoute.ACCESSIBILITY_ADS, safety_tier, "accessibility_language", audience_mode)
 
-    if _has_any(text, ("advisor", "ombuds", "funding threatened", "threatened my funding", "funding might disappear", "pi is", "my pi", "committee feedback", "retaliatory", "neutral process", "power dynamics")):
+    # ADVISOR_CONFLICT requires explicit conflict / power-imbalance signals.
+    # The bare word "advisor" is too broad — undergrads mention their academic
+    # advisor in any context — so this rule fires only on phrases that
+    # actually carry the advisor-conflict frame (Ombuds, funding threats,
+    # retaliation, named PI dynamics). When someone says "my advisor and I
+    # had a hard meeting", we let the planner fall through to the academic /
+    # general route rather than dropping a grad-Ombuds template on them.
+    if _has_any(text, ("ombuds", "funding threatened", "threatened my funding", "funding might disappear", "pi is", "my pi", "committee feedback", "retaliatory", "neutral process", "power dynamics")):
         return RouteDecision(SupportRoute.ADVISOR_CONFLICT, safety_tier, "advisor_or_ombuds_language", audience_mode)
 
     if _has_any(text, ("no food", "out of money", "hungry because", "food rent", "food or rent", "can't afford food", "cannot afford food", "nowhere to sleep")):
@@ -215,8 +222,16 @@ _AUTHORITY_MISCONDUCT_CONTENT = (
     # Confidentiality breach
     "told my parents", "told everyone", "broke confidentiality",
     "outed me", "betrayed my trust",
-    # Faux authority validation
+    # Faux authority validation. Variants cover the common phrasings of
+    # authority figures suggesting the student give up / drop out, with or
+    # without "to" / "i should" / "just" hedges in between.
     "told me to give up", "told me to drop out",
+    "told me i should give up", "told me i should drop out",
+    "told me to just give up", "told me to just drop out",
+    "told me to just drop", "told me i should just drop",
+    "said i should drop out", "said i should give up",
+    "said to drop out", "said to give up",
+    "should give up on my degree", "should drop out of",
 )
 
 

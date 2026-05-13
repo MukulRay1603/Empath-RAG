@@ -17,6 +17,7 @@ from .output_guard import validate_output
 from .response_planner import (
     CLARIFY,
     INTERNATIONAL_SOURCE_HINT,
+    OFFER,
     build_response_plan,
     classify_intl_topic,
     decide_stage,
@@ -159,6 +160,19 @@ class EmpathRAGCore:
         # every subsequent response.
         self.session_turns_since_intl: dict[str, int] = {}
         self.session_last_specific_route: dict[str, str] = {}
+        # Per-session "open offer" state. Set whenever the planner renders an
+        # OFFER turn that ends in a follow-up question. Used to handle the
+        # next-turn minimal-affirm response intelligently — a bare "yes" /
+        # "ok" after an offer should *advance* the conversation (acknowledge
+        # the consent, then deliver something concrete), not re-render the
+        # same OFFER template back at the user. State machine per session:
+        #   {
+        #     "route": str,       # the OFFER route that set this state
+        #     "question": str,    # the follow-up question that was asked
+        #     "offer_turn": int,  # turn index when the OFFER was rendered
+        #     "stage": "initial" | "acknowledged" | "delivered",
+        #   }
+        self.session_open_offer: dict[str, dict] = {}
         # Rolling per-session message log so the rephraser has continuity.
         # Only the last few user-assistant pairs are passed to the LLM; full
         # history is kept here for diagnostics. Each entry: {"role", "content"}.
@@ -171,6 +185,7 @@ class EmpathRAGCore:
             self.session_intl_flag.pop(session_id, None)
             self.session_turns_since_intl.pop(session_id, None)
             self.session_last_specific_route.pop(session_id, None)
+            self.session_open_offer.pop(session_id, None)
             self.session_message_history.pop(session_id, None)
         else:
             self.tier_history.clear()
@@ -178,6 +193,7 @@ class EmpathRAGCore:
             self.session_intl_flag.clear()
             self.session_turns_since_intl.clear()
             self.session_last_specific_route.clear()
+            self.session_open_offer.clear()
             self.session_message_history.clear()
 
     # Input length cap: defends against (1) accidental wall-of-text pastes
@@ -463,6 +479,36 @@ class EmpathRAGCore:
                 template_response = _render_meta()
                 stage = CLARIFY
                 recommended_action = response_plan.recommended_action
+            elif minimal_kind == "affirm" and _open_offer_recent(
+                self.session_open_offer.get(session_id), turn_index
+            ):
+                # The student just said yes/ok to an OFFER we made on a
+                # recent turn. Re-rendering the same template at this point
+                # was the bug: the user already consented, the planner
+                # should advance. Two-stage advance:
+                #   1st affirm  -> acknowledge consent + naturalize the
+                #                  binary disambiguation that the OFFER asked
+                #   2nd affirm  -> stop asking, deliver a concrete starter
+                #                  appropriate to the route
+                offer_state = dict(self.session_open_offer[session_id])
+                if offer_state.get("stage") == "initial":
+                    template_response = _render_consent_acknowledged(
+                        offer_state.get("route", ""),
+                        offer_state.get("question", ""),
+                    )
+                    offer_state["stage"] = "acknowledged"
+                    offer_state["acknowledged_turn"] = turn_index
+                    self.session_open_offer[session_id] = offer_state
+                    stage = OFFER
+                else:
+                    template_response = _render_consent_delivered(
+                        offer_state.get("route", "")
+                    )
+                    offer_state["stage"] = "delivered"
+                    offer_state["delivered_turn"] = turn_index
+                    self.session_open_offer[session_id] = offer_state
+                    stage = OFFER
+                recommended_action = response_plan.recommended_action
             elif minimal_kind:
                 template_response = _render_minimal_followup(minimal_kind, intl_session)
                 stage = CLARIFY
@@ -480,6 +526,39 @@ class EmpathRAGCore:
             else:
                 template_response = response_plan.render(stage)
                 recommended_action = response_plan.recommended_action
+
+            # Capture an open-offer slot whenever this turn rendered an OFFER
+            # with a follow-up question, so the next turn can recognize a
+            # bare "yes" / "ok" as consent and advance the conversation.
+            # Skip when the consent flow itself just rendered this turn —
+            # the slot has already been updated above and overwriting it
+            # would reset the consent progression.
+            existing_offer = self.session_open_offer.get(session_id) or {}
+            advanced_this_turn = (
+                existing_offer.get("acknowledged_turn") == turn_index
+                or existing_offer.get("delivered_turn") == turn_index
+            )
+            if (
+                stage == OFFER
+                and not should_intercept
+                and response_plan.follow_up_question
+                and not advanced_this_turn
+            ):
+                self.session_open_offer[session_id] = {
+                    "route": route_label,
+                    "question": response_plan.follow_up_question.strip(),
+                    "offer_turn": turn_index,
+                    "stage": "initial",
+                }
+            elif (
+                stage not in (OFFER, CLARIFY)
+                and not should_intercept
+                and not advanced_this_turn
+            ):
+                # LISTEN / PERMISSION turns reset any stale open-offer so we
+                # don't bind a much-later "yes" to an offer the user already
+                # moved past.
+                self.session_open_offer.pop(session_id, None)
 
         return _TurnPlan(
             message=message,
@@ -1042,6 +1121,145 @@ def _render_incomplete_followup() -> str:
     return (
         "Looks like the thought might have cut off. Take your time and say "
         "the rest when you're ready, in whatever words feel right."
+    )
+
+
+def _open_offer_recent(state: dict | None, current_turn: int) -> bool:
+    """Is there an OFFER on the table that the user could be saying yes to?
+
+    True if an OFFER was rendered on the previous or current turn (current
+    can match in unusual harness flows where turn_index is not strictly
+    incrementing) and we haven't already delivered the concrete starter.
+    """
+    if not state:
+        return False
+    offer_turn = state.get("offer_turn", 0)
+    if not isinstance(offer_turn, int):
+        return False
+    # Allow consent on the immediately following turn or two — leaves a
+    # small margin for the second affirm in a row, which is the bug we're
+    # fixing. After "delivered" we stop binding new affirms here.
+    if state.get("stage") == "delivered":
+        return False
+    return current_turn - offer_turn in (1, 2)
+
+
+def _render_consent_acknowledged(route: str, prior_question: str) -> str:
+    """First minimal-affirm after an OFFER. Acknowledge the consent and
+    naturalize the binary disambiguation that the OFFER asked for. The
+    point is to *advance* the turn: the user said yes, the system should
+    acknowledge that yes and ask a more direct, conversational pick-one
+    question instead of repeating the OFFER template verbatim."""
+    question = (prior_question or "").strip().rstrip("?")
+    if question:
+        return (
+            "Glad you're up for it. To land in the right place — "
+            f"{question}? You can answer in a sentence, or just name the "
+            "part you want to start with."
+        )
+    return (
+        "Glad you're up for it. Could you say in your own words which "
+        "piece you'd like to start with? Even one sentence is enough."
+    )
+
+
+def _render_consent_delivered(route: str) -> str:
+    """Second minimal-affirm in a row after an OFFER. Stop asking the
+    student to choose and deliver a concrete starter scoped to the route.
+    Keeps the conversation moving and gives the student something usable
+    to take with them."""
+    if route == "academic_setback":
+        return (
+            "Okay, let's just start. Here's a short email you can adapt "
+            "for your professor or TA — change the bracketed bits:\n\n"
+            "Subject: Quick check-in during office hours\n\n"
+            "Hi Professor [Last Name], I'm in your [Course]. I've been "
+            "having a hard time keeping up the last few weeks and I'd like "
+            "to use a few minutes of office hours to figure out the best "
+            "way forward. Would [day/time] work, or is there another time "
+            "you'd suggest?\n\n"
+            "Thanks for your time, [Your Name]\n\n"
+            "Send that, then come back and we can talk through anything "
+            "else that's been weighing on you."
+        )
+    if route == "exam_stress":
+        return (
+            "Okay, small concrete start. Tonight: pick two topics from the "
+            "exam that you actually want to be solid on, set a 25-minute "
+            "timer for the first one, then take 5. That's it. The rest of "
+            "the prep can wait until after a real reset.\n\n"
+            "If the stress spikes during the reset, the UMD Counseling "
+            "Center has same-day phone consultations at counseling.umd.edu."
+        )
+    if route == "anxiety_panic":
+        return (
+            "Okay, let's start with a short grounding reset. Try this:\n\n"
+            "1. Name five things you can see right now.\n"
+            "2. Name four things you can hear.\n"
+            "3. Three slow breaths — in for four counts, out for six.\n\n"
+            "Take it slow. When you're done, tell me how it landed."
+        )
+    if route == "low_mood":
+        return (
+            "Okay, small start. Pick one thing today that feels almost "
+            "too easy — drink a glass of water, step outside for two "
+            "minutes, message one person to say hi. Just pick the one. "
+            "Then come back and tell me how it went.\n\n"
+            "If anything tips into not feeling safe, UMD Counseling "
+            "Center is at counseling.umd.edu and 988 is always there."
+        )
+    if route == "loneliness_isolation":
+        return (
+            "Okay, one small reach. Think of one person you used to talk "
+            "to who wouldn't feel hard to message. The text doesn't have "
+            "to be deep — \"hey, been thinking about you, how are you?\" "
+            "is enough. You don't have to send it now; just pick the "
+            "person.\n\n"
+            "If you want, name them and we can plan what to say."
+        )
+    if route in ("advisor_conflict", "authority_misconduct"):
+        return (
+            "Okay, let's start by writing it down. A short factual "
+            "timeline — date, who was there, what was said, in your own "
+            "words. Even three or four lines is enough for now. That "
+            "gives you something concrete to bring to whichever office "
+            "fits, without committing to anything yet.\n\n"
+            "Want to draft those few lines together?"
+        )
+    if route == "accessibility_ads":
+        return (
+            "Okay, one small step: open accessibility.umd.edu and start "
+            "the ADS intake form — you don't have to finish it tonight, "
+            "just open it and save your name. The form asks about the "
+            "specific course and barrier, which is easier to fill out "
+            "with the syllabus in front of you.\n\n"
+            "When you're ready, we can talk through what to put in the "
+            "barrier section."
+        )
+    if route == "basic_needs":
+        return (
+            "Okay, one concrete first step: today, contact UMD's Dean of "
+            "Students Office (dos.umd.edu) and tell them plainly what "
+            "you need help with — food, housing, or money. They route "
+            "students to Campus Pantry and emergency funds and they're "
+            "used to getting these calls.\n\n"
+            "Want help drafting a short message to send them?"
+        )
+    if route == "counseling_navigation":
+        return (
+            "Okay, one concrete step: open counseling.umd.edu and book "
+            "the brief 20-minute initial consultation. That's the "
+            "intake — it's not therapy yet, just a quick conversation "
+            "where they listen and tell you what fits (group, "
+            "individual, off-campus referral). You can do it by phone.\n\n"
+            "If a deadline or finals window is making this urgent, say "
+            "that on the call — they have same-day options."
+        )
+    # Default — generic small concrete starter
+    return (
+        "Okay, let's just start small. In one sentence, what feels most "
+        "pressing right now — not the whole picture, just whatever's "
+        "loudest today? We'll work from there, one step at a time."
     )
 
 

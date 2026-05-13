@@ -141,6 +141,11 @@ EXPLICIT_CRISIS_PATTERNS = tuple(
         r"\bsuicide plan\b",
         r"\bwant to die\b",
         r"\bdon'?t want to be alive\b",
+        # "I don't want to be here anymore" / "do not want to be here anymore"
+        # — natural phrasing that the original "not be here anymore" regex
+        # doesn't catch because the negation lives one token earlier.
+        r"\b(don'?t|do not) want to be here anymore\b",
+        r"\b(don'?t|do not) wanna be here anymore\b",
         r"\bhurt myself\b",
         r"\bhurt themselves\b",
         r"\bharming themselves\b",
