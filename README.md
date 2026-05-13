@@ -53,28 +53,6 @@ short_description: Guarded RAG support navigator for UMD students
 
 ---
 
-## Contents
-
-| Section | Description |
-|---|---|
-| [Problem Statement](#problem-statement) | The student-support gap the system addresses |
-| [Architecture Diagram](#architecture-diagram) | End-to-end pipeline diagram |
-| [Approach](#approach) | The plan-and-rephrase design pattern |
-| [Design Iterations](#design-iterations) | How the architecture evolved |
-| [Datasets](#datasets) | Sources, sizes, licenses |
-| [Models](#models) | Components and their roles |
-| [Results](#results) | Headline, ablation, sweeps |
-| [Quickstart](#quickstart) | Local install and run |
-| [Repository Structure](#repository-structure) | Where everything lives |
-| [Documentation](#documentation) | Index of supporting docs |
-| [Scope and Limitations](#scope-and-limitations) | Honest bounds on the claims |
-| [Roadmap](#roadmap) | What is next |
-| [Contributors and License](#contributors-and-license) | Credits and terms |
-
-<br>
-
----
-
 ## Problem Statement
 
 University students often need help that sits in the gap between a counseling appointment and a Google search. They have a question, a worry, or a moment of distress, and they need a system that will listen, decide what kind of help is appropriate, and point them to a real resource.
