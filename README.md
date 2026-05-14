@@ -46,6 +46,18 @@ short_description: Guarded RAG support navigator for UMD students
 
 <br>
 
+### 🎬 &nbsp; Watch the Presentation
+
+<div align="center">
+
+[![Watch the recorded MSML641 presentation](https://img.shields.io/badge/🎬%20Watch%20the%20presentation-10%20min%20recorded%20talk-fb923c?style=for-the-badge&logoColor=white)](https://drive.google.com/file/d/1PcHtjZwQix7aYJyslwp-aIuHj8Bs1C9f/view?usp=sharing)
+
+</div>
+
+> Two-presenter walkthrough of the problem, architecture, evaluation, and live demo — recorded for the MSML641 final submission.
+
+<br>
+
 ### 📁 &nbsp; Project Files
 
 <div align="center">

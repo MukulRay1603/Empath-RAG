@@ -1,7 +1,9 @@
-# Slide deck artifacts — kept out of the repo, hosted on Drive instead
-# (see README "Project Files" section for the folder link).
+# Slide deck artifacts and presentation drafting — kept out of the repo,
+# hosted on Drive instead (see README "Project Files" section for the
+# folder link).
 ppt/*.pptx
 ppt/*.pdf
+ppt/*.md
 
 # Python
 __pycache__/
