@@ -57,12 +57,13 @@ short_description: Guarded RAG support navigator for UMD students
 
 University students often need help that sits in the gap between a counseling appointment and a Google search. They have a question, a worry, or a moment of distress, and they need a system that will listen, decide what kind of help is appropriate, and point them to a real resource.
 
-A general-purpose chatbot can sound supportive in this setting, but it has two structural weaknesses that matter for student wellbeing:
+A general-purpose chatbot can sound supportive in this setting. It also has two structural weaknesses that matter for student wellbeing:
 
-1. It can fabricate resources, phone numbers, or eligibility rules.
-2. It can fail to recognize, or actively soften, language that signals risk.
+> ❌ &nbsp; **Fabricated resources** — invented phone numbers, services, or eligibility rules.
+>
+> ❌ &nbsp; **Missed risk signals** — softening or overlooking language that signals real distress.
 
-EmpathRAG addresses both by separating *what to say* from *how to say it*. Routing, escalation, and resource selection are handled by deterministic, auditable code. The language model only rephrases those decisions in a warm voice. A verifier then checks the rephrased text before it reaches the student.
+**EmpathRAG addresses both** by separating *what to say* from *how to say it*. Routing, escalation, and resource selection are handled by deterministic, auditable code. The language model only rephrases those decisions in a warm voice. A verifier then checks the rephrased text before it reaches the student.
 
 <br>
 
@@ -116,7 +117,12 @@ The Gradio interface displays this pipeline as a row of status chips beneath eac
 
 The architectural pattern is **plan and rephrase**.
 
-A deterministic planner is the source of truth for what the system says. The language model is a controlled paraphrasing layer that cannot invent advice, resources, or claims. A verifier rejects rephrased output that drifts outside the planner's intent. Crisis content bypasses the model entirely and is rendered from a vetted template.
+| Layer | Role |
+|---|---|
+| **Planner** | Deterministic source of truth. Picks the route, the safety tier, and the resources. |
+| **LLM** | Controlled paraphrase only. Cannot invent advice, resources, or claims. |
+| **Verifier** | Rejects rephrased output that drifts outside the planner's intent. |
+| **Crisis intercept** | Bypasses the model entirely — vetted template only. |
 
 This separation is what gives the system its safety properties. The planner is auditable, the resource registry is grounded, and the verifier is the trust boundary between deterministic intent and generated text.
 
@@ -132,7 +138,11 @@ The current architecture is the result of three design iterations. Each one is n
 
 ### 🔹 Open Retrieval Baseline
 
-A five-stage pipeline: a RoBERTa emotion classifier, a DeBERTa NLI safety guardrail, an emotion-conditioned query rewrite, FAISS retrieval over 1.67M public mental-health passages, and a Mistral 7B generator. Single-turn. Strong on standard empathy and crisis-recall metrics in isolation, but it surfaced four structural failures under adversarial probing:
+A five-stage pipeline. Single-turn. Strong on standard metrics in isolation.
+
+**Components:** RoBERTa emotion classifier · DeBERTa NLI safety guardrail · emotion-conditioned query rewrite · FAISS retrieval over 1.67M public mental-health passages · Mistral 7B generator.
+
+**Four structural failures surfaced under adversarial probing:**
 
 - **Bait-and-switch openers** fooled the NLI guardrail (40% recall on positive-framed crisis messages).
 - **Academic idioms** (*"this thesis is killing me"*) triggered false-positive crisis intercept.
@@ -156,17 +166,42 @@ A redesign that moved every safety-relevant decision out of the language model.
 
 ### 🔹 Listening Layer
 
-Real-conversation review showed that the guarded architecture still felt prescriptive on turn one. Students wanted to be heard before being routed. The listening layer introduced a four-stage planner — *listen, permission, offer, clarify*. On turn one of a non-crisis listen-eligible route, no resources surface. The system invites the student to share more, then offers paths only when the conversation has earned them.
+Real-conversation review showed that the guarded architecture still felt prescriptive on turn one. Students wanted to be heard before being routed.
+
+A four-stage planner — *listen, permission, offer, clarify* — addresses this:
+
+| Stage | Behavior |
+|---|---|
+| **LISTEN** | Validates without dumping resources. Soft invite to share more. |
+| **PERMISSION** | Names a few options gently, asks before pushing further. |
+| **OFFER** | Full plan with named resources and a follow-up question. |
+| **CLARIFY** | Catches single-word or incomplete replies without barreling forward. |
 
 <br>
 
 ### 🔹 Verified Rephrasing — *current architecture*
 
-The planner sends a template, the user message, and recent history to the language model under a strict system prompt. The model returns a paraphrased candidate. A post-rephrase verifier (`verify_rephrased_safety`) inspects the candidate for scope drift, fabricated resources, sycophantic agreement under explicit pressure, and length sanity. If any check fails, the deterministic template is returned. Crisis content never enters this path.
+The planner sends a template, the user message, and recent history to the language model under a strict system prompt. The model returns a paraphrased candidate. A post-rephrase verifier (`verify_rephrased_safety`) inspects the candidate for **scope drift, fabricated resources, sycophantic agreement under pressure, and length sanity.** If any check fails, the deterministic template is returned. Crisis content never enters this path.
 
-Subsequent polish added: response streaming, support-plan export (Markdown and PDF), voice input via Whisper, ISSS document side-panel, an authority-misconduct route, a sycophancy guard, F-1 session decay, prompt-injection auditing, per-layer ablation evaluation, the same-model unguarded baseline, in-UI safety pipeline visualization, mobile CSS, and HIPAA / privacy gap documentation.
+<br>
 
-A second hardening pass added a session-isolated state machine for the consent loop (a "yes" after an offer advances instead of re-rendering), natural-language intent detection for affirmations (`yeah that would help` / `sure, sounds good` / `yes please` all recognized, with pivots like `yeah but i'm an F-1 student` correctly deferred to the planner), and two new routes — `substance_use_concern` (UHC Psychiatry and SUIT, non-punitive framing) and `privacy_confidentiality` (factual orientation on FERPA and Counseling Center confidentiality, with mandatory-disclosure caveat). End-to-end session state now flows from the UI through the pipeline to the core; the "↺ New conversation" button actually resets every state dict.
+**First polish pass — added:**
+
+- Response streaming · support-plan export (Markdown and PDF) · voice input via Whisper
+- ISSS document side-panel · authority-misconduct route · sycophancy guard
+- F-1 session decay · prompt-injection auditing · per-layer ablation evaluation
+- Same-model unguarded baseline · in-UI safety pipeline visualization
+- Mobile CSS · HIPAA / privacy gap documentation
+
+<br>
+
+**Second hardening pass — added:**
+
+- **Session-isolated consent loop** — a "yes" after an offer advances the conversation instead of re-rendering the same template.
+- **Natural-language intent detection** — recognizes `yeah that would help` / `sure, sounds good` / `yes please` and similar; correctly defers pivots like `yeah but i'm an F-1 student` to the planner.
+- **Typo-aware crisis detection** — a second pass against a typo-corrected version of the message (`don't wan to be alive` / `i wanna kil myself` / `im sucidal` all fire the crisis intercept).
+- **Two new routes** — `substance_use_concern` (UHC Psychiatry and SUIT, non-punitive framing) and `privacy_confidentiality` (factual orientation on FERPA and Counseling Center confidentiality, with mandatory-disclosure caveat).
+- **End-to-end session state** — flows from the UI through the pipeline to the core. The "↺ New conversation" button now actually resets every state dict.
 
 <br>
 
@@ -174,7 +209,7 @@ A second hardening pass added a session-isolated state machine for the consent l
 
 ## Datasets
 
-EmpathRAG combines public mental-health corpora used by the open-retrieval baseline with a custom UMD-specific dataset built for the guarded architecture.
+Public mental-health corpora (used by the open-retrieval baseline) plus a custom UMD-specific dataset (built for the guarded architecture).
 
 | Dataset | Size | Role | License |
 |---|---|---|---|
