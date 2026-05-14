@@ -1,3 +1,7 @@
+# Slide source — large binary, regenerable by exporting from Canva.
+# The PDF render of the deck is tracked under ppt/ for viewing.
+ppt/*.pptx
+
 # Python
 __pycache__/
 *.py[cod]

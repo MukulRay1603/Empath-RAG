@@ -11,20 +11,21 @@
 - *Italics* = stage direction, do not say aloud
 - `[ time ]` = budget for that slide
 - `—` (em-dash on its own line) = handoff pause, ~1 second of silence
+- Handoffs are written as a *continuation* — the speaker picking up should sound like they're finishing the previous speaker's thought, not starting a new lecture.
 
 ---
 
 # 🎬 SLIDE 1 — TITLE  `[ 0:00 – 0:12 ]`
 
-**M:** &nbsp; Hi, I'm Mukul.
+**M:** &nbsp; Hi everyone, I'm Mukul.
 
-**K:** &nbsp; And I'm Karthik.
+**K:** &nbsp; And I'm Karthik. Together we built EmpathRAG.
 
-**K:** &nbsp; This is EmpathRAG — a guarded conversational support navigator for UMD students.
+**M:** &nbsp; It's a guarded conversational support navigator for UMD students.
 
-**M:** &nbsp; Ten-minute walkthrough — problem, architecture, evaluation, and a quick demo.
+**K:** &nbsp; Ten minutes, four sections — the problem, the architecture, the evidence, and a quick demo.
 
-**M:** &nbsp; Let's get into it.
+**M:** &nbsp; Let's start with why we built it.
 
 ---
 
@@ -32,27 +33,27 @@
 
 *Click.*
 
-**M:** &nbsp; Two failure modes get students in trouble when they turn to chatbots in distress.
+**M:** &nbsp; When students reach for a chatbot in distress, two things tend to go wrong.
 
-**M:** &nbsp; The first is fabricated resources.
+**M:** &nbsp; The first one is fabrication.
 
-**M:** &nbsp; The model invents a phone number, a service, an eligibility rule.
+**M:** &nbsp; The model invents a phone number, a service, an eligibility rule that doesn't exist.
 
-**M:** &nbsp; The example on the right is exactly that — a number that looks real and isn't.
-
-—
-
-**K:** &nbsp; The second is missed risk signals.
-
-**K:** &nbsp; Generic models soften language that signals real distress instead of intercepting it.
-
-**K:** &nbsp; Either failure, at a vulnerable moment, is a serious problem.
+**M:** &nbsp; The example on the right is exactly that — a number that *looks* official and isn't.
 
 —
 
-**M:** &nbsp; EmpathRAG is built to fail in neither direction.
+**K:** &nbsp; And the second is the opposite problem — missed signals.
 
-**M:** &nbsp; Without losing the conversational quality students actually need.
+**K:** &nbsp; Generic models tend to soften language that signals real distress.
+
+**K:** &nbsp; They reassure when they should be intercepting.
+
+**K:** &nbsp; And in a vulnerable moment, either failure is dangerous.
+
+—
+
+**M:** &nbsp; So our goal was to fix both of those without losing the conversational quality students actually need.
 
 ---
 
@@ -60,21 +61,25 @@
 
 *Click.*
 
-**M:** &nbsp; Same Llama 3.3 70B model. Two configurations.
+**M:** &nbsp; This is the headline number — same Llama 3.3 70B model, two configurations.
 
-**M:** &nbsp; Unguarded on the left misses escalation 9 times out of 28.
+**M:** &nbsp; On the left, the unguarded model misses escalation 9 times out of 28.
 
-**M:** &nbsp; Our guarded pipeline on the right — zero out of 28.
+**M:** &nbsp; On the right, our guarded pipeline misses zero out of 28.
 
-**M:** &nbsp; The 95% confidence intervals don't overlap.
+**M:** &nbsp; And the 95% confidence intervals don't overlap.
 
 —
 
-**K:** &nbsp; And this isn't a benchmark we tuned for.
+**K:** &nbsp; What's important here is that we didn't tune *for* this benchmark.
 
-**K:** &nbsp; It's an external safety contract — does the system intercept crisis language.
+**K:** &nbsp; This is an external safety contract — does the system intercept crisis language, yes or no.
 
-**K:** &nbsp; That's the bar everyone should be evaluated against.
+**K:** &nbsp; That's the bar a system like this should be evaluated against.
+
+—
+
+**M:** &nbsp; Now, how do you actually get from a 32% miss rate to zero, with the same model underneath? That's the architecture.
 
 ---
 
@@ -82,9 +87,9 @@
 
 *Click.*
 
-**M:** &nbsp; The pattern that makes this work is simple.
+**M:** &nbsp; The core pattern is what we call *plan and rephrase*.
 
-**M:** &nbsp; Separate *what* the system says from *how* it says it.
+**M:** &nbsp; We separate *what* the system says from *how* it says it.
 
 **M:** &nbsp; A deterministic planner picks the route, the safety tier, and the resources.
 
@@ -92,11 +97,13 @@
 
 —
 
-**K:** &nbsp; The LLM never decides what to recommend.
+**K:** &nbsp; So the LLM never decides what to recommend. It only paraphrases.
 
-**K:** &nbsp; It only paraphrases.
+**K:** &nbsp; Which means it physically *cannot* invent a resource the planner didn't already authorize.
 
-**K:** &nbsp; That means it physically cannot invent advice or resources — the planner already chose.
+**K:** &nbsp; That's the safety contract.
+
+**K:** &nbsp; And it's the foundation everything else builds on.
 
 ---
 
@@ -104,37 +111,33 @@
 
 *Click.*  *(Densest slide — pace yourself ~10% slower.)*
 
-**M:** &nbsp; Five layers.
+**M:** &nbsp; Here's the full pipeline. Five layers.
 
-**M:** &nbsp; Stage-1 lexical pre-check catches crisis language before anything else runs.
+**M:** &nbsp; Stage-1 is a lexical pre-check that catches crisis language before anything else runs.
 
-**M:** &nbsp; The router classifies into one of sixteen routes.
+**M:** &nbsp; If it passes, the router classifies the message into one of sixteen routes.
 
-**M:** &nbsp; Curated retrieval pulls from a registry of verified UMD resources.
-
-**M:** &nbsp; No open web. No Reddit at inference.
+**M:** &nbsp; Then curated retrieval pulls from a verified UMD resource registry — no open web, no Reddit at inference.
 
 —
 
-**K:** &nbsp; The planner builds a deterministic response plan.
+**K:** &nbsp; From there the planner builds a deterministic response plan.
 
 **K:** &nbsp; The rephraser turns it into natural language.
 
-**K:** &nbsp; The post-rephrase verifier rejects anything that drifts off the plan.
+**K:** &nbsp; And the post-rephrase verifier rejects anything that drifted off the plan.
 
 —
 
-**M:** &nbsp; And about what's actually trained:
+**M:** &nbsp; And to be clear about what's actually trained here, because it matters:
 
-**M:** &nbsp; The route classifier is TF-IDF plus logistic regression.
+**M:** &nbsp; The route classifier is TF-IDF plus logistic regression, trained on our 216-72-72 UMD dataset, about 86% test accuracy.
 
-**M:** &nbsp; Trained on our 216-72-72 UMD dataset, about 86% test accuracy.
+**M:** &nbsp; The LLM is Llama 3.3 70B via Groq — pretrained, *not* fine-tuned by us.
 
-**M:** &nbsp; The LLM is Llama 3.3 70B via Groq — pretrained, not fine-tuned by us.
+**M:** &nbsp; The templates and the crisis regex are deterministic.
 
-**M:** &nbsp; The templates and crisis regex are deterministic.
-
-**M:** &nbsp; That separation is the safety contract.
+**M:** &nbsp; That separation between learned and hand-crafted is the entire safety story.
 
 ---
 
@@ -142,15 +145,15 @@
 
 *Click.*
 
-**K:** &nbsp; The first version was a five-stage pipeline.
+**K:** &nbsp; The architecture you just saw is version three. Let me walk you through how we got there.
 
-**K:** &nbsp; Open Reddit retrieval. Single-turn responses.
+**K:** &nbsp; Our first version was a five-stage pipeline with open Reddit retrieval and single-turn responses.
 
-**K:** &nbsp; It scored well on standard metrics.
+**K:** &nbsp; And on standard metrics it actually scored well.
 
 —
 
-**M:** &nbsp; It only fell over when we ran adversarial probes against it.
+**M:** &nbsp; The problem only showed up when we ran adversarial probes against it.
 
 **M:** &nbsp; Four specific failure cases told us the architecture had to change.
 
@@ -160,21 +163,21 @@
 
 *Click.*
 
-**M:** &nbsp; Case one — generic emotional prompts dropped into a default route with no specificity.
+**M:** &nbsp; Case one — generic emotional prompts dropped into a default route, with no specificity.
 
-**M:** &nbsp; Case two — F-1 framing on turn one hijacked every later turn in the session.
+**M:** &nbsp; Case two — F-1 framing on turn one hijacked every later turn in the session, even after the topic moved on.
 
 —
 
-**K:** &nbsp; Case three — a counselor allegedly suggesting harm got routed to academic-setback.
+**K:** &nbsp; Case three was the worst one — a counselor was reported to have suggested harm.
 
-**K:** &nbsp; The system implicitly validated the authority figure.
+**K:** &nbsp; And the system routed it to *academic-setback*, which implicitly validated the authority figure.
 
 **K:** &nbsp; Case four — under explicit pressure to agree, the rephraser leaked a "you're right" capitulation before the verifier caught it.
 
 —
 
-**M:** &nbsp; Each of these became an architectural fix.
+**M:** &nbsp; Each one of these became an architectural fix in the next iteration.
 
 ---
 
@@ -182,15 +185,15 @@
 
 *Click.*
 
-**K:** &nbsp; So we layered the response.
+**K:** &nbsp; So we layered the response across four areas.
 
-**K:** &nbsp; Listening for tone.
+**K:** &nbsp; Listening for tone instead of pushing resources immediately.
 
-**K:** &nbsp; A trust boundary for the LLM.
+**K:** &nbsp; A trust boundary on the LLM.
 
-**K:** &nbsp; Session-level state for context that should carry.
+**K:** &nbsp; Session-level state to carry context that should carry — and decay it when it shouldn't.
 
-**K:** &nbsp; And a new route for authority misconduct.
+**K:** &nbsp; And a dedicated route for authority misconduct.
 
 ---
 
@@ -198,25 +201,27 @@
 
 *Click.*
 
+**M:** &nbsp; Let's go deeper on the listening layer, because it's the most user-visible change.
+
 **M:** &nbsp; Four stages — LISTEN, PERMISSION, OFFER, CLARIFY.
 
-**M:** &nbsp; A student is heard before being routed.
+**M:** &nbsp; A student is *heard* before being routed.
 
 —
 
 **M:** &nbsp; Turn one validates without dumping resources.
 
-**M:** &nbsp; Turn two names a few options but asks permission.
+**M:** &nbsp; Turn two names a few options but asks permission before pushing further.
 
-**M:** &nbsp; Turn three offers.
+**M:** &nbsp; Turn three offers the full plan.
 
-**M:** &nbsp; CLARIFY catches single-word or incomplete replies, so the system doesn't barrel forward on insufficient input.
+**M:** &nbsp; And CLARIFY catches single-word or incomplete replies, so the system doesn't barrel forward on insufficient input.
 
 —
 
-**K:** &nbsp; Concretely — the chatbot stops feeling like an FAQ bot.
+**K:** &nbsp; The practical effect is that the chatbot stops feeling like an FAQ bot.
 
-**K:** &nbsp; And starts feeling like someone paying attention.
+**K:** &nbsp; And starts feeling like someone who's actually paying attention.
 
 ---
 
@@ -224,17 +229,17 @@
 
 *Click.*
 
-**M:** &nbsp; After the LLM rephrases, the verifier checks for drift.
+**M:** &nbsp; The other major change is the trust boundary on the LLM.
 
-**M:** &nbsp; Fabricated resources. Scope creep. Capitulation under pressure. AI-tells. Length blow-up.
+**M:** &nbsp; After the model rephrases, the verifier checks for drift.
 
-**M:** &nbsp; If it fails, we fall back to the deterministic template.
+**M:** &nbsp; Fabricated resources, scope creep, capitulation under pressure, AI-tells, length blow-up — any of those, and we fall back to the deterministic template.
 
 —
 
-**K:** &nbsp; Crisis content never enters this path at all.
+**K:** &nbsp; And just to underline this — crisis content never enters the LLM path *at all.*
 
-**K:** &nbsp; The Stage-1 pre-check intercepts before the LLM ever sees it.
+**K:** &nbsp; The Stage-1 pre-check intercepts it before the model ever sees the message.
 
 ---
 
@@ -242,13 +247,11 @@
 
 *Click.*
 
-**M:** &nbsp; And the session layer carries context where it should.
+**M:** &nbsp; And the session layer carries context where it actually should — F-1 status, prior offers.
 
-**M:** &nbsp; F-1 status. Prior offers.
+**M:** &nbsp; Then it decays that context after two silent turns.
 
-**M:** &nbsp; And decays it after two silent turns.
-
-**M:** &nbsp; So the system can fully shift topic without one early signal dominating.
+**M:** &nbsp; So the system can fully shift topic without one early signal dominating the rest of the conversation.
 
 ---
 
@@ -256,19 +259,21 @@
 
 *Click.*
 
-**K:** &nbsp; We worked with three layers of data.
-
-**K:** &nbsp; A curated UMD student-support conversational dataset.
-
-**K:** &nbsp; Split 216 / 72 / 72 for training, dev, and test on single-turn routing.
-
-**K:** &nbsp; A 74-scenario multi-turn evaluation set for the safety contract.
-
-**K:** &nbsp; And a verified registry of sixty-plus UMD resource URLs with last-verified dates.
+**M:** &nbsp; Karthik, walk us through the data.
 
 —
 
-**M:** &nbsp; Karthik led dataset curation, source verification, and the annotation conventions for routing and safety tiers.
+**K:** &nbsp; Sure. We worked with three layers of data.
+
+**K:** &nbsp; First, a curated UMD student-support conversational dataset — split 216, 72, 72 for training, dev, and test on single-turn routing.
+
+**K:** &nbsp; Second, a 74-scenario multi-turn evaluation set for the safety contract.
+
+**K:** &nbsp; And third, a verified registry of sixty-plus UMD resource URLs, each one annotated with a last-verified date.
+
+—
+
+**M:** &nbsp; And Karthik led all of that — dataset curation, source verification, the annotation conventions for routing and safety tiers.
 
 ---
 
@@ -276,31 +281,31 @@
 
 *Click.*  *(This is the proof slide — land it.)*
 
-**M:** &nbsp; We disabled each layer one at a time.
+**M:** &nbsp; So how do we know the layers are actually doing work, and not just sitting in the diagram?
 
-**M:** &nbsp; And re-ran the 28-scenario escalation eval.
+**M:** &nbsp; We disabled each layer one at a time and re-ran the same 28-scenario escalation eval.
 
 **M:** &nbsp; The Stage-1 lexical pre-check is load-bearing for missed escalation specifically.
 
-**M:** &nbsp; Disabling it takes us from zero misses to 22 out of 28.
+**M:** &nbsp; Disabling it alone takes us from zero misses to twenty-two out of twenty-eight.
 
 —
 
-**K:** &nbsp; The other layers protect orthogonal failure modes.
+**K:** &nbsp; And the other layers protect orthogonal failure modes.
 
 **K:** &nbsp; Registry filtering prevents fabrication.
 
 **K:** &nbsp; The verifier catches LLM drift.
 
-**K:** &nbsp; Each one earns its place in the pipeline.
+**K:** &nbsp; Each layer earns its place.
 
 —
 
-**M:** &nbsp; And this is the cleanest answer to *"is the architecture real or scripted?"*
+**M:** &nbsp; This is also our cleanest answer to a fair question — *is the architecture real, or is it a scripted demo?*
 
 **M:** &nbsp; If a layer weren't doing real work, disabling it wouldn't change the numbers.
 
-**M:** &nbsp; The 0-to-22 swing is the proof.
+**M:** &nbsp; The zero-to-twenty-two swing is the proof.
 
 ---
 
@@ -308,17 +313,13 @@
 
 *Click.*
 
-**M:** &nbsp; Beyond the headline eval we ran five targeted sweeps.
+**M:** &nbsp; Beyond the headline eval, we ran five targeted sweeps to stress specific failure modes.
 
 **M:** &nbsp; Rephraser drift across 29 cells.
 
 **M:** &nbsp; F-1 stage and ISSS contract across 12 cells.
 
-**M:** &nbsp; 25 sycophancy probes.
-
-**M:** &nbsp; 16 prompt-injection probes.
-
-**M:** &nbsp; 18 fairness paired prompts.
+**M:** &nbsp; 25 sycophancy probes, 16 prompt-injection probes, 18 fairness paired prompts.
 
 **M:** &nbsp; All clean within the stochastic LLM tolerance.
 
@@ -328,21 +329,19 @@
 
 *Click.*
 
-**K:** &nbsp; N is 28 escalation scenarios. That's small.
+**K:** &nbsp; A quick reality check before we move on.
 
-**K:** &nbsp; We don't claim zero missed escalation in deployment.
+**K:** &nbsp; N is twenty-eight escalation scenarios. That's small.
 
-**K:** &nbsp; What we claim is zero versus the unguarded baseline's nine.
+**K:** &nbsp; We're not claiming zero missed escalation in deployment.
 
-**K:** &nbsp; With non-overlapping confidence intervals.
+**K:** &nbsp; What we *are* claiming is zero versus the unguarded baseline's nine, with non-overlapping confidence intervals.
 
 —
 
-**M:** &nbsp; The data is synthetic. Real student phrasing is messier.
+**M:** &nbsp; And the data is synthetic — real student phrasing is messier than anything we've evaluated on.
 
-**M:** &nbsp; This is prototype-stage evidence, not a deployment claim.
-
-**M:** &nbsp; We say that out loud because it matters.
+**M:** &nbsp; This is prototype-stage evidence, not a deployment claim. We say that out loud because it matters.
 
 ---
 
@@ -350,15 +349,17 @@
 
 *Click.*
 
+**M:** &nbsp; The roadmap follows the gaps we just admitted.
+
 **M:** &nbsp; A real student dataset.
 
 **M:** &nbsp; A RoBERTa router on top of the rule layer.
 
 **M:** &nbsp; Scheduled URL re-verification.
 
-**M:** &nbsp; A multilingual opener for international students.
+**M:** &nbsp; And a multilingual opener for international students.
 
-**M:** &nbsp; This is a prototype. The gaps we know about are the roadmap.
+**M:** &nbsp; Now let's see the system in action.
 
 ---
 
@@ -366,37 +367,35 @@
 
 *Click.  Embedded 30-second auto-loop GIF starts playing on slide entry.*
 
-**M:** &nbsp; Quick look at the system in action.
+**M:** &nbsp; This is the system live. Let's narrate as it streams.
 
-**M:** &nbsp; A student opens vaguely.
+**M:** &nbsp; The student opens vaguely.
 
-**M:** &nbsp; Notice — no resources dumped. Just validation. That's the LISTEN stage.
-
-—
-
-**K:** &nbsp; Then context. The system asks permission before offering anything.
+**M:** &nbsp; Notice — no resources dumped, just validation. That's the LISTEN stage doing its job.
 
 —
 
-**M:** &nbsp; Permission granted. OFFER surfaces real cards, real links from the verified registry.
+**K:** &nbsp; Then they add context. Watch what the system does — it asks permission before offering anything.
 
 —
 
-**K:** &nbsp; A single "ok" doesn't re-render the same template.
+**M:** &nbsp; Permission granted, OFFER surfaces real cards, real links from the verified registry.
 
-**K:** &nbsp; The system advances.
+—
 
-**K:** &nbsp; Full five-minute demo with three more scenarios and the Support Plan export is linked in the README.
+**K:** &nbsp; And when the student says "ok," the system doesn't re-render the same template. It advances.
+
+**K:** &nbsp; The full five-minute demo with three more scenarios — F-1, substance use and confidentiality, crisis with sycophancy resistance — plus the Support Plan export, is linked in the README.
 
 ---
 
 # 🎬 SLIDE 18 — THANK YOU  `[ 9:45 – 10:00 ]`
 
-**M:** &nbsp; Thanks for watching.
+**M:** &nbsp; That's EmpathRAG. Thanks for watching.
 
-**M:** &nbsp; Code, datasets, evaluations, and the full write-up are on GitHub.
+**M:** &nbsp; Code, datasets, evaluations, and the full write-up are all on GitHub.
 
-**K:** &nbsp; Happy to take questions.
+**K:** &nbsp; Happy to take any questions.
 
 ---
 
@@ -412,9 +411,11 @@
 
 | Slide | Sentence to cut first |
 |---|---|
-| 5 | *"The templates and crisis regex are deterministic."* |
-| 7 | *"Each of these became an architectural fix."* |
-| 13 | *"Each one earns its place in the pipeline."* |
+| 4 | *"And it's the foundation everything else builds on."* |
+| 5 | *"The templates and the crisis regex are deterministic."* |
+| 7 | *"Each one of these became an architectural fix in the next iteration."* |
+| 11 | *"So the system can fully shift topic without one early signal dominating the rest of the conversation."* |
+| 13 | *"Each layer earns its place."* |
 | 14 | Drop one sweep from the list (any of them) |
 | 15 | *"We say that out loud because it matters."* |
 
@@ -424,3 +425,16 @@
 - **"Is this real?"** → Slide 13 ablation. Disabling Stage-1 changes the numbers, ergo the layers are doing real work.
 - **"What about substance / privacy / typos?"** → All have dedicated routes (`substance_use_concern`, `privacy_confidentiality`, typo-aware crisis detection). Demo'd in the linked five-minute video.
 - **"Why not fine-tune the LLM?"** → Plan-and-rephrase is the architectural commitment. Fine-tuning the LLM doesn't give you the deterministic safety contract.
+
+## Continuity audit (quick reference)
+
+Each slide hands off to the next. If you forget a transition line, here's the bridge:
+
+| End of slide | Bridge to next slide |
+|---|---|
+| 3 → 4 | *"How do you get from 32% to zero with the same model? That's the architecture."* |
+| 5 → 6 | *"That's version three. Let me walk you through how we got there."* |
+| 7 → 8 | *"Each one became an architectural fix."* (then K opens 8 with "So we layered the response...") |
+| 11 → 12 | (slight beat — M hands to K with "Karthik, walk us through the data.") |
+| 12 → 13 | *"How do we know the layers are actually doing work?"* |
+| 16 → 17 | *"Now let's see the system in action."* |
