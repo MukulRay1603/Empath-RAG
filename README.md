@@ -46,6 +46,18 @@ short_description: Guarded RAG support navigator for UMD students
 
 <br>
 
+### 📁 &nbsp; Project Files
+
+<div align="center">
+
+[![Open the project folder on Google Drive](https://img.shields.io/badge/📁%20Project%20files-Slide%20deck%20·%20demo%20video%20·%20presentation%20recording-a78bfa?style=for-the-badge&logoColor=white)](https://drive.google.com/drive/folders/1K8XwWcfzWt8mXcAtVojVP8xZHFCO1_4V?usp=sharing)
+
+</div>
+
+> One Drive folder for everything not in the repo — the slide deck (PDF + PPTX), the standalone 5-minute demo video, and the recorded MSML641 presentation.
+
+<br>
+
 > EmpathRAG is **not** a counselor, therapist, or emergency service.
 > It is a research prototype that wraps a general-purpose language model in a layered safety architecture, so the resulting system behaves more reliably under adversarial multi-turn evaluation than the underlying model does on its own.
 

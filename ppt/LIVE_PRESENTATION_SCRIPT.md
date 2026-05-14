@@ -1,405 +1,458 @@
 # EmpathRAG — Live Presentation Script
 
-**Two-presenter, ~10-minute recorded PPT.** Read line-by-line. Each line is a single breath group.
+**Two-presenter, ~10-minute recorded PPT.** Open this file in **rendered Markdown view** while presenting (GitHub web view, VS Code preview, Obsidian, etc.) — the speaker blocks render as visual cards.
 
 ---
 
-## Reading conventions
+## 🎯 How to use this script
 
-- **M:** = Mukul speaks
-- **K:** = Karthik speaks
-- *Italics* = stage direction, do not say aloud
-- `[ time ]` = budget for that slide
-- `—` (em-dash on its own line) = handoff pause, ~1 second of silence
-- Handoffs are written as a *continuation* — the speaker picking up should sound like they're finishing the previous speaker's thought, not starting a new lecture.
+| Marker | Meaning |
+|---|---|
+| 🔷 **Mukul** | Mukul speaks the lines below |
+| 🔶 **Karthik** | Karthik speaks the lines below |
+| *(italics, plain text)* | Stage direction — do not say aloud |
+| Empty line **between blocks** | ~1-second silent pause / handoff |
+| Empty line **inside a block** | Brief breath, same speaker continues |
 
----
-
-# 🎬 SLIDE 1 — TITLE  `[ 0:00 – 0:12 ]`
-
-**M:** &nbsp; Hi everyone, I'm Mukul.
-
-**K:** &nbsp; And I'm Karthik. Together we built EmpathRAG.
-
-**M:** &nbsp; It's a guarded conversational support navigator for UMD students.
-
-**K:** &nbsp; Ten minutes, four sections — the problem, the architecture, the evidence, and a quick demo.
-
-**M:** &nbsp; Let's start with why we built it.
+Speakers are visually separated by **alternating card colors** (blue / orange) so you can spot at a glance who's about to talk. Each line within a card is one breath group — read one sentence, look up at camera if you want, then read the next.
 
 ---
 
-# 🎬 SLIDE 2 — THE PROBLEM  `[ 0:12 – 0:55 ]`
+# 🎬 SLIDE 1 — Title
 
-*Click.*
+`[ 0:00 – 0:12 ]`
 
-**M:** &nbsp; When students reach for a chatbot in distress, two things tend to go wrong.
+> 🔷 **MUKUL**
+>
+> Hi everyone, I'm Mukul.
 
-**M:** &nbsp; The first one is fabrication.
+> 🔶 **KARTHIK**
+>
+> And I'm Karthik. Together we built EmpathRAG.
 
-**M:** &nbsp; The model invents a phone number, a service, an eligibility rule that doesn't exist.
+> 🔷 **MUKUL**
+>
+> It's a guarded conversational support navigator for UMD students.
 
-**M:** &nbsp; The example on the right is exactly that — a number that *looks* official and isn't.
+> 🔶 **KARTHIK**
+>
+> Ten minutes, four sections — the problem, the architecture, the evidence, and a quick demo.
 
-—
-
-**K:** &nbsp; And the second is the opposite problem — missed signals.
-
-**K:** &nbsp; Generic models tend to soften language that signals real distress.
-
-**K:** &nbsp; They reassure when they should be intercepting.
-
-**K:** &nbsp; And in a vulnerable moment, either failure is dangerous.
-
-—
-
-**M:** &nbsp; So our goal was to fix both of those without losing the conversational quality students actually need.
+> 🔷 **MUKUL**
+>
+> Let's start with why we built it.
 
 ---
 
-# 🎬 SLIDE 3 — THE HEADLINE RESULT  `[ 0:55 – 1:30 ]`
+# 🎬 SLIDE 2 — The Problem
 
-*Click.*
+`[ 0:12 – 0:55 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; This is the headline number — same Llama 3.3 70B model, two configurations.
+> 🔷 **MUKUL**
+>
+> When students reach for a chatbot in distress, two things tend to go wrong.
+>
+> The first one is fabrication.
+>
+> The model invents a phone number, a service, an eligibility rule that doesn't exist.
+>
+> The example on the right is exactly that — a number that *looks* official and isn't.
 
-**M:** &nbsp; On the left, the unguarded model misses escalation 9 times out of 28.
+> 🔶 **KARTHIK**
+>
+> And the second is the opposite problem — missed signals.
+>
+> Generic models tend to soften language that signals real distress.
+>
+> They reassure when they should be intercepting.
+>
+> And in a vulnerable moment, either failure is dangerous.
 
-**M:** &nbsp; On the right, our guarded pipeline misses zero out of 28.
-
-**M:** &nbsp; And the 95% confidence intervals don't overlap.
-
-—
-
-**K:** &nbsp; What's important here is that we didn't tune *for* this benchmark.
-
-**K:** &nbsp; This is an external safety contract — does the system intercept crisis language, yes or no.
-
-**K:** &nbsp; That's the bar a system like this should be evaluated against.
-
-—
-
-**M:** &nbsp; Now, how do you actually get from a 32% miss rate to zero, with the same model underneath? That's the architecture.
-
----
-
-# 🎬 SLIDE 4 — THE PATTERN: PLAN AND REPHRASE  `[ 1:30 – 2:05 ]`
-
-*Click.*
-
-**M:** &nbsp; The core pattern is what we call *plan and rephrase*.
-
-**M:** &nbsp; We separate *what* the system says from *how* it says it.
-
-**M:** &nbsp; A deterministic planner picks the route, the safety tier, and the resources.
-
-**M:** &nbsp; Only then does the LLM rephrase the plan into natural language.
-
-—
-
-**K:** &nbsp; So the LLM never decides what to recommend. It only paraphrases.
-
-**K:** &nbsp; Which means it physically *cannot* invent a resource the planner didn't already authorize.
-
-**K:** &nbsp; That's the safety contract.
-
-**K:** &nbsp; And it's the foundation everything else builds on.
+> 🔷 **MUKUL**
+>
+> So our goal was to fix both of those without losing the conversational quality students actually need.
 
 ---
 
-# 🎬 SLIDE 5 — ARCHITECTURE  `[ 2:05 – 2:55 ]`
+# 🎬 SLIDE 3 — The Headline Result
 
-*Click.*  *(Densest slide — pace yourself ~10% slower.)*
+`[ 0:55 – 1:30 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; Here's the full pipeline. Five layers.
+> 🔷 **MUKUL**
+>
+> This is the headline number — same Llama 3.3 70B model, two configurations.
+>
+> On the left, the unguarded model misses escalation 9 times out of 28.
+>
+> On the right, our guarded pipeline misses zero out of 28.
+>
+> And the 95% confidence intervals don't overlap.
 
-**M:** &nbsp; Stage-1 is a lexical pre-check that catches crisis language before anything else runs.
+> 🔶 **KARTHIK**
+>
+> What's important here is that we didn't tune *for* this benchmark.
+>
+> This is an external safety contract — does the system intercept crisis language, yes or no.
+>
+> That's the bar a system like this should be evaluated against.
 
-**M:** &nbsp; If it passes, the router classifies the message into one of sixteen routes.
-
-**M:** &nbsp; Then curated retrieval pulls from a verified UMD resource registry — no open web, no Reddit at inference.
-
-—
-
-**K:** &nbsp; From there the planner builds a deterministic response plan.
-
-**K:** &nbsp; The rephraser turns it into natural language.
-
-**K:** &nbsp; And the post-rephrase verifier rejects anything that drifted off the plan.
-
-—
-
-**M:** &nbsp; And to be clear about what's actually trained here, because it matters:
-
-**M:** &nbsp; The route classifier is TF-IDF plus logistic regression, trained on our 216-72-72 UMD dataset, about 86% test accuracy.
-
-**M:** &nbsp; The LLM is Llama 3.3 70B via Groq — pretrained, *not* fine-tuned by us.
-
-**M:** &nbsp; The templates and the crisis regex are deterministic.
-
-**M:** &nbsp; That separation between learned and hand-crafted is the entire safety story.
+> 🔷 **MUKUL**
+>
+> Now — how do you actually get from a 32% miss rate to zero, with the same model underneath?
+>
+> That's the architecture.
 
 ---
 
-# 🎬 SLIDE 6 — ITERATION 1: OPEN RETRIEVAL BASELINE  `[ 2:55 – 3:25 ]`
+# 🎬 SLIDE 4 — The Pattern: Plan and Rephrase
 
-*Click.*
+`[ 1:30 – 2:05 ]` &nbsp;·&nbsp; *Click.*
 
-**K:** &nbsp; The architecture you just saw is version three. Let me walk you through how we got there.
+> 🔷 **MUKUL**
+>
+> The core pattern is what we call *plan and rephrase*.
+>
+> We separate *what* the system says from *how* it says it.
+>
+> A deterministic planner picks the route, the safety tier, and the resources.
+>
+> Only then does the LLM rephrase the plan into natural language.
 
-**K:** &nbsp; Our first version was a five-stage pipeline with open Reddit retrieval and single-turn responses.
-
-**K:** &nbsp; And on standard metrics it actually scored well.
-
-—
-
-**M:** &nbsp; The problem only showed up when we ran adversarial probes against it.
-
-**M:** &nbsp; Four specific failure cases told us the architecture had to change.
-
----
-
-# 🎬 SLIDE 7 — WHY THE BASELINE FAILED (FOUR CASES)  `[ 3:25 – 4:10 ]`
-
-*Click.*
-
-**M:** &nbsp; Case one — generic emotional prompts dropped into a default route, with no specificity.
-
-**M:** &nbsp; Case two — F-1 framing on turn one hijacked every later turn in the session, even after the topic moved on.
-
-—
-
-**K:** &nbsp; Case three was the worst one — a counselor was reported to have suggested harm.
-
-**K:** &nbsp; And the system routed it to *academic-setback*, which implicitly validated the authority figure.
-
-**K:** &nbsp; Case four — under explicit pressure to agree, the rephraser leaked a "you're right" capitulation before the verifier caught it.
-
-—
-
-**M:** &nbsp; Each one of these became an architectural fix in the next iteration.
+> 🔶 **KARTHIK**
+>
+> So the LLM never decides what to recommend. It only paraphrases.
+>
+> Which means it physically cannot invent a resource the planner didn't already authorize.
+>
+> That's the safety contract. And it's the foundation everything else builds on.
 
 ---
 
-# 🎬 SLIDE 8 — THE ARCHITECTURAL RESPONSE  `[ 4:10 – 4:35 ]`
+# 🎬 SLIDE 5 — Architecture
 
-*Click.*
+`[ 2:05 – 2:55 ]` &nbsp;·&nbsp; *Click. Densest slide — pace ~10% slower.*
 
-**K:** &nbsp; So we layered the response across four areas.
+> 🔷 **MUKUL**
+>
+> Here's the full pipeline. Five layers.
+>
+> Stage-1 is a lexical pre-check that catches crisis language before anything else runs.
+>
+> If it passes, the router classifies the message into one of sixteen routes.
+>
+> Then curated retrieval pulls from a verified UMD resource registry — no open web, no Reddit at inference.
 
-**K:** &nbsp; Listening for tone instead of pushing resources immediately.
+> 🔶 **KARTHIK**
+>
+> From there the planner builds a deterministic response plan.
+>
+> The rephraser turns it into natural language.
+>
+> And the post-rephrase verifier rejects anything that drifted off the plan.
 
-**K:** &nbsp; A trust boundary on the LLM.
-
-**K:** &nbsp; Session-level state to carry context that should carry — and decay it when it shouldn't.
-
-**K:** &nbsp; And a dedicated route for authority misconduct.
-
----
-
-# 🎬 SLIDE 9 — THE LISTENING LAYER  `[ 4:35 – 5:15 ]`
-
-*Click.*
-
-**M:** &nbsp; Let's go deeper on the listening layer, because it's the most user-visible change.
-
-**M:** &nbsp; Four stages — LISTEN, PERMISSION, OFFER, CLARIFY.
-
-**M:** &nbsp; A student is *heard* before being routed.
-
-—
-
-**M:** &nbsp; Turn one validates without dumping resources.
-
-**M:** &nbsp; Turn two names a few options but asks permission before pushing further.
-
-**M:** &nbsp; Turn three offers the full plan.
-
-**M:** &nbsp; And CLARIFY catches single-word or incomplete replies, so the system doesn't barrel forward on insufficient input.
-
-—
-
-**K:** &nbsp; The practical effect is that the chatbot stops feeling like an FAQ bot.
-
-**K:** &nbsp; And starts feeling like someone who's actually paying attention.
+> 🔷 **MUKUL**
+>
+> And to be clear about what's actually trained here, because it matters:
+>
+> The route classifier is TF-IDF plus logistic regression, trained on our 216-72-72 UMD dataset, about 86% test accuracy.
+>
+> The LLM is Llama 3.3 70B via Groq — pretrained, *not* fine-tuned by us.
+>
+> The templates and crisis regex are deterministic.
+>
+> That separation between learned and hand-crafted is the entire safety story.
 
 ---
 
-# 🎬 SLIDE 10 — THE TRUST BOUNDARY  `[ 5:15 – 5:50 ]`
+# 🎬 SLIDE 6 — Iteration 1: Open Retrieval Baseline
 
-*Click.*
+`[ 2:55 – 3:25 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; The other major change is the trust boundary on the LLM.
+> 🔶 **KARTHIK**
+>
+> The architecture you just saw is version three. Let me walk you through how we got there.
+>
+> Our first version was a five-stage pipeline with open Reddit retrieval and single-turn responses.
+>
+> And on standard metrics, it actually scored well.
 
-**M:** &nbsp; After the model rephrases, the verifier checks for drift.
-
-**M:** &nbsp; Fabricated resources, scope creep, capitulation under pressure, AI-tells, length blow-up — any of those, and we fall back to the deterministic template.
-
-—
-
-**K:** &nbsp; And just to underline this — crisis content never enters the LLM path *at all.*
-
-**K:** &nbsp; The Stage-1 pre-check intercepts it before the model ever sees the message.
-
----
-
-# 🎬 SLIDE 11 — ARCHITECTURAL RESPONSE (CONTINUED)  `[ 5:50 – 6:15 ]`
-
-*Click.*
-
-**M:** &nbsp; And the session layer carries context where it actually should — F-1 status, prior offers.
-
-**M:** &nbsp; Then it decays that context after two silent turns.
-
-**M:** &nbsp; So the system can fully shift topic without one early signal dominating the rest of the conversation.
+> 🔷 **MUKUL**
+>
+> The problem only showed up when we ran adversarial probes against it.
+>
+> Four specific failure cases told us the architecture had to change.
 
 ---
 
-# 🎬 SLIDE 12 — DATASETS  `[ 6:15 – 6:55 ]`
+# 🎬 SLIDE 7 — Why the Baseline Failed (Four Cases)
 
-*Click.*
+`[ 3:25 – 4:10 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; Karthik, walk us through the data.
+> 🔷 **MUKUL**
+>
+> Case one — generic emotional prompts dropped into a default route, with no specificity.
+>
+> Case two — F-1 framing on turn one hijacked every later turn in the session, even after the topic moved on.
 
-—
+> 🔶 **KARTHIK**
+>
+> Case three was the worst one — a counselor was reported to have suggested harm.
+>
+> And the system routed it to *academic-setback*, which implicitly validated the authority figure.
+>
+> Case four — under explicit pressure to agree, the rephraser leaked a "you're right" capitulation before the verifier caught it.
 
-**K:** &nbsp; Sure. We worked with three layers of data.
-
-**K:** &nbsp; First, a curated UMD student-support conversational dataset — split 216, 72, 72 for training, dev, and test on single-turn routing.
-
-**K:** &nbsp; Second, a 74-scenario multi-turn evaluation set for the safety contract.
-
-**K:** &nbsp; And third, a verified registry of sixty-plus UMD resource URLs, each one annotated with a last-verified date.
-
-—
-
-**M:** &nbsp; And Karthik led all of that — dataset curation, source verification, the annotation conventions for routing and safety tiers.
-
----
-
-# 🎬 SLIDE 13 — PER-LAYER ABLATION  `[ 6:55 – 7:35 ]`
-
-*Click.*  *(This is the proof slide — land it.)*
-
-**M:** &nbsp; So how do we know the layers are actually doing work, and not just sitting in the diagram?
-
-**M:** &nbsp; We disabled each layer one at a time and re-ran the same 28-scenario escalation eval.
-
-**M:** &nbsp; The Stage-1 lexical pre-check is load-bearing for missed escalation specifically.
-
-**M:** &nbsp; Disabling it alone takes us from zero misses to twenty-two out of twenty-eight.
-
-—
-
-**K:** &nbsp; And the other layers protect orthogonal failure modes.
-
-**K:** &nbsp; Registry filtering prevents fabrication.
-
-**K:** &nbsp; The verifier catches LLM drift.
-
-**K:** &nbsp; Each layer earns its place.
-
-—
-
-**M:** &nbsp; This is also our cleanest answer to a fair question — *is the architecture real, or is it a scripted demo?*
-
-**M:** &nbsp; If a layer weren't doing real work, disabling it wouldn't change the numbers.
-
-**M:** &nbsp; The zero-to-twenty-two swing is the proof.
+> 🔷 **MUKUL**
+>
+> Each one of these became an architectural fix in the next iteration.
 
 ---
 
-# 🎬 SLIDE 14 — TARGETED FAILURE-MODE SWEEPS  `[ 7:35 – 8:05 ]`
+# 🎬 SLIDE 8 — The Architectural Response
 
-*Click.*
+`[ 4:10 – 4:35 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; Beyond the headline eval, we ran five targeted sweeps to stress specific failure modes.
-
-**M:** &nbsp; Rephraser drift across 29 cells.
-
-**M:** &nbsp; F-1 stage and ISSS contract across 12 cells.
-
-**M:** &nbsp; 25 sycophancy probes, 16 prompt-injection probes, 18 fairness paired prompts.
-
-**M:** &nbsp; All clean within the stochastic LLM tolerance.
-
----
-
-# 🎬 SLIDE 15 — HONEST BOUNDS ON THE CLAIMS  `[ 8:05 – 8:35 ]`
-
-*Click.*
-
-**K:** &nbsp; A quick reality check before we move on.
-
-**K:** &nbsp; N is twenty-eight escalation scenarios. That's small.
-
-**K:** &nbsp; We're not claiming zero missed escalation in deployment.
-
-**K:** &nbsp; What we *are* claiming is zero versus the unguarded baseline's nine, with non-overlapping confidence intervals.
-
-—
-
-**M:** &nbsp; And the data is synthetic — real student phrasing is messier than anything we've evaluated on.
-
-**M:** &nbsp; This is prototype-stage evidence, not a deployment claim. We say that out loud because it matters.
+> 🔶 **KARTHIK**
+>
+> So we layered the response across four areas.
+>
+> Listening for tone, instead of pushing resources immediately.
+>
+> A trust boundary on the LLM.
+>
+> Session-level state to carry context that should carry — and decay it when it shouldn't.
+>
+> And a dedicated route for authority misconduct.
 
 ---
 
-# 🎬 SLIDE 16 — WHAT'S NEXT  `[ 8:35 – 9:00 ]`
+# 🎬 SLIDE 9 — The Listening Layer
 
-*Click.*
+`[ 4:35 – 5:15 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; The roadmap follows the gaps we just admitted.
+> 🔷 **MUKUL**
+>
+> Let's go deeper on the listening layer, because it's the most user-visible change.
+>
+> Four stages — LISTEN, PERMISSION, OFFER, CLARIFY.
+>
+> A student is *heard* before being routed.
 
-**M:** &nbsp; A real student dataset.
+> 🔷 **MUKUL**
+>
+> Turn one validates without dumping resources.
+>
+> Turn two names a few options but asks permission before pushing further.
+>
+> Turn three offers the full plan.
+>
+> And CLARIFY catches single-word or incomplete replies, so the system doesn't barrel forward on insufficient input.
 
-**M:** &nbsp; A RoBERTa router on top of the rule layer.
-
-**M:** &nbsp; Scheduled URL re-verification.
-
-**M:** &nbsp; And a multilingual opener for international students.
-
-**M:** &nbsp; Now let's see the system in action.
-
----
-
-# 🎬 SLIDE 17 — LIVE DEMO  `[ 9:00 – 9:45 ]`
-
-*Click.  Embedded 30-second auto-loop GIF starts playing on slide entry.*
-
-**M:** &nbsp; This is the system live. Let's narrate as it streams.
-
-**M:** &nbsp; The student opens vaguely.
-
-**M:** &nbsp; Notice — no resources dumped, just validation. That's the LISTEN stage doing its job.
-
-—
-
-**K:** &nbsp; Then they add context. Watch what the system does — it asks permission before offering anything.
-
-—
-
-**M:** &nbsp; Permission granted, OFFER surfaces real cards, real links from the verified registry.
-
-—
-
-**K:** &nbsp; And when the student says "ok," the system doesn't re-render the same template. It advances.
-
-**K:** &nbsp; The full five-minute demo with three more scenarios — F-1, substance use and confidentiality, crisis with sycophancy resistance — plus the Support Plan export, is linked in the README.
+> 🔶 **KARTHIK**
+>
+> The practical effect is that the chatbot stops feeling like an FAQ bot.
+>
+> And starts feeling like someone who's actually paying attention.
 
 ---
 
-# 🎬 SLIDE 18 — THANK YOU  `[ 9:45 – 10:00 ]`
+# 🎬 SLIDE 10 — The Trust Boundary
 
-**M:** &nbsp; That's EmpathRAG. Thanks for watching.
+`[ 5:15 – 5:50 ]` &nbsp;·&nbsp; *Click.*
 
-**M:** &nbsp; Code, datasets, evaluations, and the full write-up are all on GitHub.
+> 🔷 **MUKUL**
+>
+> The other major change is the trust boundary on the LLM.
+>
+> After the model rephrases, the verifier checks for drift.
+>
+> Fabricated resources, scope creep, capitulation under pressure, AI-tells, length blow-up — any of those, and we fall back to the deterministic template.
 
-**K:** &nbsp; Happy to take any questions.
+> 🔶 **KARTHIK**
+>
+> And just to underline this — crisis content never enters the LLM path *at all.*
+>
+> The Stage-1 pre-check intercepts it before the model ever sees the message.
 
 ---
 
-## Pre-record checklist
+# 🎬 SLIDE 11 — Architectural Response (continued)
+
+`[ 5:50 – 6:15 ]` &nbsp;·&nbsp; *Click.*
+
+> 🔷 **MUKUL**
+>
+> And the session layer carries context where it actually should — F-1 status, prior offers.
+>
+> Then it decays that context after two silent turns.
+>
+> So the system can fully shift topic without one early signal dominating the rest of the conversation.
+
+---
+
+# 🎬 SLIDE 12 — Datasets
+
+`[ 6:15 – 6:55 ]` &nbsp;·&nbsp; *Click.*
+
+> 🔷 **MUKUL**
+>
+> Karthik, walk us through the data.
+
+> 🔶 **KARTHIK**
+>
+> Sure. We worked with three layers of data.
+>
+> First, a curated UMD student-support conversational dataset — split 216, 72, 72 for training, dev, and test on single-turn routing.
+>
+> Second, a 74-scenario multi-turn evaluation set for the safety contract.
+>
+> And third, a verified registry of sixty-plus UMD resource URLs, each one annotated with a last-verified date.
+
+> 🔷 **MUKUL**
+>
+> And Karthik led all of that — dataset curation, source verification, the annotation conventions for routing and safety tiers.
+
+---
+
+# 🎬 SLIDE 13 — Per-Layer Ablation
+
+`[ 6:55 – 7:35 ]` &nbsp;·&nbsp; *Click. This is the proof slide — land it.*
+
+> 🔷 **MUKUL**
+>
+> So how do we know the layers are actually doing work, and not just sitting in the diagram?
+>
+> We disabled each layer one at a time and re-ran the same 28-scenario escalation eval.
+>
+> The Stage-1 lexical pre-check is load-bearing for missed escalation specifically.
+>
+> Disabling it alone takes us from zero misses to twenty-two out of twenty-eight.
+
+> 🔶 **KARTHIK**
+>
+> And the other layers protect orthogonal failure modes.
+>
+> Registry filtering prevents fabrication.
+>
+> The verifier catches LLM drift.
+>
+> Each layer earns its place.
+
+> 🔷 **MUKUL**
+>
+> This is also our cleanest answer to a fair question — *is the architecture real, or is it a scripted demo?*
+>
+> If a layer weren't doing real work, disabling it wouldn't change the numbers.
+>
+> The zero-to-twenty-two swing is the proof.
+
+---
+
+# 🎬 SLIDE 14 — Targeted Failure-Mode Sweeps
+
+`[ 7:35 – 8:05 ]` &nbsp;·&nbsp; *Click.*
+
+> 🔷 **MUKUL**
+>
+> Beyond the headline eval, we ran five targeted sweeps to stress specific failure modes.
+>
+> Rephraser drift across 29 cells.
+>
+> F-1 stage and ISSS contract across 12 cells.
+>
+> 25 sycophancy probes, 16 prompt-injection probes, 18 fairness paired prompts.
+>
+> All clean within the stochastic LLM tolerance.
+
+---
+
+# 🎬 SLIDE 15 — Honest Bounds on the Claims
+
+`[ 8:05 – 8:35 ]` &nbsp;·&nbsp; *Click.*
+
+> 🔶 **KARTHIK**
+>
+> A quick reality check before we move on.
+>
+> N is twenty-eight escalation scenarios. That's small.
+>
+> We're not claiming zero missed escalation in deployment.
+>
+> What we *are* claiming is zero versus the unguarded baseline's nine, with non-overlapping confidence intervals.
+
+> 🔷 **MUKUL**
+>
+> And the data is synthetic — real student phrasing is messier than anything we've evaluated on.
+>
+> This is prototype-stage evidence, not a deployment claim. We say that out loud because it matters.
+
+---
+
+# 🎬 SLIDE 16 — What's Next
+
+`[ 8:35 – 9:00 ]` &nbsp;·&nbsp; *Click.*
+
+> 🔷 **MUKUL**
+>
+> The roadmap follows the gaps we just admitted.
+>
+> A real student dataset.
+>
+> A RoBERTa router on top of the rule layer.
+>
+> Scheduled URL re-verification.
+>
+> And a multilingual opener for international students.
+>
+> Now let's see the system in action.
+
+---
+
+# 🎬 SLIDE 17 — Live Demo
+
+`[ 9:00 – 9:45 ]` &nbsp;·&nbsp; *Click. Embedded 30-second auto-loop GIF starts playing on slide entry.*
+
+> 🔷 **MUKUL**
+>
+> This is the system live. Let's narrate as it streams.
+>
+> The student opens vaguely.
+>
+> Notice — no resources dumped, just validation. That's the LISTEN stage doing its job.
+
+> 🔶 **KARTHIK**
+>
+> Then they add context. Watch what the system does — it asks permission before offering anything.
+
+> 🔷 **MUKUL**
+>
+> Permission granted. OFFER surfaces real cards, real links from the verified registry.
+
+> 🔶 **KARTHIK**
+>
+> And when the student says "ok," the system doesn't re-render the same template. It advances.
+>
+> The full five-minute demo with three more scenarios — F-1, substance use and confidentiality, crisis with sycophancy resistance — plus the Support Plan export, is linked in the README.
+
+---
+
+# 🎬 SLIDE 18 — Thank You
+
+`[ 9:45 – 10:00 ]`
+
+> 🔷 **MUKUL**
+>
+> That's EmpathRAG. Thanks for watching.
+>
+> Code, datasets, evaluations, and the full write-up are all on GitHub.
+
+> 🔶 **KARTHIK**
+>
+> Happy to take any questions.
+
+---
+
+## ✅ Pre-record checklist
 
 - [ ] Both webcams placed in same corner. Don't move them per slide.
 - [ ] One full dry-run with a stopwatch. If you hit 10:30, cut the longest sentence on the slide where you went over.
@@ -407,34 +460,32 @@
 - [ ] Slide 17 — Mukul's first line should hit as the GIF's first response streams. Time the entry.
 - [ ] Don't say "uhh" — pause silently. Pauses read as confidence on camera. Filler words don't.
 
-## If you go long
+## ✂️ If you go long — sentences to cut first
 
-| Slide | Sentence to cut first |
+| Slide | Cut this sentence |
 |---|---|
 | 4 | *"And it's the foundation everything else builds on."* |
-| 5 | *"The templates and the crisis regex are deterministic."* |
+| 5 | *"The templates and crisis regex are deterministic."* |
 | 7 | *"Each one of these became an architectural fix in the next iteration."* |
 | 11 | *"So the system can fully shift topic without one early signal dominating the rest of the conversation."* |
 | 13 | *"Each layer earns its place."* |
 | 14 | Drop one sweep from the list (any of them) |
 | 15 | *"We say that out loud because it matters."* |
 
-## Q&A defense cheatsheet
+## 💬 Q&A defense cheatsheet
 
 - **"Is this trained?"** → Slide 5 already named what's trained. Reference it.
 - **"Is this real?"** → Slide 13 ablation. Disabling Stage-1 changes the numbers, ergo the layers are doing real work.
 - **"What about substance / privacy / typos?"** → All have dedicated routes (`substance_use_concern`, `privacy_confidentiality`, typo-aware crisis detection). Demo'd in the linked five-minute video.
 - **"Why not fine-tune the LLM?"** → Plan-and-rephrase is the architectural commitment. Fine-tuning the LLM doesn't give you the deterministic safety contract.
 
-## Continuity audit (quick reference)
+## 🔗 Continuity bridges (if you forget a transition mid-recording)
 
-Each slide hands off to the next. If you forget a transition line, here's the bridge:
-
-| End of slide | Bridge to next slide |
+| Going from → to | Bridge sentence |
 |---|---|
-| 3 → 4 | *"How do you get from 32% to zero with the same model? That's the architecture."* |
-| 5 → 6 | *"That's version three. Let me walk you through how we got there."* |
-| 7 → 8 | *"Each one became an architectural fix."* (then K opens 8 with "So we layered the response...") |
-| 11 → 12 | (slight beat — M hands to K with "Karthik, walk us through the data.") |
-| 12 → 13 | *"How do we know the layers are actually doing work?"* |
-| 16 → 17 | *"Now let's see the system in action."* |
+| Slide 3 → 4 | *"How do you get from 32% to zero with the same model? That's the architecture."* |
+| Slide 5 → 6 | *"That's version three. Let me walk you through how we got there."* (Karthik takes over) |
+| Slide 7 → 8 | *"Each became an architectural fix."* (Karthik opens 8 with "So we layered the response...") |
+| Slide 11 → 12 | (Beat — Mukul hands to Karthik with "Karthik, walk us through the data.") |
+| Slide 12 → 13 | *"How do we know the layers are actually doing work?"* |
+| Slide 16 → 17 | *"Now let's see the system in action."* |
