@@ -43,6 +43,8 @@ short_description: Guarded RAG support navigator for UMD students
 |:--------------------:|:-------------------:|:---------------------:|:----------------------:|
 | Hands-on on HF Space | 5-min walkthrough across 4 scenarios | 10-min recorded MSML641 talk | Slide deck + both videos in one folder |
 
+<sub>*Click any badge above to open the resource in a new tab.*</sub>
+
 </div>
 
 <br>
