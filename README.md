@@ -18,55 +18,32 @@ short_description: Guarded RAG support navigator for UMD students
 ### A guarded conversational retrieval-augmented support navigator for University of Maryland students.
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+&nbsp;
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE)
+&nbsp;
 [![UMD MSML641](https://img.shields.io/badge/UMD-MSML641-E03A3E?style=flat-square)](https://umd.edu)
-[![Hugging Face Space](https://img.shields.io/badge/🤗-Live%20Demo-yellow?style=flat-square)](https://mukulray-empathrag.hf.space/)
+
+<br>
+
+[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-HF%20Space-FACC15?style=for-the-badge&logoColor=white)](https://mukulray-empathrag.hf.space/)
+&nbsp;
+[![Demo Video](https://img.shields.io/badge/▶%20Demo%20Video-5%20min-5eead4?style=for-the-badge&logoColor=white)](https://drive.google.com/file/d/14CB76OgVmZz8VqtBolKRJYSGh28BbSqL/view?usp=sharing)
+&nbsp;
+[![Presentation](https://img.shields.io/badge/🎬%20Presentation-10%20min-fb923c?style=for-the-badge&logoColor=white)](https://drive.google.com/file/d/1PcHtjZwQix7aYJyslwp-aIuHj8Bs1C9f/view?usp=sharing)
+&nbsp;
+[![Project Files](https://img.shields.io/badge/📁%20Project%20Files-Drive%20folder-a78bfa?style=for-the-badge&logoColor=white)](https://drive.google.com/drive/folders/1K8XwWcfzWt8mXcAtVojVP8xZHFCO1_4V?usp=sharing)
 
 </div>
 
 <br>
-
-### 🚀 &nbsp; Try EmpathRAG Live
-
-> 👉 &nbsp; **<https://mukulray-empathrag.hf.space/>**
->
-> No installation required. Hosted on Hugging Face Spaces.
-
-<br>
-
-### 🎥 &nbsp; Watch the Demo
 
 <div align="center">
 
-[![Watch the EmpathRAG demo — 5 minutes](https://img.shields.io/badge/▶%20Watch%20the%20demo-5%20min%20walkthrough-5eead4?style=for-the-badge&logoColor=white)](https://drive.google.com/file/d/14CB76OgVmZz8VqtBolKRJYSGh28BbSqL/view?usp=sharing)
+|     🚀 Live Demo     |    🎥 Demo Video    |    🎬 Presentation    |    📁 Project Files    |
+|:--------------------:|:-------------------:|:---------------------:|:----------------------:|
+| Hands-on on HF Space | 5-min walkthrough across 4 scenarios | 10-min recorded MSML641 talk | Slide deck + both videos in one folder |
 
 </div>
-
-> Four scenarios — the listening loop, F-1 and authority misconduct routing, substance use and confidentiality, crisis with sycophancy resistance — plus the counselor handoff via Support Plan export.
-
-<br>
-
-### 🎬 &nbsp; Watch the Presentation
-
-<div align="center">
-
-[![Watch the recorded MSML641 presentation](https://img.shields.io/badge/🎬%20Watch%20the%20presentation-10%20min%20recorded%20talk-fb923c?style=for-the-badge&logoColor=white)](https://drive.google.com/file/d/1PcHtjZwQix7aYJyslwp-aIuHj8Bs1C9f/view?usp=sharing)
-
-</div>
-
-> Two-presenter walkthrough of the problem, architecture, evaluation, and live demo — recorded for the MSML641 final submission.
-
-<br>
-
-### 📁 &nbsp; Project Files
-
-<div align="center">
-
-[![Open the project folder on Google Drive](https://img.shields.io/badge/📁%20Project%20files-Slide%20deck%20·%20demo%20video%20·%20presentation%20recording-a78bfa?style=for-the-badge&logoColor=white)](https://drive.google.com/drive/folders/1K8XwWcfzWt8mXcAtVojVP8xZHFCO1_4V?usp=sharing)
-
-</div>
-
-> One Drive folder for everything not in the repo — the slide deck (PDF + PPTX), the standalone 5-minute demo video, and the recorded MSML641 presentation.
 
 <br>
 
